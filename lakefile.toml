@@ -1,0 +1,10 @@
+name = "ZxLean"
+version = "0.1.0"
+defaultTargets = ["zxlean"]
+
+[[lean_lib]]
+name = "ZxLean"
+
+[[lean_exe]]
+name = "zxlean"
+root = "Main"
