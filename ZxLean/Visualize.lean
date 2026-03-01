@@ -48,12 +48,4 @@ structure ZXWidgetProps where
 
 @[widget_module]
 def ZXWidget : Component ZXWidgetProps where
-  javascript := "
-    import * as React from 'react'
-    export default function(props) {
-      const diagram = props.diagram
-      return React.createElement('pre',
-        { style: { fontFamily: 'monospace', padding: '10px' } },
-        JSON.stringify(diagram, null, 2)
-      )
-    }"
+  javascript := include_str ".." / "widget" / "build" / "zxDiagram.js"
