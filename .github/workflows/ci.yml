@@ -16,6 +16,8 @@ jobs:
           cache: npm
           cache-dependency-path: zx_view_widget/package-lock.json
       - uses: leanprover/lean-action@v1
+        with:
+          use-github-cache: false
 
   pyzx_daemon:
     runs-on: ubuntu-latest
