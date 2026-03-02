@@ -19,15 +19,17 @@ interface ZXWidgetProps {
 }
 
 export default function ZXDiagram({ diagram }: ZXWidgetProps) {
-  const [serverResponse, setServerResponse] = React.useState<string | null>(null)
+  const [image, setImage] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [showJson, setShowJson] = React.useState(false)
 
   const diagramJson = JSON.stringify(diagram, null, 2)
 
   React.useEffect(() => {
     setLoading(true)
     setError(null)
+    setImage(null)
     fetch(`${SERVER_URL}/diagram`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -37,23 +39,39 @@ export default function ZXDiagram({ diagram }: ZXWidgetProps) {
         if (!res.ok) throw new Error(`Server returned ${res.status}`)
         return res.json()
       })
-      .then((data) => setServerResponse(JSON.stringify(data, null, 2)))
+      .then((data) => {
+        if (data.status === 'ok' && data.image) {
+          setImage(data.image)
+        } else {
+          throw new Error(data.message || 'No image in response')
+        }
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [diagramJson])
 
   return (
     <div style={{ fontFamily: 'monospace', padding: '10px' }}>
-      <pre>{diagramJson}</pre>
-      <hr />
-      {loading && <p>Contacting server...</p>}
+      {loading && <p>Rendering diagram...</p>}
       {error && <p style={{ color: 'orange' }}>Server: {error}</p>}
-      {serverResponse && (
+      {image && (
         <div>
-          <strong>Server response:</strong>
-          <pre>{serverResponse}</pre>
+          <img
+            src={`data:image/png;base64,${image}`}
+            alt="ZX Diagram"
+            style={{ maxWidth: '100%' }}
+          />
         </div>
       )}
+      <div style={{ marginTop: '8px' }}>
+        <button
+          onClick={() => setShowJson(!showJson)}
+          style={{ fontSize: '11px', cursor: 'pointer' }}
+        >
+          {showJson ? 'Hide' : 'Show'} JSON
+        </button>
+        {showJson && <pre style={{ fontSize: '11px', marginTop: '4px' }}>{diagramJson}</pre>}
+      </div>
     </div>
   )
 }
