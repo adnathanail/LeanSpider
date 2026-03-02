@@ -43,12 +43,16 @@ def test_diagram_snapshot():
         pytest.skip(f"Saved new snapshot to {snapshot_path}. Re-run to compare.")
 
     expected = Image.open(snapshot_path).convert("RGBA")
+    assert_images_match(actual, expected, SNAPSHOTS / "test_z_spider_diff.png")
+
+
+def assert_images_match(actual: Image.Image, expected: Image.Image, diff_path: Path) -> None:
     assert actual.size == expected.size, f"Size mismatch: {actual.size} vs {expected.size}"
 
     diff_img = Image.new("RGBA", actual.size)
     mismatch = pixelmatch(actual, expected, output=diff_img, threshold=0.1, alpha=0.5)
 
     if mismatch > 0:
-        diff_path = SNAPSHOTS / "test_z_spider_diff.png"
+        diff_path.parent.mkdir(parents=True, exist_ok=True)
         diff_img.save(diff_path)
         pytest.fail(f"{mismatch} pixels differ. Diff saved to {diff_path}. Delete snapshot and re-run to update.")
