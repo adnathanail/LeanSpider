@@ -13,10 +13,9 @@ Lean 4 project for ZX-calculus diagrams with interactive visualization via Proof
 
 ```sh
 lake build
-
-# Python daemon (run in a separate terminal)
-cd pyzx_daemon && uv sync && uv run python app.py
 ```
+
+The Python daemon starts automatically when `ZxLean.Visualize` is imported (via an `initialize` block). Logs are written to `pyzx_daemon/pyzx_daemon.log`.
 
 ## Key conventions
 

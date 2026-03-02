@@ -1,4 +1,8 @@
-To start the daemon, run
+The daemon starts automatically when `ZxLean.Visualize` is imported
+
+Logs are written to `pyzx_daemon.log`
+
+To start it manually:
 
 ```sh
 uv sync

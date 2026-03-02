@@ -30,14 +30,10 @@ It is a React component, written in Typescript, bundled with rollup
 
 `lake` handles `npm install` and the JS bundle automatically
 
-### PyZX dameon
+### PyZX daemon
 
 The widget sends diagram data to a local Flask server for processing
 
-Start it in a terminal
+The daemon starts automatically when `ZxLean.Visualize` is imported
 
-```sh
-cd pyzx_daemon
-uv sync
-uv run python app.py
-```
+Logs are written to `pyzx_daemon/pyzx_daemon.log`
