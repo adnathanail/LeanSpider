@@ -18,10 +18,8 @@ The widget sends diagram data to a local Flask server for processing. To start i
 
 ```sh
 cd pyzx_daemon
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
+uv sync
+uv run python app.py
 ```
 
 The server runs on `http://127.0.0.1:5050`. You can test it with:
