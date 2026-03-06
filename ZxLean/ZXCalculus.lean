@@ -1,9 +1,9 @@
 import ZxLean.ZXDiagram
 
-def ZXDiagram.spiderFusion (d : ZXDiagram) (a b : Nat) : Option ZXDiagram := do
+def ZXDiagram.spiderFusion (d : ZXDiagram) (a b : NodeId) : Option ZXDiagram := do
   -- Get node info
-  let nodeA ← d.nodes[a]?
-  let nodeB ← d.nodes[b]?
+  let nodeA ← d.getNode? a
+  let nodeB ← d.getNode? b
   let colorA ← Node.color? nodeA
   let colorB ← Node.color? nodeB
   let phaseA ← Node.phase? nodeA
@@ -18,7 +18,7 @@ def ZXDiagram.spiderFusion (d : ZXDiagram) (a b : Nat) : Option ZXDiagram := do
   let newEdges := bNeighbors.map fun n => Edge.mk a n
   -- Remove all edges touching b, update node at a, then remove node b
   let d := d.removeEdgesOf b
-  let d := { d with nodes := d.nodes.set! a merged }
+  let d := { d with nodes := d.nodes.insert a merged }
   let d := { d with edges := d.edges ++ newEdges }
   let d := d.removeNode b
   return d

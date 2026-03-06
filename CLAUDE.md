@@ -19,7 +19,10 @@ The Python daemon starts automatically when `ZxLean.Visualize` is imported (via 
 
 ## Key conventions
 
-- ZXDiagram nodes: `.input ioId`, `.output ioId`, `.spider color phase` where phase is a `Rat` (num/den)
+- `ZXDiagram` uses `Std.HashMap NodeId Node` with a monotonic `nextId` counter for stable node IDs. Node IDs persist across additions and removals (no reindexing).
+- Construct diagrams with `ZXDiagram.ofArrays` (array indices become IDs) or `ZXDiagram.addNode`/`ZXDiagram.addEdge`
+- Look up nodes with `d.getNode? id`, not array indexing
+- ZXDiagram nodes: `.input ioId`, `.output ioId`, `.spider color phase` where phase is a `Phase` (num/den)
 - JSON wire format between widget and daemon: `{"nodes": [...], "edges": [{"src": id, "tgt": id}]}`
 - Daemon host/port/URL config constants live in `ZxLean/Visualize.lean` (`daemonHost`, `daemonPort`, `daemonUrl`) — this is the single source of truth, passed to both the Python daemon (via CLI args) and the TypeScript widget (via props)
 - Daemon runs on `127.0.0.1:5050`
@@ -28,3 +31,4 @@ The Python daemon starts automatically when `ZxLean.Visualize` is imported (via 
 ## Lean tips
 
 - `ZXDiagram` has no `Inhabited` instance — use `.getD` with a fallback (not `.get!`) when unwrapping `Option ZXDiagram`
+- `Std.HashMap` doesn't support `deriving Repr` or `deriving BEq` — `ZXDiagram` has manual instances
