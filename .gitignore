@@ -10,3 +10,4 @@ pyzx_daemon/.venv/
 *.log
 
 .claude/
+.vscode/

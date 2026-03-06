@@ -42,10 +42,13 @@ def Edge.toJson (e : Edge) : Json :=
   .mkObj [("src", natJson e.src), ("tgt", natJson e.tgt)]
 
 def ZXDiagram.toJson (d : ZXDiagram) : Json :=
-  let nodesList := d.nodes.toList--.mergeSort (fun a b => a.1 < b.1)
-  let nodes := nodesList.map fun (id, n) => n.toJson id
+  let nodes := d.nodes.foldl (init := (Array.empty, 0)) fun (acc, idx) opt =>
+    match opt with
+    | some n => (acc.push (n.toJson idx), idx + 1)
+    | none   => (acc, idx + 1)
+  let nodes := nodes.1
   let edges := d.edges.map Edge.toJson
-  .mkObj [("nodes", .arr nodes.toArray), ("edges", .arr edges)]
+  .mkObj [("nodes", .arr nodes), ("edges", .arr edges)]
 
 -- == ProofWidgets4 widget definition ==
 -- Props passed to widget

@@ -1,5 +1,3 @@
-import Std.Data.HashMap
-
 inductive SpiderColor where
   | Z  -- green
   | X  -- red
@@ -47,25 +45,21 @@ structure Edge where
   deriving Repr, BEq
 
 structure ZXDiagram where
-  nodes  : Std.HashMap NodeId Node
-  edges  : Array Edge
-  nextId : NodeId := 0
+  nodes : Array (Option Node)
+  edges : Array Edge
+  deriving Repr, BEq
 
-/-- Build a ZXDiagram from arrays (array indices become node IDs) -/
+/-- Build a ZXDiagram from an array of nodes (array indices become node IDs) -/
 def ZXDiagram.ofArrays (nodes : Array Node) (edges : Array Edge) : ZXDiagram :=
-  let m := nodes.foldl (init := (Std.HashMap.emptyWithCapacity nodes.size, 0))
-    fun (map, idx) n => (map.insert idx n, idx + 1)
-  { nodes  := m.1
-    edges  := edges
-    nextId := nodes.size }
+  { nodes := nodes.map some, edges := edges }
 
 /-- Look up a node by its stable ID -/
 def ZXDiagram.getNode? (d : ZXDiagram) (id : NodeId) : Option Node :=
-  d.nodes[id]?
+  if h : id < d.nodes.size then d.nodes[id] else none
 
 /-- Add a node, returning the updated diagram and the new node's ID -/
 def ZXDiagram.addNode (d : ZXDiagram) (n : Node) : ZXDiagram × NodeId :=
-  ({ d with nodes := d.nodes.insert d.nextId n, nextId := d.nextId + 1 }, d.nextId)
+  ({ d with nodes := d.nodes.push (some n) }, d.nodes.size)
 
 /-- Add an edge between two nodes -/
 def ZXDiagram.addEdge (d : ZXDiagram) (e : Edge) : ZXDiagram :=
@@ -86,21 +80,10 @@ def ZXDiagram.neighbors (d : ZXDiagram) (n : NodeId) : Array NodeId :=
 def ZXDiagram.removeEdgesOf (d : ZXDiagram) (n : NodeId) : ZXDiagram :=
   { d with edges := d.edges.filter fun e => e.src != n && e.tgt != n }
 
-/-- Remove a node (no reindexing needed with stable IDs) -/
+/-- Remove a node by setting its slot to `none` -/
 def ZXDiagram.removeNode (d : ZXDiagram) (n : NodeId) : ZXDiagram :=
-  { d with nodes := d.nodes.erase n }
+  if h : n < d.nodes.size then { d with nodes := d.nodes.set n none } else d
 
-instance : Repr ZXDiagram where
-  reprPrec d _ :=
-    let nodesList := d.nodes.toList--.mergeSort (fun a b => a.1 < b.1)
-    let nodesRepr := nodesList.map fun (id, n) => repr id ++ " => " ++ repr n
-    let edgesRepr := d.edges.toList.map repr
-    "ZXDiagram { nodes := [" ++ Std.Format.joinSep nodesRepr ", " ++
-    "], edges := [" ++ Std.Format.joinSep edgesRepr ", " ++
-    "], nextId := " ++ repr d.nextId ++ " }"
-
--- instance : BEq ZXDiagram where
---   beq a b :=
---     let aSorted := a.nodes.toList.mergeSort (fun x y => x.1 < y.1)
---     let bSorted := b.nodes.toList.mergeSort (fun x y => x.1 < y.1)
---     aSorted == bSorted && a.edges == b.edges
+/-- Set a node at a given ID -/
+def ZXDiagram.setNode (d : ZXDiagram) (id : NodeId) (n : Node) : ZXDiagram :=
+  if h : id < d.nodes.size then { d with nodes := d.nodes.set id (some n) } else d
