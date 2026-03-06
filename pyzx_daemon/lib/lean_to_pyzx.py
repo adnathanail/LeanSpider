@@ -12,8 +12,6 @@ def zxlean_to_pyzx(data) -> ZXLeanGraph:
     nodes = data.get("nodes", [])
     edges = data.get("edges", [])
 
-    # Map from ZxLean node id -> pyzx vertex id
-    id_map = {}
     inputs: list[int] = []
     outputs: list[int] = []
 
@@ -21,27 +19,34 @@ def zxlean_to_pyzx(data) -> ZXLeanGraph:
         nid = node["id"]
         ntype = node["type"]
 
+        # Manually adding vertex and setting type/row/qubit so that we can set
+        #   the vertex indices manually, so that they align with the node IDs
+        #   in PyZX
+        # Essentially unrolling the g.add_vertex function
+        g.add_vertex_indexed(nid)
+
         if ntype == "input":
-            v = g.add_vertex(ty=VertexType.BOUNDARY, row=0, qubit=node.get("ioId", 0))
-            inputs.append(v)
+            g.set_type(nid, VertexType.BOUNDARY)
+            g.set_row(nid, 0)
+            g.set_qubit(nid, node.get("ioId", 0))
+            inputs.append(nid)
         elif ntype == "output":
-            v = g.add_vertex(ty=VertexType.BOUNDARY, row=-1, qubit=node.get("ioId", 0))
-            outputs.append(v)
+            g.set_type(nid, VertexType.BOUNDARY)
+            g.set_row(nid, -1)
+            g.set_qubit(nid, node.get("ioId", 0))
+            outputs.append(nid)
         elif ntype == "spider":
             color = node.get("color", "Z")
             ty = VertexType.Z if color == "Z" else VertexType.X
             phase_str = node.get("phase", "0")
             phase = _parse_phase(phase_str)
-            v = g.add_vertex(ty=ty, phase=phase)
+            g.set_type(nid, ty)
+            g.set_phase(nid, phase)
         else:
-            v = g.add_vertex(ty=VertexType.BOUNDARY)
-
-        id_map[nid] = v
+            g.set_type(nid, VertexType.BOUNDARY)
 
     for edge in edges:
-        src = id_map[edge["src"]]
-        tgt = id_map[edge["tgt"]]
-        g.add_edge((src, tgt), edgetype=EdgeType.SIMPLE)
+        g.add_edge((edge["src"], edge["tgt"]), edgetype=EdgeType.SIMPLE)
 
     # Set outputs to max row + 1
     max_row = max((g.row(v) for v in g.vertices() if g.row(v) >= 0), default=0)

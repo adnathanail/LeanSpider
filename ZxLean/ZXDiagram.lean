@@ -92,7 +92,7 @@ def ZXDiagram.removeNode (d : ZXDiagram) (n : NodeId) : ZXDiagram :=
 
 instance : Repr ZXDiagram where
   reprPrec d _ :=
-    let nodesList := d.nodes.toList.mergeSort (fun a b => a.1 < b.1)
+    let nodesList := d.nodes.toList--.mergeSort (fun a b => a.1 < b.1)
     let nodesRepr := nodesList.map fun (id, n) => repr id ++ " => " ++ repr n
     let edgesRepr := d.edges.toList.map repr
     "ZXDiagram { nodes := [" ++ Std.Format.joinSep nodesRepr ", " ++
