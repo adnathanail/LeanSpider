@@ -74,6 +74,8 @@ target widgetJsAll pkg : Unit := do
 lean_lib ZxLean where
   needs := #[widgetJsAll]
 
+lean_lib Tests where
+
 @[default_target]
 lean_exe zxlean where
   root := `Main
