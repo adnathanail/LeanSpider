@@ -45,10 +45,21 @@ structure Edge where
   tgt : NodeId
   deriving Repr, BEq
 
+instance : Ord Edge where
+  compare a b :=
+    match compare a.src b.src with
+    | .eq => compare a.tgt b.tgt
+    | ord => ord
+
+instance : LT Edge := Ord.toLT inferInstance
+
 structure ZXDiagram where
   nodes : Array (Option Node)
   edges : Array Edge
-  deriving Repr, BEq, Inhabited
+  deriving Repr, Inhabited
+
+instance : BEq ZXDiagram where
+  beq a b := a.nodes == b.nodes && (a.edges).insertionSort == (b.edges).insertionSort
 
 /-- Build a ZXDiagram from an array of nodes (array indices become node IDs) -/
 def ZXDiagram.ofArrays (nodes : Array Node) (edges : Array Edge) : ZXDiagram :=

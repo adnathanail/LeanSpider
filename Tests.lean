@@ -24,8 +24,7 @@ def threeSpiders : ZXDiagram :=
 -- #html threeSpiders.toHtml
 def threeSpidersMerged1 : ZXDiagram :=
   { nodes := #[some (.input 0), some (.spider .Z ⟨3, 2⟩), none, some (.spider .Z ⟨3, 4⟩), some (.output 0)]
-  -- TODO order edges normally
-    edges := #[⟨0, 1⟩, ⟨3, 4⟩, ⟨1, 3⟩] }
+    edges := #[⟨0, 1⟩, ⟨1, 3⟩, ⟨3, 4⟩] }
 -- #html threeSpidersMerged1.toHtml
 def threeSpidersMerged2 : ZXDiagram :=  -- TODO simplify phase
   { nodes := #[some (.input 0), some (.spider .Z ⟨18, 8⟩), none, none, some (.output 0)]
@@ -48,7 +47,7 @@ def zCnotZ : ZXDiagram :=
 #html zCnotZ.toHtml
 def cnot : ZXDiagram :=
   { nodes := #[some (.input 0), some (.spider .Z ⟨2, 1⟩), none, none, some (.output 0), some (.input 1), some (.spider .X ⟨0, 1⟩), some (.output 1)]
-    edges := #[⟨0, 1⟩, ⟨5, 6⟩, ⟨6, 7⟩, ⟨1, 6⟩, ⟨1, 4⟩] }
+    edges := #[⟨0, 1⟩, ⟨1, 4⟩, ⟨1, 6⟩, ⟨5, 6⟩, ⟨6, 7⟩] }
 #html cnot.toHtml
 #lspec test "simplifying Z CNOT Z to just CNOT" ((((zCnotZ.spiderFusion 1 2).get!).spiderFusion 1 3).get! == cnot)
 
