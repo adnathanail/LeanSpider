@@ -1,14 +1,14 @@
 inductive SpiderColor where
   | Z  -- green
   | X  -- red
-  deriving Repr, BEq
+  deriving Repr, BEq, DecidableEq
 
 /-- Phase as a rational multiple of π, stored as p/q.
     e.g. phase 1 2 represents π/2 -/
 structure Phase where
   num : Int
   den : Nat := 1
-  deriving Repr
+  deriving Repr, DecidableEq
 
 -- Remove common factors from numerator and denominator of a phase
 def Phase.simplify (p : Phase) : Phase :=
@@ -37,7 +37,7 @@ inductive Node where
   | hadamard
   | input  (id : Nat)
   | output (id : Nat)
-  deriving Repr, BEq
+  deriving Repr, BEq, DecidableEq
 
 /-- Get the color of a node, if it is a spider -/
 def Node.color? : Node → Option SpiderColor
@@ -56,7 +56,7 @@ abbrev NodeId := Nat
 structure Edge where
   src : NodeId
   tgt : NodeId
-  deriving Repr, BEq
+  deriving Repr, BEq, DecidableEq
 
 -- Define ordering of edges, so we can sort them,
 --   so we can make graph equality not care about edge order
@@ -71,7 +71,7 @@ instance : LT Edge := Ord.toLT inferInstance
 structure ZXDiagram where
   nodes : Array (Option Node)
   edges : Array Edge
-  deriving Repr, Inhabited
+  deriving Repr, Inhabited, DecidableEq
 
 -- Make graph equality not care about edge order by sorting the edge arrays
 instance : BEq ZXDiagram where
