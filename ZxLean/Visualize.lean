@@ -47,12 +47,12 @@ def Edge.toJson (e : Edge) : Json :=
   .mkObj [("src", natJson e.src), ("tgt", natJson e.tgt)]
 
 def ZXDiagram.toJson (d : ZXDiagram) : Json :=
-  let nodes := d.nodes.foldl (init := (Array.empty, 0)) fun (acc, idx) opt =>
+  let nodes := d.nodes.foldl (init := (#[], 0)) fun (acc, idx) opt =>
     match opt with
     | some n => (acc.push (n.toJson idx), idx + 1)
     | none   => (acc, idx + 1)
   let nodes := nodes.1
-  let edges := d.edges.map Edge.toJson
+  let edges := (d.edges.map Edge.toJson).toArray
   .mkObj [("nodes", .arr nodes), ("edges", .arr edges)]
 
 -- == ProofWidgets4 widget definition ==

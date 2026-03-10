@@ -6,42 +6,7 @@ open Lean Elab Tactic Meta ProofWidgets
 
 namespace ZxLean
 
--- == ToExpr instances (convert runtime values back to Lean expressions) ==
-
-instance : ToExpr SpiderColor where
-  toExpr c := match c with
-    | .Z => mkConst ``SpiderColor.Z
-    | .X => mkConst ``SpiderColor.X
-  toTypeExpr := mkConst ``SpiderColor
-
-instance : ToExpr Phase where
-  toExpr p := mkApp2 (mkConst ``Phase.mk) (toExpr p.num) (toExpr p.den)
-  toTypeExpr := mkConst ``Phase
-
-instance : ToExpr Node where
-  toExpr n := match n with
-    | .spider c p => mkApp2 (mkConst ``Node.spider) (toExpr c) (toExpr p)
-    | .hadamard => mkConst ``Node.hadamard
-    | .input id => mkApp (mkConst ``Node.input) (toExpr id)
-    | .output id => mkApp (mkConst ``Node.output) (toExpr id)
-  toTypeExpr := mkConst ``Node
-
-instance : ToExpr Edge where
-  toExpr e := mkApp2 (mkConst ``Edge.mk) (toExpr e.src) (toExpr e.tgt)
-  toTypeExpr := mkConst ``Edge
-
-instance : ToExpr ZXDiagram where
-  toExpr d := mkApp2 (mkConst ``ZXDiagram.mk) (toExpr d.nodes) (toExpr d.edges)
-  toTypeExpr := mkConst ``ZXDiagram
-
--- == Evaluation helpers ==
-
-private unsafe def evalOptionZXDiagramImpl (e : Expr) : MetaM (Option ZXDiagram) :=
-  Meta.evalExpr (Option ZXDiagram)
-    (mkApp (mkConst ``Option [levelZero]) (mkConst ``ZXDiagram)) e
-
-@[implemented_by evalOptionZXDiagramImpl]
-private opaque evalOptionZXDiagram : Expr → MetaM (Option ZXDiagram)
+-- == Evaluation (for visualization only) ==
 
 private unsafe def evalZXDiagramImpl (e : Expr) : MetaM ZXDiagram :=
   Meta.evalExpr ZXDiagram (mkConst ``ZXDiagram) e
@@ -60,7 +25,8 @@ private def parseEquivGoal (goalType : Expr) : TacticM (Expr × Expr) := do
 -- == Visualization ==
 
 /-- Show a ZXDiagram in the InfoView -/
-private def showDiagram (stx : Syntax) (label : String) (d : ZXDiagram) : TacticM Unit := do
+private def showDiagram (stx : Syntax) (label : String) (e : Expr) : TacticM Unit := do
+  let d ← evalZXDiagram e
   let html := d.toHtml
   let msg ← MessageData.ofHtml html label
   logInfoAt stx msg
@@ -68,7 +34,7 @@ private def showDiagram (stx : Syntax) (label : String) (d : ZXDiagram) : Tactic
 -- == Core rewrite tactic ==
 
 /-- Apply a rewrite rule and show the result.
-    Evaluates the rewrite using the compiler, then proves correctness with native_decide. -/
+    Evaluates the rewrite via whnf (works because ZXDiagram uses List). -/
 private def applyRewrite (stx : Syntax) (label : String)
     (rewriteFn soundAxiom : Name) (args : Array Expr) : TacticM Unit :=
     withMainContext do
@@ -76,35 +42,26 @@ private def applyRewrite (stx : Syntax) (label : String)
   let goalType ← goal.getType
   let (lhs, rhs) ← parseEquivGoal goalType
 
-  -- Build the rewrite application expression
+  -- Build the rewrite application and reduce via whnf
   let rewriteApp ← mkAppM rewriteFn (#[lhs] ++ args)
+  let rewriteReduced ← whnf rewriteApp
 
-  -- Evaluate using compiler to get the actual result
-  let some d₁Val ← evalOptionZXDiagram rewriteApp
+  -- Check it returned `some d₁`
+  let some (_, d₁) := rewriteReduced.app2? ``Option.some
     | throwError "{label} failed"
-  let d₁ := toExpr d₁Val
-
-  -- Create proof obligation: rewriteFn lhs args... = some d₁
-  let someDOne ← mkAppOptM ``Option.some #[mkConst ``ZXDiagram, d₁]
-  let eqType ← mkEq rewriteApp someDOne
-  let eqProof ← mkFreshExprMVar eqType
 
   -- New goal: d₁ ≈z rhs
   let newGoalType ← mkAppM ``ZXDiagram.equiv #[d₁, rhs]
   let newGoal ← mkFreshExprMVar newGoalType
 
-  -- Prove equality with native_decide
-  setGoals [eqProof.mvarId!]
-  evalTactic (← `(tactic| native_decide))
-
-  -- Build proof: equiv_trans (soundAxiom lhs args... d₁ eqProof) newGoal
-  let soundProof ← mkAppM soundAxiom (#[lhs] ++ args ++ #[d₁, eqProof])
+  -- Build proof: equiv_trans (soundAxiom lhs args... d₁ rfl) newGoal
+  let soundProof ← mkAppM soundAxiom (#[lhs] ++ args ++ #[d₁, ← mkEqRefl rewriteReduced])
   let transProof ← mkAppM ``ZXDiagram.equiv_trans #[soundProof, newGoal]
   goal.assign transProof
 
   -- Set remaining goal and show diagram
   setGoals [newGoal.mvarId!]
-  showDiagram stx label d₁Val
+  showDiagram stx label d₁
 
 -- == User-facing tactics ==
 
@@ -131,8 +88,7 @@ elab tk:"zx_show" : tactic => withMainContext do
   let goal ← getMainGoal
   let goalType ← goal.getType
   let (lhs, _) ← parseEquivGoal goalType
-  let d ← evalZXDiagram lhs
-  showDiagram tk "Current diagram" d
+  showDiagram tk "Current diagram" lhs
 
 /-- Close a `d ≈z d` goal by reflexivity. -/
 elab "zx_rfl" : tactic => withMainContext do

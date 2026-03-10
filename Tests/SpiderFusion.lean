@@ -5,33 +5,33 @@ open LSpec
 
 -- Test merging two spiders
 def twoSpiders : ZXDiagram :=
-  .ofArrays #[.input 0, .spider .Z ⟨1, 2⟩, .spider .Z ⟨1, 1⟩, .output 0]
-            #[⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩]
+  .ofList [.input 0, .spider .Z ⟨1, 2⟩, .spider .Z ⟨1, 1⟩, .output 0]
+          [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩]
 def twoSpidersMerged : ZXDiagram :=
-  { nodes := #[some (.input 0), some (.spider .Z ⟨3, 2⟩), none, some (.output 0)]
-    edges := #[⟨0, 1⟩, ⟨1, 3⟩] }
+  { nodes := [some (.input 0), some (.spider .Z ⟨3, 2⟩), none, some (.output 0)]
+    edges := [⟨0, 1⟩, ⟨1, 3⟩] }
 
 -- Test merging three spiders
 def threeSpiders : ZXDiagram :=
-  .ofArrays #[.input 0, .spider .Z ⟨1, 2⟩, .spider .Z ⟨1, 1⟩, .spider .Z ⟨3, 4⟩, .output 0]
-            #[⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨3, 4⟩]
+  .ofList [.input 0, .spider .Z ⟨1, 2⟩, .spider .Z ⟨1, 1⟩, .spider .Z ⟨3, 4⟩, .output 0]
+          [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨3, 4⟩]
 def threeSpidersMerged1 : ZXDiagram :=
-  { nodes := #[some (.input 0), some (.spider .Z ⟨3, 2⟩), none, some (.spider .Z ⟨3, 4⟩), some (.output 0)]
-    edges := #[⟨0, 1⟩, ⟨1, 3⟩, ⟨3, 4⟩] }
+  { nodes := [some (.input 0), some (.spider .Z ⟨3, 2⟩), none, some (.spider .Z ⟨3, 4⟩), some (.output 0)]
+    edges := [⟨0, 1⟩, ⟨1, 3⟩, ⟨3, 4⟩] }
 def threeSpidersMerged2 : ZXDiagram :=
-  { nodes := #[some (.input 0), some (.spider .Z ⟨9, 4⟩), none, none, some (.output 0)]
-    edges := #[⟨0, 1⟩, ⟨1, 4⟩] }
+  { nodes := [some (.input 0), some (.spider .Z ⟨9, 4⟩), none, none, some (.output 0)]
+    edges := [⟨0, 1⟩, ⟨1, 4⟩] }
 
 -- Spider fusing Z CNOT Z
 def zCnotZ : ZXDiagram :=
-  .ofArrays #[
+  .ofList [
       .input 0, .spider .Z ⟨1, 1⟩, .spider .Z ⟨0, 1⟩, .spider .Z ⟨1, 1⟩, .output 0,
       .input 1, .spider .X ⟨0, 1⟩, .output 1
     ]
-    #[⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨3, 4⟩, ⟨2, 6⟩, ⟨5, 6⟩, ⟨6, 7⟩]
+    [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨3, 4⟩, ⟨2, 6⟩, ⟨5, 6⟩, ⟨6, 7⟩]
 def cnot : ZXDiagram :=
-  { nodes := #[some (.input 0), some (.spider .Z ⟨2, 1⟩), none, none, some (.output 0), some (.input 1), some (.spider .X ⟨0, 1⟩), some (.output 1)]
-    edges := #[⟨0, 1⟩, ⟨1, 4⟩, ⟨1, 6⟩, ⟨5, 6⟩, ⟨6, 7⟩] }
+  { nodes := [some (.input 0), some (.spider .Z ⟨2, 1⟩), none, none, some (.output 0), some (.input 1), some (.spider .X ⟨0, 1⟩), some (.output 1)]
+    edges := [⟨0, 1⟩, ⟨1, 4⟩, ⟨1, 6⟩, ⟨5, 6⟩, ⟨6, 7⟩] }
 
 def spiderFusionTests : TestSeq :=
   test "merging two spiders" ((twoSpiders.spiderFusion 1 2).get! == twoSpidersMerged) $

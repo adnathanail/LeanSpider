@@ -1,3 +1,5 @@
+import ZxLean.Utils
+
 inductive SpiderColor where
   | Z  -- green
   | X  -- red
@@ -69,39 +71,40 @@ instance : Ord Edge where
 instance : LT Edge := Ord.toLT inferInstance
 
 structure ZXDiagram where
-  nodes : Array (Option Node)
-  edges : Array Edge
+  nodes : List (Option Node)
+  edges : List Edge
   deriving Repr, Inhabited, DecidableEq
 
--- Make graph equality not care about edge order by sorting the edge arrays
+-- Make graph equality not care about edge order by sorting the edge lists
 instance : BEq ZXDiagram where
-  beq a b := a.nodes == b.nodes && (a.edges).insertionSort == (b.edges).insertionSort
+  beq a b := a.nodes == b.nodes &&
+    a.edges.insertionSort == b.edges.insertionSort
 
-/-- Build a ZXDiagram from an array of nodes (array indices become node IDs) -/
-def ZXDiagram.ofArrays (nodes : Array Node) (edges : Array Edge) : ZXDiagram :=
+/-- Build a ZXDiagram from lists of nodes (list indices become node IDs) -/
+def ZXDiagram.ofList (nodes : List Node) (edges : List Edge) : ZXDiagram :=
   { nodes := nodes.map some, edges := edges }
 
 /-- Look up a node by its stable ID -/
 def ZXDiagram.getNode? (d : ZXDiagram) (id : NodeId) : Option Node :=
-  if h : id < d.nodes.size then d.nodes[id] else none
+  d.nodes[id]? |>.join
 
 /-- Add a node, returning the updated diagram and the new node's ID -/
 def ZXDiagram.addNode (d : ZXDiagram) (n : Node) : ZXDiagram × NodeId :=
-  ({ d with nodes := d.nodes.push (some n) }, d.nodes.size)
+  ({ d with nodes := d.nodes ++ [some n] }, d.nodes.length)
 
 /-- Add an edge between two nodes -/
 def ZXDiagram.addEdge (d : ZXDiagram) (e : Edge) : ZXDiagram :=
-  { d with edges := d.edges.push e }
+  { d with edges := d.edges ++ [e] }
 
 /-- Check whether two node IDs are connected by an edge -/
 def ZXDiagram.connected (d : ZXDiagram) (a b : NodeId) : Bool :=
   d.edges.any fun e => (e.src == a && e.tgt == b) || (e.src == b && e.tgt == a)
 
 /-- Get all neighbor IDs of a given node -/
-def ZXDiagram.neighbors (d : ZXDiagram) (n : NodeId) : Array NodeId :=
-  d.edges.foldl (init := #[]) fun acc e =>
-    if e.src == n then acc.push e.tgt
-    else if e.tgt == n then acc.push e.src
+def ZXDiagram.neighbors (d : ZXDiagram) (n : NodeId) : List NodeId :=
+  d.edges.foldl (init := []) fun acc e =>
+    if e.src == n then acc ++ [e.tgt]
+    else if e.tgt == n then acc ++ [e.src]
     else acc
 
 /-- Remove all edges touching a given node ID -/
@@ -110,8 +113,8 @@ def ZXDiagram.removeEdgesOf (d : ZXDiagram) (n : NodeId) : ZXDiagram :=
 
 /-- Remove a node by setting its slot to `none` -/
 def ZXDiagram.removeNode (d : ZXDiagram) (n : NodeId) : ZXDiagram :=
-  if h : n < d.nodes.size then { d with nodes := d.nodes.set n none } else d
+  { d with nodes := d.nodes.set n none }
 
 /-- Set a node at a given ID -/
 def ZXDiagram.setNode (d : ZXDiagram) (id : NodeId) (n : Node) : ZXDiagram :=
-  if h : id < d.nodes.size then { d with nodes := d.nodes.set id (some n) } else d
+  { d with nodes := d.nodes.set id (some n) }

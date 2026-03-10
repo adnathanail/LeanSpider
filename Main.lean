@@ -8,14 +8,14 @@ def main : IO Unit :=
 -- Example: input — Z(π) — Z(-π) — output
 -- Spider fusion merges into Z(0), then identity removal eliminates it.
 def exampleDiagram : ZXDiagram :=
-  ZXDiagram.ofArrays
-    #[.input 0, .spider .Z ⟨1, 1⟩, .spider .Z ⟨-1, 1⟩, .output 0]
-    #[⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩]
+  ZXDiagram.ofList
+    [.input 0, .spider .Z ⟨1, 1⟩, .spider .Z ⟨-1, 1⟩, .output 0]
+    [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩]
 
 -- The final simplified diagram: just input wired to output
 def simplified : ZXDiagram :=
-  { nodes := #[some (.input 0), none, none, some (.output 0)]
-    edges := #[⟨0, 3⟩] }
+  { nodes := [some (.input 0), none, none, some (.output 0)]
+    edges := [⟨0, 3⟩] }
 
 -- Prove equivalence using tactics — each step shows the diagram in InfoView
 theorem simplification : exampleDiagram ≈z simplified := by

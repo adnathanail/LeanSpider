@@ -41,9 +41,11 @@ def ZXDiagram.identityRemoval (d: ZXDiagram) (a : NodeId) : Option ZXDiagram := 
   guard (phase == ⟨0, 1⟩)
   -- Check the node being removed only has 2 neighbors
   let neighbors := d.neighbors a
-  guard (neighbors.size == 2)
+  guard (neighbors.length == 2)
   -- Remove the node
+  let n0 ← neighbors[0]?
+  let n1 ← neighbors[1]?
   let d := d.removeEdgesOf a
   let d := d.removeNode a
-  let d := { d with edges := d.edges ++ #[Edge.mk neighbors[0]! neighbors[1]!] }
+  let d := { d with edges := d.edges ++ [Edge.mk n0 n1] }
   return d.normalize
