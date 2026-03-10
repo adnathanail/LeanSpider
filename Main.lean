@@ -23,7 +23,7 @@ theorem doPppmSimp : piPiPiMinus ≈z pppmSimplified := by
 
 def piPiMinus : ZXDiagram :=
   ZXDiagram.ofList
-    [.input 0, .spider .Z ⟨1, 1⟩, .spider .Z ⟨-1, 1⟩, .output 0]
+    [.input 0, .spider .Z ⟨1, 1⟩, .spider .Z ⟨1, 1⟩, .output 0]
     [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩]
 
 def ppmSimplified : ZXDiagram :=

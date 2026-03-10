@@ -12,11 +12,14 @@ structure Phase where
   den : Nat := 1
   deriving Repr, DecidableEq
 
--- Remove common factors from numerator and denominator of a phase
+-- Simplify a phase: reduce fraction by GCD, then reduce numerator mod 2*den (mod 2π)
 def Phase.simplify (p : Phase) : Phase :=
   let g := Int.gcd p.num p.den
   if g == 0 then p
-  else { num := p.num / g, den := p.den / g }
+  else
+    let num := p.num / g
+    let den := p.den / g
+    { num := num % (2 * den), den := den }
 
 -- Properly define equality for phases, so that 18/4 == 9/2
 instance : BEq Phase where
