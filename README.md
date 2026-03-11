@@ -1,4 +1,4 @@
-# ZxLean
+# LeanZX
 
 [![CI](https://github.com/adnathanail/zx-lean/actions/workflows/ci.yml/badge.svg)](https://github.com/adnathanail/zx-lean/actions/workflows/ci.yml)
 [![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v0.json)](https://github.com/astral-sh/ty)
@@ -46,6 +46,6 @@ It is a React component, written in Typescript, bundled with rollup
 
 The widget sends diagram data to a local Flask server for processing
 
-The daemon starts automatically when `ZxLean.Visualize` is imported
+The daemon starts automatically when `LeanZX.Visualize` is imported
 
 Logs are written to `pyzx_daemon/pyzx_daemon.log`

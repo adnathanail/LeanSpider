@@ -1,5 +1,5 @@
-import ZxLean.Axioms
-import ZxLean.Tactics
+import LeanZX.Axioms
+import LeanZX.Tactics
 
 open Lean Elab Tactic Meta
 
@@ -22,7 +22,7 @@ def ZXDiagram.hadamardHadamard (d: ZXDiagram) (a b : NodeId) : Except String ZXD
   let d := { d with edges := d.edges ++ [Edge.mk n0 n1] }
   return d.normalize
 
-namespace ZxLean
+namespace LeanZX
 
 axiom ZXDiagram.hadamardHadamard_sound (d : ZXDiagram) (a b : NodeId) (d' : ZXDiagram) :
   d.hadamardHadamard a b = .ok d' → d ≈z d'
@@ -36,4 +36,4 @@ elab_rules : tactic
       ``ZXDiagram.hadamardHadamard ``ZXDiagram.hadamardHadamard_sound
       #[mkNatLit a.getNat, mkNatLit b.getNat]
 
-end ZxLean
+end LeanZX

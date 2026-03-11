@@ -1,5 +1,5 @@
-import ZxLean.Axioms
-import ZxLean.Tactics
+import LeanZX.Axioms
+import LeanZX.Tactics
 
 open Lean Elab Tactic Meta
 
@@ -26,7 +26,7 @@ def ZXDiagram.spiderFusion (d : ZXDiagram) (a b : NodeId) : Except String ZXDiag
   let d := d.removeNode b
   return d.normalize
 
-namespace ZxLean
+namespace LeanZX
 
 axiom ZXDiagram.spiderFusion_sound (d : ZXDiagram) (a b : NodeId) (d' : ZXDiagram) :
   d.spiderFusion a b = .ok d' → d ≈z d'
@@ -63,4 +63,4 @@ elab_rules : tactic
       ``ZXDiagram.spiderFusion ``ZXDiagram.spiderFusion_sound
       #[mkNatLit a.getNat, mkNatLit b]
 
-end ZxLean
+end LeanZX

@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  zx_lean:
+  lean_zx:
     runs-on: ubuntu-latest
 
     steps:

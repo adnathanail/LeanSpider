@@ -3,7 +3,7 @@
 import Lake
 open Lake DSL System
 
-package ZxLean where
+package LeanZX where
   version := v!"0.1.0"
 
 require proofwidgets from
@@ -71,11 +71,11 @@ target widgetJsAll pkg : Unit := do
       pkg.runNpmCommand #["clean-install"]
       pkg.runNpmCommand #["run", "build-lake"]
 
-lean_lib ZxLean where
+lean_lib LeanZX where
   needs := #[widgetJsAll]
 
 lean_lib Tests where
 
 @[default_target]
-lean_exe zxlean where
+lean_exe leanzx where
   root := `Main

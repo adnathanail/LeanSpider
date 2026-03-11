@@ -1,4 +1,4 @@
-import ZxLean.Utils
+import LeanZX.Utils
 
 inductive SpiderColor where
   | Z  -- green

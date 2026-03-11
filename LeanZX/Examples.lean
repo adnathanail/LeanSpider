@@ -1,4 +1,4 @@
-import ZxLean.ZXDiagram
+import LeanZX.ZXDiagram
 
 -- Z CNOT Z
 def zCnotZ : ZXDiagram :=

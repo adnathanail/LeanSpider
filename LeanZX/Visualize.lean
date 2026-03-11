@@ -1,4 +1,4 @@
-import ZxLean.ZXDiagram
+import LeanZX.ZXDiagram
 import ProofWidgets.Component.HtmlDisplay
 
 open Lean Server ProofWidgets

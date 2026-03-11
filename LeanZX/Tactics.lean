@@ -1,10 +1,10 @@
-import ZxLean.Axioms
-import ZxLean.Visualize
+import LeanZX.Axioms
+import LeanZX.Visualize
 import ProofWidgets.Component.HtmlDisplay
 
 open Lean Elab Tactic Meta ProofWidgets
 
-namespace ZxLean
+namespace LeanZX
 
 -- == Evaluation (for visualization only) ==
 
@@ -93,4 +93,4 @@ elab "zx_rfl" : tactic => withMainContext do
   let reflProof ← mkAppM ``ZXDiagram.equiv_refl #[lhs]
   goal.assign reflProof
 
-end ZxLean
+end LeanZX

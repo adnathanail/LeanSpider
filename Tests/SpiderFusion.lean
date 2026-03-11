@@ -1,5 +1,5 @@
 import LSpec
-import ZxLean
+import LeanZX
 
 open LSpec
 

@@ -1,5 +1,5 @@
-import ZxLean.Axioms
-import ZxLean.Tactics
+import LeanZX.Axioms
+import LeanZX.Tactics
 
 open Lean Elab Tactic Meta
 
@@ -19,7 +19,7 @@ def ZXDiagram.identityRemoval (d: ZXDiagram) (a : NodeId) : Except String ZXDiag
   let d := { d with edges := d.edges ++ [Edge.mk n0 n1] }
   return d.normalize
 
-namespace ZxLean
+namespace LeanZX
 
 axiom ZXDiagram.identityRemoval_sound (d : ZXDiagram) (a : NodeId) (d' : ZXDiagram) :
   d.identityRemoval a = .ok d' → d ≈z d'
@@ -33,4 +33,4 @@ elab_rules : tactic
       ``ZXDiagram.identityRemoval ``ZXDiagram.identityRemoval_sound
       #[mkNatLit a.getNat]
 
-end ZxLean
+end LeanZX

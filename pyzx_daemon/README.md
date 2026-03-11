@@ -1,4 +1,4 @@
-The daemon starts automatically when `ZxLean.Visualize` is imported
+The daemon starts automatically when `LeanZX.Visualize` is imported
 
 Logs are written to `pyzx_daemon.log`
 
@@ -9,7 +9,7 @@ uv sync
 uv run python app.py --host 127.0.0.1 --port 5050 --debug
 ```
 
-`--host` and `--port` are required flags (no defaults). The canonical values are defined in `ZxLean/Visualize.lean`.
+`--host` and `--port` are required flags (no defaults). The canonical values are defined in `LeanZX/Visualize.lean`.
 
 The server runs on `http://127.0.0.1:5050`. You can test it with:
 

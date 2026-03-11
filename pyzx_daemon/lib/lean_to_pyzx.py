@@ -6,8 +6,8 @@ from pyzx.utils import EdgeType, VertexType
 from .types import ZXLeanGraph
 
 
-def zxlean_to_pyzx(data) -> ZXLeanGraph:
-    """Convert ZxLean JSON to a pyzx Graph."""
+def leanzx_to_pyzx(data) -> ZXLeanGraph:
+    """Convert LeanZX JSON to a pyzx Graph."""
     g: ZXLeanGraph = Graph()
     nodes = data.get("nodes", [])
     edges = data.get("edges", [])
