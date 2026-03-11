@@ -43,16 +43,16 @@ private def findFusionPartner (d : ZXDiagram) (a : NodeId) : Option NodeId := do
     | none => false
 
 /-- Fuse two connected spiders of the same color. Shows the resulting diagram.
-    With one argument, auto-finds a partner. Use `repeat zx_spider_fusion n` to fuse all. -/
-syntax "zx_spider_fusion" num num : tactic
-syntax "zx_spider_fusion" num : tactic
+    With one argument, auto-finds a partner. Use `repeat zx_sp n` to fuse all. -/
+syntax "zx_sp" num num : tactic
+syntax "zx_sp" num : tactic
 
 elab_rules : tactic
-  | `(tactic| zx_spider_fusion $a $b) =>
+  | `(tactic| zx_sp $a $b) =>
     applyRewrite a "Spider fusion"
       ``ZXDiagram.spiderFusion ``ZXDiagram.spiderFusion_sound
       #[mkNatLit a.getNat, mkNatLit b.getNat]
-  | `(tactic| zx_spider_fusion $a) => withMainContext do
+  | `(tactic| zx_sp $a) => withMainContext do
     let goal ← getMainGoal
     let goalType ← goal.getType
     let (lhs, _) ← parseEquivGoal goalType

@@ -17,7 +17,7 @@ def zHadHadSimplified : ZXDiagram :=
 
 theorem dozHadHadSimp : zHadHad ≈z zHadHadSimplified := by
   zx_show
-  zx_hadamard_hadamard 2 3
+  zx_hh 2 3
   zx_rfl
 #print axioms dozHadHadSimp
 
@@ -26,8 +26,8 @@ theorem dozHadHadSimp : zHadHad ≈z zHadHadSimplified := by
 -- Z commutes with CNOT, and cancels with the second Z
 theorem dozCnotZ : zCnotZ ≈z cnot := by
   zx_show
-  zx_spider_fusion 1 2
-  zx_spider_fusion 1 3
+  zx_sp 1 2
+  zx_sp 1 3
   zx_rfl
 #print axioms dozCnotZ
 
@@ -45,7 +45,7 @@ def pppmSimplified : ZXDiagram :=
 theorem doPppmSimp : piPiPiMinus ≈z pppmSimplified := by
   zx_show
   -- Using Lean machinery to help us
-  repeat zx_spider_fusion 1
+  repeat zx_sp 1
   zx_rfl
 #print axioms doPppmSimp
 

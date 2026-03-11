@@ -28,10 +28,10 @@ axiom ZXDiagram.hadamardHadamard_sound (d : ZXDiagram) (a b : NodeId) (d' : ZXDi
   d.hadamardHadamard a b = .ok d' → d ≈z d'
 
 /-- Remove two connected degree-2 Hadamards. Shows the resulting diagram. -/
-syntax "zx_hadamard_hadamard" num num : tactic
+syntax "zx_hh" num num : tactic
 
 elab_rules : tactic
-  | `(tactic| zx_hadamard_hadamard $a $b) =>
+  | `(tactic| zx_hh $a $b) =>
     applyRewrite a "Hadamard Hadamard"
       ``ZXDiagram.hadamardHadamard ``ZXDiagram.hadamardHadamard_sound
       #[mkNatLit a.getNat, mkNatLit b.getNat]

@@ -25,10 +25,10 @@ axiom ZXDiagram.identityRemoval_sound (d : ZXDiagram) (a : NodeId) (d' : ZXDiagr
   d.identityRemoval a = .ok d' → d ≈z d'
 
 /-- Remove an identity (phase-0, degree-2) spider. Shows the resulting diagram. -/
-syntax "zx_id_removal" num : tactic
+syntax "zx_id" num : tactic
 
 elab_rules : tactic
-  | `(tactic| zx_id_removal $a) =>
+  | `(tactic| zx_id $a) =>
     applyRewrite a "Identity removal"
       ``ZXDiagram.identityRemoval ``ZXDiagram.identityRemoval_sound
       #[mkNatLit a.getNat]
