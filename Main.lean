@@ -5,17 +5,6 @@ open ZxLean
 def main : IO Unit :=
   IO.println "Open Main.lean in VS Code to see the ZX diagram in the InfoView."
 
-#html zCnotZ.toHtml
-#html cnot.toHtml
--- Z commutes with CNOT, and cancels with the second Z
-theorem dozCnotZ : zCnotZ ≈z cnot := by
-  zx_show
-  zx_spider_fusion 1 2
-  zx_spider_fusion 1 3
-  zx_rfl
-
-#print axioms dozCnotZ
-
 def zHadHad : ZXDiagram :=
   ZXDiagram.ofList
     [.input 0, .spider .Z ⟨1, 1⟩, .hadamard, .hadamard, .output 0]
@@ -30,8 +19,17 @@ theorem dozHadHadSimp : zHadHad ≈z zHadHadSimplified := by
   zx_show
   zx_hadamard_hadamard 2 3
   zx_rfl
-
 #print axioms dozHadHadSimp
+
+#html zCnotZ.toHtml
+#html cnot.toHtml
+-- Z commutes with CNOT, and cancels with the second Z
+theorem dozCnotZ : zCnotZ ≈z cnot := by
+  zx_show
+  zx_spider_fusion 1 2
+  zx_spider_fusion 1 3
+  zx_rfl
+#print axioms dozCnotZ
 
 def piPiPiMinus : ZXDiagram :=
   ZXDiagram.ofList
@@ -49,7 +47,6 @@ theorem doPppmSimp : piPiPiMinus ≈z pppmSimplified := by
   -- Using Lean machinery to help us
   repeat zx_spider_fusion 1
   zx_rfl
-
 #print axioms doPppmSimp
 
 def piPiMinus : ZXDiagram :=
