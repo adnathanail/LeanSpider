@@ -12,7 +12,7 @@ def ZXDiagram.hadamardHadamard (d: ZXDiagram) (a b : NodeId) : Except String ZXD
   let aNeighbors := d.neighbors a |>.filter (· != b)
   let bNeighbors := d.neighbors b |>.filter (· != a)
   unless aNeighbors.length == 1 do throw s!"Node {a} has {aNeighbors.length} neighbours other than node {b} (should be 1)"
-  unless bNeighbors.length == 1 do throw s!"Node {b} has {aNeighbors.length} neighbours other than node {a} (should be 1)"
+  unless bNeighbors.length == 1 do throw s!"Node {b} has {bNeighbors.length} neighbours other than node {a} (should be 1)"
   let n0 ← (aNeighbors[0]?).toExcept s!"Node {a} neighbour not found"
   let n1 ← (bNeighbors[0]?).toExcept s!"Node {b} neighbour not found"
   let d := d.removeEdgesOf a

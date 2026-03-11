@@ -55,8 +55,8 @@ def Node.phase? : Node → Option Phase
   | _ => none
 
 def Node.isHadamard : Node → Bool
-  | .hadamard => True
-  | _ => False
+  | .hadamard => true
+  | _ => false
 
 /-- Stable node identifier -/
 abbrev NodeId := Nat
