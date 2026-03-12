@@ -7,3 +7,5 @@
 - To/from circuit form
 - Create typeclass(?) for rewrite rules to implement, so tactics can be automatically derived or something
 - Is the custom insertion sort slow?
+- Test CC/HH
+- Move tests into their respective rules files?
