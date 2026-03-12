@@ -69,3 +69,32 @@ theorem doPpmSimp : piPiMinus ≈z ppmSimplified := by
   zx_rfl
 -- But it still only depends on one of our 7 axiom rules
 #print axioms doPpmSimp
+
+def exercise3point7 : ZXDiagram :=
+  ZXDiagram.ofList
+    [
+      .input 0, .spider .X ⟨0, 1⟩, .spider .Z ⟨0, 1⟩, .output 0,
+      .hadamard,
+      .input 1, .spider .X ⟨0, 1⟩, .hadamard, .spider .Z ⟨0, 1⟩, .hadamard, .spider .Z ⟨0, 1⟩, .output 1,
+      .spider .Z ⟨0, 1⟩, .spider .Z ⟨0, 1⟩, .spider .X ⟨1, 1⟩, .spider .X ⟨0, 1⟩,
+    ]
+    [
+      ⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩,
+      ⟨4, 3⟩,
+      ⟨5, 6⟩, ⟨6, 7⟩, ⟨7, 8⟩, ⟨8, 9⟩, ⟨9, 10⟩, ⟨10, 11⟩,
+      ⟨12, 13⟩, ⟨13, 6⟩, ⟨13, 14⟩, ⟨14, 15⟩,
+    ]
+#html exercise3point7.toHtml
+
+-- Aimless exploration: just play with a diagram and see what happens
+example : ∃ d', exercise3point7 ≈z d' := by
+  zx_explore
+  zx_sp 12 13
+  zx_sp 14 15
+  zx_id 12
+  zx_sp 14 6
+  zx_cc 8
+  zx_hh 7 16
+  zx_hh 9 17
+  zx_sp 14 8
+  zx_rfl

@@ -24,6 +24,7 @@ opaque evalString : Expr → MetaM String
 
 /-- Extract LHS and RHS from a goal of the form `d ≈z d'` -/
 def parseEquivGoal (goalType : Expr) : TacticM (Expr × Expr) := do
+  let goalType ← instantiateMVars goalType
   let some (lhs, rhs) := goalType.app2? ``ZXDiagram.equiv
     | throwError "Goal is not of the form `d ≈z d'`"
   return (lhs, rhs)
@@ -89,8 +90,28 @@ elab tk:"zx_show" : tactic => withMainContext do
 elab "zx_rfl" : tactic => withMainContext do
   let goal ← getMainGoal
   let goalType ← goal.getType
-  let (lhs, _) ← parseEquivGoal goalType
+  let (lhs, rhs) ← parseEquivGoal goalType
+  -- If the RHS is a metavar (e.g. from zx_explore), unify it with the LHS
+  if rhs.isMVar then
+    rhs.mvarId!.assign lhs
   let reflProof ← mkAppM ``ZXDiagram.equiv_refl #[lhs]
   goal.assign reflProof
+
+/-- Start aimless exploration: introduces `∃ d', diagram ≈z d'` into `diagram ≈z ?d'`,
+    then shows the diagram. Apply rewrites freely and close with `zx_rfl`. -/
+elab tk:"zx_explore" : tactic => withMainContext do
+  let goal ← getMainGoal
+  let goalType ← goal.getType
+  -- Expect ∃ d', lhs ≈z d'
+  let some (_, _) := goalType.app2? ``Exists
+    | throwError "Expected goal of the form `∃ d', diagram ≈z d'`"
+  -- Introduce the existential with a placeholder witness, reducing to `diagram ≈z ?_`
+  evalTactic (← `(tactic| refine Exists.intro ?_ ?_))
+  let goals ← getGoals
+  -- Goals are [witness : ZXDiagram, proof : lhs ≈z ?_]. Focus on the proof goal.
+  setGoals [goals[1]!]
+  let goalType ← (← getMainGoal).getType
+  let (lhs, _) ← parseEquivGoal goalType
+  showDiagram tk "Current diagram" lhs
 
 end LeanZX
