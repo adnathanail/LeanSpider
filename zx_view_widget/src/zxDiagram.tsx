@@ -46,6 +46,7 @@ function loadPyodideLocal() {
     return loadPyodide({
       indexURL: 'http://pyodide.local/', // fake base URL; assets served via fetch patch above
       lockFileContents: lockFileContents as string,
+      packageBaseUrl: 'https://cdn.jsdelivr.net/pyodide/v0.29.3/full/',
     })
   })()
   return pyodideReady
@@ -73,7 +74,13 @@ export default function ZXDiagram({ diagram }: ZXWidgetProps) {
 
   React.useEffect(() => {
     loadPyodideLocal().then(async (pyodide: any) => {
-      const result = await pyodide.runPythonAsync('1+1')
+      await pyodide.loadPackage(['micropip', 'numpy', 'networkx', 'typing-extensions', 'tqdm'])
+      const result = await pyodide.runPythonAsync(`
+import micropip
+await micropip.install(['lark', 'pyperclip', 'pyzx'], deps=False)
+import pyzx
+pyzx.__version__
+`)
       setPythonResult(String(result))
     })
   }, [])
