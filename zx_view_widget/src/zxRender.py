@@ -63,11 +63,6 @@ def leanzx_to_pyzx(data) -> ZXLeanGraph:
     for edge in edges:
         g.add_edge((edge["src"], edge["tgt"]), edgetype=EdgeType.SIMPLE)
 
-    # Set outputs to max row + 1
-    max_row = max((g.row(v) for v in g.vertices() if g.row(v) >= 0), default=0)
-    for v in outputs:
-        g.set_row(v, max_row + 1)
-
     g.set_inputs(tuple(inputs))
     g.set_outputs(tuple(outputs))
 
