@@ -5,6 +5,8 @@ import wasmDataUrl from 'pyodide-bundled/wasm'
 import stdlibDataUrl from 'pyodide-bundled/stdlib'
 import lockFileContents from 'pyodide-bundled/lock'
 import zxRenderPy from './zxRender.py'
+import * as d3 from 'd3'
+import zxViewerJs from './zxViewer.js'
 import pyodideLoadDeps from 'python-deps/load'
 import micropipDeps from 'python-deps/micropip'
 
@@ -65,6 +67,31 @@ await micropip.install(${JSON.stringify(micropipDeps)}, deps=False)
   return pyodideReady
 }
 
+// Make d3 available on window for the viewer JS
+;(window as unknown as Record<string, unknown>).d3 = d3
+
+// Eval the viewer module once and cache the showGraph function
+let showGraphFn: ((
+  container: HTMLElement,
+  graph: unknown,
+  width: number,
+  height: number,
+  scale: number,
+  node_size: number,
+  colors: Record<string, string>,
+  show_labels: boolean,
+) => void) | null = null
+
+function getShowGraph() {
+  if (showGraphFn) return showGraphFn
+  // The viewer JS exports showGraph — eval it as a module
+  const mod: Record<string, unknown> = {}
+  const fn = new Function('exports', zxViewerJs + '\nexports.showGraph = showGraph;')
+  fn(mod)
+  showGraphFn = mod.showGraph as typeof showGraphFn
+  return showGraphFn!
+}
+
 interface ZXWidgetProps {
   diagram: {
     nodes: Array<{
@@ -81,29 +108,60 @@ interface ZXWidgetProps {
   }
 }
 
+interface RenderData {
+  graph: unknown
+  width: number
+  height: number
+  scale: number
+  node_size: number
+  colors: Record<string, string>
+}
+
 export default function ZXDiagram({ diagram }: ZXWidgetProps) {
-  const [png, setPng] = React.useState<string | null>(null)
+  const [renderData, setRenderData] = React.useState<RenderData | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [status, setStatus] = React.useState<'loading' | 'rendering'>('loading')
   const [retryCount, setRetryCount] = React.useState(0)
+  const containerRef = React.useRef<HTMLDivElement>(null)
 
+  // Step 1: Load Pyodide + D3, compute graph JSON via Python
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is intentionally used to force re-runs on retry
   React.useEffect(() => {
     setError(null)
-    setPng(null)
+    setRenderData(null)
     setStatus('loading')
-    loadPyodideLocal().then(async (pyodide: unknown) => {
+
+    loadPyodideLocal().then(async (pyodide) => {
       setStatus('rendering')
-      const b64 = await (pyodide as { runPythonAsync(code: string): Promise<unknown> }).runPythonAsync(
+      const resultStr = await (pyodide as { runPythonAsync(code: string): Promise<unknown> }).runPythonAsync(
         `render(${JSON.stringify(JSON.stringify(diagram))})`
       )
-      setPng(String(b64))
+      const data = JSON.parse(String(resultStr)) as RenderData
+      setRenderData(data)
     }).catch(e => {
-      // Pyodide wraps Python exceptions as PythonError; unwrap to the traceback.
       const msg = (e instanceof Error && 'type' in e) ? e.message : String(e)
       setError(msg)
     })
   }, [diagram, retryCount])
+
+  // Step 2: Once we have graph data and the container is mounted, render D3 SVG
+  React.useEffect(() => {
+    if (!renderData || !containerRef.current) return
+    const container = containerRef.current
+    // Clear previous SVG
+    container.innerHTML = ''
+    const show = getShowGraph()
+    show(
+      container,
+      renderData.graph,
+      renderData.width,
+      renderData.height,
+      renderData.scale,
+      renderData.node_size,
+      renderData.colors,
+      true, // show_labels
+    )
+  }, [renderData])
 
   if (error) return (
     <div style={{ fontFamily: 'monospace' }}>
@@ -111,6 +169,6 @@ export default function ZXDiagram({ diagram }: ZXWidgetProps) {
       <button type="button" onClick={() => setRetryCount(c => c + 1)}>Retry</button>
     </div>
   )
-  if (!png) return <div style={{ fontFamily: 'monospace' }}>{status === 'loading' ? 'Loading Python environment...' : 'Rendering...'}</div>
-  return <img src={`data:image/png;base64,${png}`} style={{ maxWidth: '100%' }} alt='ZX Diagram' />
+  if (!renderData) return <div style={{ fontFamily: 'monospace' }}>{status === 'loading' ? 'Loading Python environment...' : 'Rendering...'}</div>
+  return <div ref={containerRef} style={{ overflow: 'auto', backgroundColor: 'white' }} />
 }

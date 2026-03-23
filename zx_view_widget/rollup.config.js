@@ -39,18 +39,23 @@ const pyodideBundled = {
   },
 }
 
-// Imports .py files as plain string modules for use with pyodide.runPythonAsync.
-// Resolves paths from dist/ back to src/ since tsc compiles there but .py files stay in src/.
-const rawPy = {
-  name: 'raw-py',
+// Imports .py and src .js files as plain string modules.
+// .py files are used with pyodide.runPythonAsync.
+// .js files from src/ (like zxViewer.js) are embedded as strings for eval().
+// Resolves paths from dist/ back to src/ since tsc compiles there but these files stay in src/.
+const rawAssets = {
+  name: 'raw-assets',
   resolveId(id, importer) {
-    if (id.endsWith('.py') && importer) {
+    if ((id.endsWith('.py') || id.endsWith('.js')) && importer) {
       const srcImporter = importer.replace(`${path.sep}dist${path.sep}`, `${path.sep}src${path.sep}`)
-      return path.resolve(path.dirname(srcImporter), id)
+      const resolved = path.resolve(path.dirname(srcImporter), id)
+      // Only handle .js files that live in src/ (not node_modules)
+      if (id.endsWith('.js') && !resolved.includes(path.join(__dirname, 'src'))) return null
+      return resolved
     }
   },
   load(id) {
-    if (id.endsWith('.py')) {
+    if (id.endsWith('.py') || (id.endsWith('.js') && id.includes(path.join(__dirname, 'src')))) {
       return `export default ${JSON.stringify(readFileSync(id, 'utf8'))};`
     }
   },
@@ -100,7 +105,7 @@ export default inputs.map(input => ({
   ],
   plugins: [
     pyodideBundled,
-    rawPy,
+    rawAssets,
     pythonDeps,
     resolve({ browser: true }),
     replace({
