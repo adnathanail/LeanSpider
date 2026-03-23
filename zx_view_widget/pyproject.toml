@@ -9,7 +9,7 @@ dependencies = []
 # pyodide-micropip: pure-Python PyPI packages, installed via micropip.install(deps=False)
 # uv sync installs both groups locally for intellisense.
 [dependency-groups]
-pyodide-load = ["numpy", "networkx", "matplotlib", "typing-extensions", "tqdm"]
+pyodide-load = ["numpy", "networkx", "typing-extensions", "tqdm"]
 pyodide-micropip = ["lark==1.3.1", "pyperclip==1.11.0", "pyzx==0.10.0"]
 dev = [
     {include-group = "pyodide-load"},

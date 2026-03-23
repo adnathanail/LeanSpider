@@ -1,17 +1,10 @@
-import base64
-import io
 import json
 from fractions import Fraction
 
-import matplotlib
-import matplotlib.pyplot as plt
-import pyzx as zx
+from pyzx.drawing import graph_json
 from pyzx.graph import Graph
 from pyzx.graph.base import BaseGraph
-from pyzx.utils import EdgeType, VertexType
-
-matplotlib.use("Agg")
-
+from pyzx.utils import EdgeType, VertexType, settings
 
 type ZXLeanGraph = BaseGraph[int, int]
 
@@ -134,24 +127,42 @@ def _auto_layout(g: ZXLeanGraph):
         row_counts[r] = count + 1
 
 
-def render_to_base64(g: ZXLeanGraph) -> str:
-    """Render a pyzx graph to a base64-encoded PNG string."""
-    # Scale figsize based on graph dimensions
-    rows = set(g.row(v) for v in g.vertices())
-    qubits = set(g.qubit(v) for v in g.vertices())
-    width = max(len(rows) * 1.5, 6)
-    height = max(len(qubits) * 1.2, 2)
-    fig = zx.draw_matplotlib(g, labels=True, figsize=(width, height))
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight", dpi=150)
-    plt.close(fig)
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode("ascii")
-
-
 def render(diagram_json: str) -> str:
-    """Convert a ZXDiagram JSON string to a base64-encoded PNG via pyzx."""
+    """Convert a ZXDiagram JSON string to pyzx's D3-compatible graph JSON.
+
+    Returns a JSON string with {nodes, links} ready for the D3 viewer,
+    plus width/height/scale/node_size for rendering.
+    """
     data = json.loads(diagram_json)
     g = leanzx_to_pyzx(data)
-    image = render_to_base64(g)
-    return image
+
+    # Compute scale and dimensions (same logic as pyzx's draw_d3)
+    minrow = min((g.row(v) for v in g.vertices()), default=0)
+    maxrow = max((g.row(v) for v in g.vertices()), default=0)
+    minqub = min((g.qubit(v) for v in g.vertices()), default=0)
+    maxqub = max((g.qubit(v) for v in g.vertices()), default=0)
+
+    scale = 800 / (maxrow - minrow + 2)
+    if scale > 50:
+        scale = 50
+    if scale < 20:
+        scale = 20
+
+    w = (maxrow - minrow + 2) * scale
+    h = (maxqub - minqub + 3) * scale
+    node_size = max(0.2 * scale, 2)
+
+    coords = {v: ((g.row(v) - minrow + 1) * scale, (g.qubit(v) - minqub + 2) * scale, 0) for v in g.vertices()}
+
+    graph_j = graph_json(g, coords)
+
+    return json.dumps(
+        {
+            "graph": json.loads(graph_j),
+            "width": w,
+            "height": h,
+            "scale": scale,
+            "node_size": node_size,
+            "colors": settings.colors,
+        }
+    )
