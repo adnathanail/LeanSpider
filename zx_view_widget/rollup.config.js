@@ -39,6 +39,23 @@ const pyodideBundled = {
   },
 }
 
+// Imports .py files as plain string modules for use with pyodide.runPythonAsync.
+// Resolves paths from dist/ back to src/ since tsc compiles there but .py files stay in src/.
+const rawPy = {
+  name: 'raw-py',
+  resolveId(id, importer) {
+    if (id.endsWith('.py') && importer) {
+      const srcImporter = importer.replace(`${path.sep}dist${path.sep}`, `${path.sep}src${path.sep}`)
+      return path.resolve(path.dirname(srcImporter), id)
+    }
+  },
+  load(id) {
+    if (id.endsWith('.py')) {
+      return `export default ${JSON.stringify(readFileSync(id, 'utf8'))};`
+    }
+  },
+}
+
 const production = process.env.NODE_ENV === 'production'
 const outputDir = process.env.OUTPUT_DIR || 'build'
 
@@ -60,6 +77,7 @@ export default inputs.map(input => ({
   ],
   plugins: [
     pyodideBundled,
+    rawPy,
     resolve({ browser: true }),
     replace({
       preventAssignment: true,

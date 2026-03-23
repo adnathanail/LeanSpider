@@ -4,8 +4,8 @@ import pyodideAsmJs from 'pyodide-bundled/asm-js'
 import wasmDataUrl from 'pyodide-bundled/wasm'
 import stdlibDataUrl from 'pyodide-bundled/stdlib'
 import lockFileContents from 'pyodide-bundled/lock'
+import zxRenderPy from './zxRender.py'
 
-// Decode a data URL to an ArrayBuffer
 async function dataUrlToBuffer(dataUrl: string): Promise<ArrayBuffer> {
   return fetch(dataUrl).then(r => r.arrayBuffer())
 }
@@ -15,9 +15,6 @@ let pyodideReady: Promise<unknown> | null = null
 function loadPyodideLocal() {
   if (pyodideReady) return pyodideReady
   pyodideReady = (async () => {
-    // Pre-set _createPyodideModule globally so pyodide skips its dynamic import.
-    // pyodideAsmJs is a base64 data URL; decode before eval.
-    // CSP allows unsafe-eval in the InfoView webview.
     const asmJsCode = atob(pyodideAsmJs.split(',')[1])
     // eslint-disable-next-line no-eval
     ;(0, eval)(asmJsCode)
@@ -27,7 +24,6 @@ function loadPyodideLocal() {
       dataUrlToBuffer(stdlibDataUrl),
     ])
 
-    // Patch fetch to serve bundled assets instead of hitting the network.
     const realFetch = globalThis.fetch
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : input.toString()
@@ -43,11 +39,20 @@ function loadPyodideLocal() {
       return realFetch(input, init)
     }
 
-    return loadPyodide({
-      indexURL: 'http://pyodide.local/', // fake base URL; assets served via fetch patch above
+    const pyodide = await loadPyodide({
+      indexURL: 'http://pyodide.local/',
       lockFileContents: lockFileContents as string,
       packageBaseUrl: 'https://cdn.jsdelivr.net/pyodide/v0.29.3/full/',
     })
+
+    await pyodide.loadPackage(['micropip', 'numpy', 'networkx', 'typing-extensions', 'tqdm', 'matplotlib'])
+    await pyodide.runPythonAsync(`
+import micropip
+await micropip.install(['lark', 'pyperclip', 'pyzx'], deps=False)
+`)
+    await pyodide.runPythonAsync(zxRenderPy)
+
+    return pyodide
   })()
   return pyodideReady
 }
@@ -70,25 +75,19 @@ interface ZXWidgetProps {
 }
 
 export default function ZXDiagram({ diagram }: ZXWidgetProps) {
-  const [pythonResult, setPythonResult] = React.useState<string | null>(null)
+  const [png, setPng] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     loadPyodideLocal().then(async (pyodide: any) => {
-      await pyodide.loadPackage(['micropip', 'numpy', 'networkx', 'typing-extensions', 'tqdm'])
-      const result = await pyodide.runPythonAsync(`
-import micropip
-await micropip.install(['lark', 'pyperclip', 'pyzx'], deps=False)
-import pyzx
-pyzx.__version__
-`)
-      setPythonResult(String(result))
-    })
-  }, [])
+      const b64 = await pyodide.runPythonAsync(
+        `render(${JSON.stringify(JSON.stringify(diagram))})`
+      )
+      setPng(String(b64))
+    }).catch(e => setError(String(e)))
+  }, [diagram])
 
-  return (
-    <div style={{ fontFamily: 'monospace', padding: '10px' }}>
-      <p>Python result: {pythonResult ?? 'loading...'}</p>
-      <pre style={{ fontSize: '11px' }}>{JSON.stringify(diagram, null, 2)}</pre>
-    </div>
-  )
+  if (error) return <div style={{ color: 'red', fontFamily: 'monospace' }}>{error}</div>
+  if (!png) return <div style={{ fontFamily: 'monospace' }}>Rendering...</div>
+  return <img src={`data:image/png;base64,${png}`} style={{ maxWidth: '100%' }} />
 }

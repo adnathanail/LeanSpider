@@ -14,3 +14,8 @@ declare module 'pyodide-bundled/lock' {
   const contents: unknown
   export default contents
 }
+
+declare module '*.py' {
+  const code: string
+  export default code
+}
