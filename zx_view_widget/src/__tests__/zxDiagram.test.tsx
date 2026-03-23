@@ -24,7 +24,7 @@ function makeFakePyodide(renderResult: unknown = 'abc123') {
 // Load a fresh copy of ZXDiagram per test (avoids the pyodideReady singleton
 // persisting between tests) and inject a controlled loadPyodide implementation.
 async function setup(loadPyodide: () => Promise<unknown>) {
-  vi.doMock('pyodide', () => ({ loadPyodide }))
+  vi.doMock('pyodide', () => ({ loadPyodide, version: '0.0.0-test' }))
   vi.doMock('pyodide-bundled/asm-js', () => ({ default: 'data:text/javascript;base64,' }))
   vi.doMock('pyodide-bundled/wasm', () => ({ default: 'data:application/octet-stream;base64,' }))
   vi.doMock('pyodide-bundled/stdlib', () => ({ default: 'data:application/octet-stream;base64,' }))
@@ -52,7 +52,7 @@ afterEach(() => {
 test('shows loading state while pyodide initialises', async () => {
   const ZXDiagram = await setup(() => new Promise(() => {})) // never resolves
   render(<ZXDiagram diagram={diagram} />)
-  expect(screen.getByText('Rendering...')).toBeInTheDocument()
+  expect(screen.getByText('Loading Python environment...')).toBeInTheDocument()
 })
 
 test('renders a PNG image after a successful render', async () => {

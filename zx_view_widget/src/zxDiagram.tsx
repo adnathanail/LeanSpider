@@ -76,9 +76,12 @@ interface ZXWidgetProps {
 export default function ZXDiagram({ diagram }: ZXWidgetProps) {
   const [png, setPng] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [status, setStatus] = React.useState<'loading' | 'rendering'>('loading')
 
   React.useEffect(() => {
+    setStatus('loading')
     loadPyodideLocal().then(async (pyodide: any) => {
+      setStatus('rendering')
       const b64 = await pyodide.runPythonAsync(
         `render(${JSON.stringify(JSON.stringify(diagram))})`
       )
@@ -87,6 +90,6 @@ export default function ZXDiagram({ diagram }: ZXWidgetProps) {
   }, [diagram])
 
   if (error) return <div style={{ color: 'red', fontFamily: 'monospace' }}>{error}</div>
-  if (!png) return <div style={{ fontFamily: 'monospace' }}>Rendering...</div>
+  if (!png) return <div style={{ fontFamily: 'monospace' }}>{status === 'loading' ? 'Loading Python environment...' : 'Rendering...'}</div>
   return <img src={`data:image/png;base64,${png}`} style={{ maxWidth: '100%' }} alt='ZX Diagram' />
 }
