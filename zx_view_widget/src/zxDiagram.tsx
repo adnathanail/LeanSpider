@@ -1,4 +1,55 @@
 import * as React from 'react'
+import { loadPyodide } from 'pyodide'
+import pyodideAsmJs from 'pyodide-bundled/asm-js'
+import wasmDataUrl from 'pyodide-bundled/wasm'
+import stdlibDataUrl from 'pyodide-bundled/stdlib'
+import lockFileContents from 'pyodide-bundled/lock'
+
+// Decode a data URL to an ArrayBuffer
+async function dataUrlToBuffer(dataUrl: string): Promise<ArrayBuffer> {
+  return fetch(dataUrl).then(r => r.arrayBuffer())
+}
+
+let pyodideReady: Promise<unknown> | null = null
+
+function loadPyodideLocal() {
+  if (pyodideReady) return pyodideReady
+  pyodideReady = (async () => {
+    // Pre-set _createPyodideModule globally so pyodide skips its dynamic import.
+    // pyodideAsmJs is a base64 data URL; decode before eval.
+    // CSP allows unsafe-eval in the InfoView webview.
+    const asmJsCode = atob(pyodideAsmJs.split(',')[1])
+    // eslint-disable-next-line no-eval
+    ;(0, eval)(asmJsCode)
+
+    const [wasmBuffer, stdlibBuffer] = await Promise.all([
+      dataUrlToBuffer(wasmDataUrl),
+      dataUrlToBuffer(stdlibDataUrl),
+    ])
+
+    // Patch fetch to serve bundled assets instead of hitting the network.
+    const realFetch = globalThis.fetch
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : input.toString()
+      if (url.endsWith('pyodide.asm.wasm')) {
+        return new Response(wasmBuffer, {
+          status: 200,
+          headers: { 'Content-Type': 'application/wasm' },
+        })
+      }
+      if (url.endsWith('python_stdlib.zip')) {
+        return new Response(stdlibBuffer, { status: 200 })
+      }
+      return realFetch(input, init)
+    }
+
+    return loadPyodide({
+      indexURL: 'http://pyodide.local/', // fake base URL; assets served via fetch patch above
+      lockFileContents: lockFileContents as string,
+    })
+  })()
+  return pyodideReady
+}
 
 interface ZXWidgetProps {
   serverUrl: string
@@ -17,61 +68,20 @@ interface ZXWidgetProps {
   }
 }
 
-export default function ZXDiagram({ diagram, serverUrl }: ZXWidgetProps) {
-  const [image, setImage] = React.useState<string | null>(null)
-  const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [showJson, setShowJson] = React.useState(false)
-
-  const diagramJson = JSON.stringify(diagram, null, 2)
+export default function ZXDiagram({ diagram }: ZXWidgetProps) {
+  const [pythonResult, setPythonResult] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    setLoading(true)
-    setError(null)
-    setImage(null)
-    fetch(`${serverUrl}/diagram`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: diagramJson,
+    loadPyodideLocal().then(async (pyodide: any) => {
+      const result = await pyodide.runPythonAsync('1+1')
+      setPythonResult(String(result))
     })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Server returned ${res.status}`)
-        return res.json()
-      })
-      .then((data) => {
-        if (data.status === 'ok' && data.image) {
-          setImage(data.image)
-        } else {
-          throw new Error(data.message || 'No image in response')
-        }
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [diagramJson, serverUrl])
+  }, [])
 
   return (
     <div style={{ fontFamily: 'monospace', padding: '10px' }}>
-      {loading && <p>Rendering diagram...</p>}
-      {error && <p style={{ color: 'orange' }}>Server: {error}</p>}
-      {image && (
-        <div>
-          <img
-            src={`data:image/png;base64,${image}`}
-            alt="ZX Diagram"
-            style={{ maxWidth: '100%' }}
-          />
-        </div>
-      )}
-      <div style={{ marginTop: '8px' }}>
-        <button
-          type="button"
-          onClick={() => setShowJson(!showJson)}
-          style={{ fontSize: '11px', cursor: 'pointer' }}
-        >
-          {showJson ? 'Hide' : 'Show'} JSON
-        </button>
-        {showJson && <pre style={{ fontSize: '11px', marginTop: '4px' }}>{diagramJson}</pre>}
-      </div>
+      <p>Python result: {pythonResult ?? 'loading...'}</p>
+      <pre style={{ fontSize: '11px' }}>{JSON.stringify(diagram, null, 2)}</pre>
     </div>
   )
 }

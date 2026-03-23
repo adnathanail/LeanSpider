@@ -2,7 +2,42 @@ import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
 import replace from '@rollup/plugin-replace'
 import terser from '@rollup/plugin-terser'
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const pyodideDir = path.join(__dirname, 'node_modules', 'pyodide')
+
+// Bundles pyodide's large binary assets as virtual modules so the widget
+// is fully self-contained with no network requests at runtime.
+const pyodideBundled = {
+  name: 'pyodide-bundled',
+  resolveId(id) {
+    if (id === 'pyodide-bundled/asm-js') return '\0pyodide-bundled/asm-js'
+    if (id === 'pyodide-bundled/wasm') return '\0pyodide-bundled/wasm'
+    if (id === 'pyodide-bundled/stdlib') return '\0pyodide-bundled/stdlib'
+    if (id === 'pyodide-bundled/lock') return '\0pyodide-bundled/lock'
+  },
+  load(id) {
+    if (id === '\0pyodide-bundled/asm-js') {
+      const b64 = readFileSync(path.join(pyodideDir, 'pyodide.asm.js')).toString('base64')
+      return `export default "data:text/javascript;base64,${b64}";`
+    }
+    if (id === '\0pyodide-bundled/wasm') {
+      const b64 = readFileSync(path.join(pyodideDir, 'pyodide.asm.wasm')).toString('base64')
+      return `export default "data:application/octet-stream;base64,${b64}";`
+    }
+    if (id === '\0pyodide-bundled/stdlib') {
+      const b64 = readFileSync(path.join(pyodideDir, 'python_stdlib.zip')).toString('base64')
+      return `export default "data:application/octet-stream;base64,${b64}";`
+    }
+    if (id === '\0pyodide-bundled/lock') {
+      const json = readFileSync(path.join(pyodideDir, 'pyodide-lock.json'), 'utf8')
+      return `export default ${json};`
+    }
+  },
+}
 
 const production = process.env.NODE_ENV === 'production'
 const outputDir = process.env.OUTPUT_DIR || 'build'
@@ -24,6 +59,7 @@ export default inputs.map(input => ({
     '@leanprover/infoview',
   ],
   plugins: [
+    pyodideBundled,
     resolve({ browser: true }),
     replace({
       preventAssignment: true,
