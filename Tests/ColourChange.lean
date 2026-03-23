@@ -8,18 +8,16 @@ def zSpider : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 2⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
 def zSpiderColourChanged : ZXDiagram :=
-  { nodes := [some (.input 0), some (.spider .X ⟨1, 2⟩), some (.output 0),
-              some (.hadamard), some (.hadamard)]
-    edges := [⟨0, 3⟩, ⟨1, 3⟩, ⟨1, 4⟩, ⟨2, 4⟩] }
+  .ofList [.input 0, .spider .X ⟨1, 2⟩, .output 0, .hadamard, .hadamard]
+          [⟨0, 3⟩, ⟨1, 3⟩, ⟨1, 4⟩, ⟨2, 4⟩]
 
 -- Colour change an X spider to Z
 def xSpider : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨1, 1⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
 def xSpiderColourChanged : ZXDiagram :=
-  { nodes := [some (.input 0), some (.spider .Z ⟨1, 1⟩), some (.output 0),
-              some (.hadamard), some (.hadamard)]
-    edges := [⟨0, 3⟩, ⟨1, 3⟩, ⟨1, 4⟩, ⟨2, 4⟩] }
+  .ofList [.input 0, .spider .Z ⟨1, 1⟩, .output 0, .hadamard, .hadamard]
+          [⟨0, 3⟩, ⟨1, 3⟩, ⟨1, 4⟩, ⟨2, 4⟩]
 
 -- Error: not a spider
 def hadamardNode : ZXDiagram :=
