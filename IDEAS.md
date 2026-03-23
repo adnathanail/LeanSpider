@@ -9,3 +9,9 @@
 - Is the custom insertion sort slow?
 - Test CC/HH
 - Move tests into their respective rules files?
+- Nicer Python dev experience with Pyodide
+    - Define deps in a pyproject.toml so they can be installed locally for intellisense to work
+    - Make Pyodide install deps from pyproject.toml
+    - Run ty locally
+    - Separate Python out into files
+    - Bundle Python deps into build?

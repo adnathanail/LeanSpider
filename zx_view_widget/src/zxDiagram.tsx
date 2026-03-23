@@ -88,5 +88,5 @@ export default function ZXDiagram({ diagram }: ZXWidgetProps) {
 
   if (error) return <div style={{ color: 'red', fontFamily: 'monospace' }}>{error}</div>
   if (!png) return <div style={{ fontFamily: 'monospace' }}>Rendering...</div>
-  return <img src={`data:image/png;base64,${png}`} style={{ maxWidth: '100%' }} />
+  return <img src={`data:image/png;base64,${png}`} style={{ maxWidth: '100%' }} alt='ZX Diagram' />
 }
