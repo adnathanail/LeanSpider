@@ -26,9 +26,7 @@ On first use, the widget downloads pyzx and its dependencies (numpy, networkx, m
 
 ## Development
 
-### Tooling
-
-#### Prek
+### Prek
 
 [Install prek](https://github.com/j178/prek) and run
 ```
