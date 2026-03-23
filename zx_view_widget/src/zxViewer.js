@@ -254,19 +254,10 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
         var ax = nhd[0].x, ay = nhd[0].y;
         var bx = nhd[1].x, by = nhd[1].y;
         var t = d.lineParam;
-        var lx = ax + t * (bx - ax);
-        var ly = ay + t * (by - ay);
-        var edx = bx - ax, edy = by - ay;
-        var len = Math.sqrt(edx * edx + edy * edy);
-        var offset = 0.25 * scale;
-        if (len > 0.001) {
-            lx += (-edy / len) * offset;
-            ly += (edx / len) * offset;
-        } else {
-            lx += offset;
-            ly -= offset;
-        }
-        return { x: lx, y: ly };
+        return {
+            x: ax + t * (bx - ax),
+            y: ay + t * (by - ay)
+        };
     }
 
     function update_hboxes() {
