@@ -85,6 +85,10 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
         t.nhd.push(s);
     });
 
+    graph.nodes.forEach(function(d) {
+        if (d.t == 3) d.lineParam = 0.5;
+    });
+
     graph.pauli_web.forEach(function(d) {
         var s = ntab[d.source];
         var t = ntab[d.target];
@@ -236,36 +240,62 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
             .attr("text-anchor", "middle")
     }
 
+    function nonHboxNeighbours(d) {
+        var result = [];
+        for (var i = 0; i < d.nhd.length; ++i) {
+            if (d.nhd[i].t != 3) result.push(d.nhd[i]);
+        }
+        return result;
+    }
+
+    function computeHboxPosition(d) {
+        var nhd = nonHboxNeighbours(d);
+        if (nhd.length != 2) return null;
+        var ax = nhd[0].x, ay = nhd[0].y;
+        var bx = nhd[1].x, by = nhd[1].y;
+        var t = d.lineParam;
+        var lx = ax + t * (bx - ax);
+        var ly = ay + t * (by - ay);
+        var edx = bx - ax, edy = by - ay;
+        var len = Math.sqrt(edx * edx + edy * edy);
+        var offset = 0.25 * scale;
+        if (len > 0.001) {
+            lx += (-edy / len) * offset;
+            ly += (edx / len) * offset;
+        } else {
+            lx += offset;
+            ly -= offset;
+        }
+        return { x: lx, y: ly };
+    }
+
     function update_hboxes() {
         if (auto_hbox) {
             var pos = {};
             hbox.attr("transform", function(d) {
-                // calculate barycenter of non-hbox neighbours, then nudge a bit
-                // to the NE.
-                var x=0,y=0,sz=0;
-                for (var i = 0; i < d.nhd.length; ++i) {
-                    if (d.nhd[i].t != 3) {
-                        sz++;
-                        x += d.nhd[i].x;
-                        y += d.nhd[i].y;
+                var result = computeHboxPosition(d);
+                if (result) {
+                    d.x = result.x;
+                    d.y = result.y;
+                } else {
+                    // Fallback: barycenter with NE nudge
+                    var nhd = nonHboxNeighbours(d);
+                    var offset = 0.25 * scale;
+                    if (nhd.length > 0) {
+                        var x = 0, y = 0;
+                        for (var i = 0; i < nhd.length; ++i) {
+                            x += nhd[i].x;
+                            y += nhd[i].y;
+                        }
+                        x = (x / nhd.length) + offset;
+                        y = (y / nhd.length) - offset;
+                        while (pos[[x, y]]) { x += offset; }
+                        d.x = x;
+                        d.y = y;
+                        pos[[x, y]] = true;
                     }
                 }
-
-                offset = 0.25 * scale;
-
-                if (sz != 0) {
-                    x = (x/sz) + offset;
-                    y = (y/sz) - offset;
-
-                    while (pos[[x,y]]) {
-                        x += offset;
-                    }
-                    d.x = x;
-                    d.y = y;
-                    pos[[x,y]] = true;
-                }
-
-                return "translate("+d.x+","+d.y+")";
+                return "translate(" + d.x + "," + d.y + ")";
             });
         }
     }
@@ -321,14 +351,28 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
         .call(d3.drag().on("drag", function(d) {
             var dx = d3.event.dx;
             var dy = d3.event.dy;
-            // node.filter(function(d) { return d.selected; })
-            //     .attr("cx", function(d) { return d.x += dx; })
-            //     .attr("cy", function(d) { return d.y += dy; });
             node.filter(function(d) { return d.selected; })
                 .attr("transform", function(d) {
+                    if (d.t == 3 && auto_hbox) {
+                        var nhd = nonHboxNeighbours(d);
+                        if (nhd.length == 2) {
+                            var ax = nhd[0].x, ay = nhd[0].y;
+                            var bx = nhd[1].x, by = nhd[1].y;
+                            var ex = bx - ax, ey = by - ay;
+                            var lenSq = ex * ex + ey * ey;
+                            if (lenSq > 0.001) {
+                                var dParam = (dx * ex + dy * ey) / lenSq;
+                                d.lineParam = Math.max(0, Math.min(1, d.lineParam + dParam));
+                            }
+                            var result = computeHboxPosition(d);
+                            if (result) { d.x = result.x; d.y = result.y; }
+                            return "translate(" + d.x + "," + d.y + ")";
+                        }
+                        return "translate(" + d.x + "," + d.y + ")";
+                    }
                     d.x += dx;
                     d.y += dy;
-                    return "translate(" + d.x + "," + d.y +")";
+                    return "translate(" + d.x + "," + d.y + ")";
                 });
 
             update_hboxes();
