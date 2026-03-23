@@ -61,7 +61,7 @@ interface ZXWidgetProps {
   diagram: {
     nodes: Array<{
       id: number
-      type: 'spider' | 'input' | 'output'
+      type: 'spider' | 'input' | 'output' | 'hadamard'
       color?: 'Z' | 'X'
       phase?: string
       ioId?: number

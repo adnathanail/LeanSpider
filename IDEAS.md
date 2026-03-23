@@ -15,3 +15,6 @@
     - Run ty locally
     - Separate Python out into files
     - Bundle Python deps into build?
+- Better layouts
+    - _auto_layout skips vertices unreachable from inputs (zxRender.py ~line 100)
+        - The BFS starts from inputs — disconnected spiders get no row/qubit assignment and default to position 0, causing visual overlap.
