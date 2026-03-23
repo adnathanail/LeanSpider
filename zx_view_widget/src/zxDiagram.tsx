@@ -94,12 +94,16 @@ export default function ZXDiagram({ diagram }: ZXWidgetProps) {
         `render(${JSON.stringify(JSON.stringify(diagram))})`
       )
       setPng(String(b64))
-    }).catch(e => setError(String(e)))
+    }).catch(e => {
+      // Pyodide wraps Python exceptions as PythonError; unwrap to the traceback.
+      const msg = (e instanceof Error && 'type' in e) ? e.message : String(e)
+      setError(msg)
+    })
   }, [diagram, retryCount])
 
   if (error) return (
     <div style={{ fontFamily: 'monospace' }}>
-      <div style={{ color: 'red' }}>{error}</div>
+      <pre style={{ color: 'red', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>{error}</pre>
       <button type="button" onClick={() => setRetryCount(c => c + 1)}>Retry</button>
     </div>
   )

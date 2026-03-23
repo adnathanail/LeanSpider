@@ -152,9 +152,6 @@ def render_to_base64(g: ZXLeanGraph) -> str:
 def render(diagram_json: str) -> str:
     """Convert a ZXDiagram JSON string to a base64-encoded PNG via pyzx."""
     data = json.loads(diagram_json)
-    # try:
     g = leanzx_to_pyzx(data)
     image = render_to_base64(g)
     return image
-    # except Exception as e:
-    #     return jsonify({"status": "error", "message": str(e)}), 500
