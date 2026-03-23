@@ -5,8 +5,7 @@ Lean 4 project for ZX-calculus diagrams with interactive visualization via Proof
 ## Project structure
 
 - `LeanZX/` — Lean 4 library: ZX diagram types, spider fusion, JSON serialization
-- `zx_view_widget/` — TypeScript ProofWidgets widget (React, rollup). Sends diagram JSON to pyzx_daemon, displays rendered PNG in VS Code InfoView
-- `pyzx_daemon/` — Python Flask server (managed with `uv`). Converts LeanZX JSON → pyzx Graph, renders with matplotlib, returns base64 PNG
+- `zx_view_widget/` — TypeScript ProofWidgets widget (React, rollup). Runs pyzx inside the InfoView via Pyodide (CPython compiled to WASM), renders the diagram as a PNG and displays it.
 - `Main.lean` — Entry point with example diagrams shown in InfoView
 
 ## Build commands
@@ -15,7 +14,7 @@ Lean 4 project for ZX-calculus diagrams with interactive visualization via Proof
 lake build
 ```
 
-The Python daemon starts automatically when `LeanZX.Visualize` is imported (via an `initialize` block). Logs are written to `pyzx_daemon/pyzx_daemon.log`.
+The JS bundle (~16MB) is built by rollup and written to `.lake/build/js/`. It embeds the Pyodide runtime (WASM + stdlib) at build time so no network access is needed to start pyodide. Python packages (pyzx, numpy, networkx, matplotlib and their deps) are fetched from CDN/PyPI on first widget render and cached by the browser.
 
 ## Key conventions
 
@@ -23,10 +22,16 @@ The Python daemon starts automatically when `LeanZX.Visualize` is imported (via 
 - Construct diagrams with `ZXDiagram.ofArrays` (array indices become IDs) or `ZXDiagram.addNode`/`ZXDiagram.addEdge`
 - Look up nodes with `d.getNode? id`, not array indexing
 - ZXDiagram nodes: `.input ioId`, `.output ioId`, `.spider color phase` where phase is a `Phase` (num/den)
-- JSON wire format between widget and daemon: `{"nodes": [...], "edges": [{"src": id, "tgt": id}]}`
-- Daemon host/port/URL config constants live in `LeanZX/Visualize.lean` (`daemonHost`, `daemonPort`, `daemonUrl`) — this is the single source of truth, passed to both the Python daemon (via CLI args) and the TypeScript widget (via props)
-- Daemon runs on `127.0.0.1:5050`
-- Python requires `>=3.14`, uses `uv` for dependency management (not pip)
+- JSON wire format from Lean to the widget: `{"nodes": [...], "edges": [{"src": id, "tgt": id}]}`
+- Python rendering logic lives in `zx_view_widget/src/zxRender.py` — edit this file to change how diagrams are drawn. Lake tracks `.py` files and rebuilds the widget when they change.
+
+## Widget architecture
+
+The widget (`zx_view_widget/src/zxDiagram.tsx`) loads Pyodide as follows:
+1. At rollup build time, `pyodide.asm.wasm`, `pyodide.asm.js`, `python_stdlib.zip`, and `pyodide-lock.json` are embedded into the JS bundle as base64 data URLs via a custom rollup plugin (`pyodideBundled` in `rollup.config.js`).
+2. At runtime, the widget evals `pyodide.asm.js` to set `_createPyodideModule` globally (skipping pyodide's dynamic import), patches `globalThis.fetch` to serve the bundled WASM and stdlib from memory, then calls `loadPyodide`.
+3. After pyodide loads, `micropip` installs `pyzx==0.10.0`, `lark==1.3.1`, and `pyperclip==1.11.0` from PyPI. `numpy`, `networkx`, `matplotlib`, `tqdm`, and `typing-extensions` are loaded from pyodide's CDN.
+4. `zxRender.py` is executed to define the `render(diagram_json)` function, which converts the Lean JSON to a pyzx graph and returns a base64 PNG.
 
 ## Lean tips
 
