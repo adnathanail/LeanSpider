@@ -14,7 +14,21 @@ const diagram = {
   ],
 }
 
-function makeFakePyodide(renderResult: unknown = 'abc123') {
+const fakeRenderData = {
+  graph: { nodes: [], links: [], pauli_web: [] },
+  width: 200,
+  height: 100,
+  scale: 40,
+  node_size: 8,
+  colors: {
+    edge: '#000', Hedge: '#08f', Xedge: '#999',
+    boundary: '#000', X: '#f88', Z: '#cfc', H: '#ff6',
+    W: '#000', Zalt: '#cfc', Walt: '#000',
+    Xdark: '#f88', Ydark: '#abf', Zdark: '#9d9',
+  },
+}
+
+function makeFakePyodide(renderResult: unknown = JSON.stringify(fakeRenderData)) {
   return {
     loadPackage: vi.fn().mockResolvedValue(undefined),
     runPythonAsync: vi.fn().mockResolvedValue(renderResult),
@@ -30,6 +44,8 @@ async function setup(loadPyodide: () => Promise<unknown>) {
   vi.doMock('pyodide-bundled/stdlib', () => ({ default: 'data:application/octet-stream;base64,' }))
   vi.doMock('pyodide-bundled/lock', () => ({ default: {} }))
   vi.doMock('../zxRender.py', () => ({ default: '' }))
+  vi.doMock('../zxViewer.js', () => ({ default: 'function showGraph() {}' }))
+  vi.doMock('d3', () => ({}))
   vi.doMock('python-deps/load', () => ({ default: [] }))
   vi.doMock('python-deps/micropip', () => ({ default: [] }))
   const { default: ZXDiagram } = await import('../zxDiagram')
@@ -57,12 +73,13 @@ test('shows loading state while pyodide initialises', async () => {
   expect(screen.getByText('Loading Python environment...')).toBeInTheDocument()
 })
 
-test('renders a PNG image after a successful render', async () => {
-  const fakePng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
-  const ZXDiagram = await setup(() => Promise.resolve(makeFakePyodide(fakePng)))
-  render(<ZXDiagram diagram={diagram} />)
-  const img = await waitFor(() => screen.getByRole('img'))
-  expect(img).toHaveAttribute('src', `data:image/png;base64,${fakePng}`)
+test('renders D3 container after a successful render', async () => {
+  const ZXDiagram = await setup(() => Promise.resolve(makeFakePyodide()))
+  const { container } = render(<ZXDiagram diagram={diagram} />)
+  await waitFor(() => {
+    const div = container.querySelector('div[style*="background-color"]')
+    expect(div).toBeInTheDocument()
+  })
 })
 
 test('shows an error message when pyodide fails to load', async () => {
