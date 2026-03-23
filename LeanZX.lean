@@ -10,5 +10,6 @@ import LeanZX.Rules.IdentityRemoval
 import LeanZX.Rules.HadamardHadamard
 import LeanZX.Rules.ColourChange
 import LeanZX.Rules.PiCopy
+import LeanZX.Rules.SpiderUnfusion
 import LeanZX.DerivedRules.PiPi
 import LeanZX.Examples
