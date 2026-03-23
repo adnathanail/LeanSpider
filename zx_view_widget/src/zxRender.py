@@ -1,17 +1,14 @@
-from pyzx.graph.base import BaseGraph
-from fractions import Fraction
-
-from pyzx.graph import Graph
-from pyzx.utils import EdgeType, VertexType
-
 import base64
 import io
 import json
+from fractions import Fraction
 
 import matplotlib
-
 import matplotlib.pyplot as plt
 import pyzx as zx
+from pyzx.graph import Graph
+from pyzx.graph.base import BaseGraph
+from pyzx.utils import EdgeType, VertexType
 
 matplotlib.use("Agg")
 
