@@ -19,7 +19,7 @@ def ZXDiagram.colourChange (d: ZXDiagram) (a : NodeId) : Except String ZXDiagram
   let d := d.removeEdgesOf a
   let d := d.addEdges (hadIds.map (λ had => Edge.mk had a))
   let d := d.addEdges (aNeighbors.zipWith (Edge.mk . .) hadIds)
-  return d.normalize
+  return d
 
 namespace LeanZX
 

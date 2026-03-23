@@ -20,7 +20,7 @@ def ZXDiagram.hadamardHadamard (d: ZXDiagram) (a b : NodeId) : Except String ZXD
   let d := d.removeEdgesOf b
   let d := d.removeNode b
   let d := { d with edges := d.edges ++ [Edge.mk n0 n1] }
-  return d.normalize
+  return d
 
 namespace LeanZX
 

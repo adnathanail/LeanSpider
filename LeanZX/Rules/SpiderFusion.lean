@@ -24,7 +24,7 @@ def ZXDiagram.spiderFusion (d : ZXDiagram) (a b : NodeId) : Except String ZXDiag
   let d := d.setNode a merged
   let d := { d with edges := d.edges ++ newEdges }
   let d := d.removeNode b
-  return d.normalize
+  return d
 
 namespace LeanZX
 

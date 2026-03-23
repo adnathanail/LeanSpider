@@ -17,7 +17,7 @@ def ZXDiagram.identityRemoval (d: ZXDiagram) (a : NodeId) : Except String ZXDiag
   let d := d.removeEdgesOf a
   let d := d.removeNode a
   let d := { d with edges := d.edges ++ [Edge.mk n0 n1] }
-  return d.normalize
+  return d
 
 namespace LeanZX
 

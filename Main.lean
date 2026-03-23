@@ -121,7 +121,7 @@ example : ∃ d', exercise3point7 ≈z d' := by
   zx_id 12
   zx_sp 14 6
   zx_cc 8
-  zx_hh 7 17
+  zx_hh 7 16
   zx_hh 9 18
   zx_sp 14 8
   zx_unsp 14 ⟨0, 1⟩ ⟨1, 1⟩ [10]

@@ -86,7 +86,7 @@ elab tk:"zx_show" : tactic => withMainContext do
   let (lhs, _) ← parseEquivGoal goalType
   showDiagram tk "Current diagram" lhs
 
-/-- Close a `d ≈z d` goal by reflexivity. -/
+/-- Close a `d₁ ≈z d₂` goal by normalization (both sides normalize to the same diagram). -/
 elab "zx_rfl" : tactic => withMainContext do
   let goal ← getMainGoal
   let goalType ← goal.getType
@@ -94,8 +94,11 @@ elab "zx_rfl" : tactic => withMainContext do
   -- If the RHS is a metavar (e.g. from zx_explore), unify it with the LHS
   if rhs.isMVar then
     rhs.mvarId!.assign lhs
-  let reflProof ← mkAppM ``ZXDiagram.equiv_refl #[lhs]
-  goal.assign reflProof
+    let reflProof ← mkAppM ``ZXDiagram.equiv_refl #[lhs]
+    goal.assign reflProof
+  else
+    -- Use decide: evaluates normalize on both sides and compares
+    evalTactic (← `(tactic| decide))
 
 /-- Start aimless exploration: introduces `∃ d', diagram ≈z d'` into `diagram ≈z ?d'`,
     then shows the diagram. Apply rewrites freely and close with `zx_rfl`. -/
