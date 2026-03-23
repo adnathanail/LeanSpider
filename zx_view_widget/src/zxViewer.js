@@ -14,12 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-require.undef('zx_viewer');
-
-define('zx_viewer', ['d3'], function(d3) {
-    
-// -- BEGIN INLINE --
-
 // styling functions
 function nodeColor(t) {
     if (t == 0) return _settings_colors['boundary'];
@@ -38,9 +32,9 @@ function edgeColor(t) {
 }
 
 function webColor(t) {
-    if (t == 'X') return _settings_colors['Xweb'];
-    else if (t == 'Y') return _settings_colors['Yweb'];
-    else if (t == 'Z') return _settings_colors['Zweb'];
+    if (t == 'X') return _settings_colors['Xdark'];
+    else if (t == 'Y') return _settings_colors['Ydark'];
+    else if (t == 'Z') return _settings_colors['Zdark'];
     else if (t == 'I') return '#dddddd';
 }
 
@@ -340,7 +334,7 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
             update_hboxes();
 
             link.filter(function(d) { return d.source.selected || d.target.selected ||
-                    (auto_hbox && d.source.t == 3); })
+                    (auto_hbox && (d.source.t == 3 || d.target.t == 3)); })
                 .attr("d", link_curve);
             web.filter(function(d) { return d.source.selected || d.target.selected; })
                 .attr("d", web_curve);
@@ -374,8 +368,3 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
             }
         }));
 }
-
-// -- END INLINE --
-
-return { showGraph: showGraph };
-});
