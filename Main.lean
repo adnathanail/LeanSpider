@@ -124,7 +124,12 @@ example : ∃ d', exercise3point7 ≈z d' := by
   zx_hh 7 17
   zx_hh 9 18
   zx_sp 14 8
-  -- Current challenge: Spider unfusion - we need to unfuse that pi X spider
+  zx_unsp 14 ⟨0, 1⟩ ⟨1, 1⟩ [10]
+  zx_pi 19 10
+  zx_cc 20
+  zx_hh 4 22
+  zx_sp 20 2
+  zx_unsp 20 ⟨0, 1⟩ ⟨1, 1⟩ [3]
   zx_rfl
 
 -- Current challenge: Graph equality
