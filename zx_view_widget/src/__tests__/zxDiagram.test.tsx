@@ -30,6 +30,8 @@ async function setup(loadPyodide: () => Promise<unknown>) {
   vi.doMock('pyodide-bundled/stdlib', () => ({ default: 'data:application/octet-stream;base64,' }))
   vi.doMock('pyodide-bundled/lock', () => ({ default: {} }))
   vi.doMock('../zxRender.py', () => ({ default: '' }))
+  vi.doMock('python-deps/load', () => ({ default: [] }))
+  vi.doMock('python-deps/micropip', () => ({ default: [] }))
   const { default: ZXDiagram } = await import('../zxDiagram')
   return ZXDiagram
 }

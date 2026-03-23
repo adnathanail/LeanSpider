@@ -16,6 +16,18 @@ const pyodideBundledStub: Plugin = {
   },
 }
 
+const pythonDepsStub: Plugin = {
+  name: 'python-deps-stub',
+  resolveId(id) {
+    if (id === 'python-deps/load' || id === 'python-deps/micropip') return `\0${id}`
+  },
+  load(id) {
+    if (id === '\0python-deps/load' || id === '\0python-deps/micropip') {
+      return `export default [];`
+    }
+  },
+}
+
 const rawPyStub: Plugin = {
   name: 'raw-py-stub',
   transform(code, id) {
@@ -24,7 +36,7 @@ const rawPyStub: Plugin = {
 }
 
 export default defineConfig({
-  plugins: [pyodideBundledStub, rawPyStub],
+  plugins: [pyodideBundledStub, pythonDepsStub, rawPyStub],
   test: {
     environment: 'jsdom',
     globals: true,
