@@ -85,8 +85,54 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
         t.nhd.push(s);
     });
 
+    // getHboxChainInfo: trace through a chain of H-boxes to find the
+    // non-H-box endpoints and the ordered list of H-boxes between them.
+    // Returns {endpointA, endpointB, hboxes: [...], index} or null.
+    function getHboxChainInfo(d) {
+        if (d.t != 3 || d.nhd.length != 2) return null;
+
+        function trace(start, prev) {
+            var chain = [];
+            var current = start;
+            while (current.t == 3 && current.nhd.length == 2) {
+                chain.push(current);
+                var next = (current.nhd[0] === prev) ? current.nhd[1] : current.nhd[0];
+                prev = current;
+                current = next;
+            }
+            return { endpoint: current.t != 3 ? current : null, chain: chain };
+        }
+
+        var left = trace(d.nhd[0], d);
+        var right = trace(d.nhd[1], d);
+        if (!left.endpoint || !right.endpoint) return null;
+
+        var hboxes = left.chain.reverse().concat([d]).concat(right.chain);
+        return {
+            endpointA: left.endpoint,
+            endpointB: right.endpoint,
+            hboxes: hboxes,
+            index: left.chain.length
+        };
+    }
+
+    // Minimum distance (in lineParam units) from endpoints and between H-boxes
+    var hboxMargin = 0.05;
+
+    // Initialize lineParam: evenly space H-boxes along their chain
+    var hboxVisited = {};
     graph.nodes.forEach(function(d) {
-        if (d.t == 3) d.lineParam = 0.5;
+        if (d.t == 3 && !hboxVisited[d.name]) {
+            var info = getHboxChainInfo(d);
+            if (info) {
+                for (var i = 0; i < info.hboxes.length; i++) {
+                    info.hboxes[i].lineParam = (i + 1) / (info.hboxes.length + 1);
+                    hboxVisited[info.hboxes[i].name] = true;
+                }
+            } else {
+                d.lineParam = 0.5;
+            }
+        }
     });
 
     graph.pauli_web.forEach(function(d) {
@@ -249,10 +295,10 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
     }
 
     function computeHboxPosition(d) {
-        var nhd = nonHboxNeighbours(d);
-        if (nhd.length != 2) return null;
-        var ax = nhd[0].x, ay = nhd[0].y;
-        var bx = nhd[1].x, by = nhd[1].y;
+        var info = getHboxChainInfo(d);
+        if (!info) return null;
+        var ax = info.endpointA.x, ay = info.endpointA.y;
+        var bx = info.endpointB.x, by = info.endpointB.y;
         var t = d.lineParam;
         return {
             x: ax + t * (bx - ax),
@@ -345,15 +391,21 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
             node.filter(function(d) { return d.selected; })
                 .attr("transform", function(d) {
                     if (d.t == 3 && auto_hbox) {
-                        var nhd = nonHboxNeighbours(d);
-                        if (nhd.length == 2) {
-                            var ax = nhd[0].x, ay = nhd[0].y;
-                            var bx = nhd[1].x, by = nhd[1].y;
+                        var info = getHboxChainInfo(d);
+                        if (info) {
+                            var ax = info.endpointA.x, ay = info.endpointA.y;
+                            var bx = info.endpointB.x, by = info.endpointB.y;
                             var ex = bx - ax, ey = by - ay;
                             var lenSq = ex * ex + ey * ey;
                             if (lenSq > 0.001) {
                                 var dParam = (dx * ex + dy * ey) / lenSq;
-                                d.lineParam = Math.max(0, Math.min(1, d.lineParam + dParam));
+                                var newParam = d.lineParam + dParam;
+                                // Clamp to not pass adjacent H-boxes in chain
+                                var minParam = hboxMargin, maxParam = 1 - hboxMargin;
+                                var idx = info.index;
+                                if (idx > 0) minParam = info.hboxes[idx - 1].lineParam + hboxMargin;
+                                if (idx < info.hboxes.length - 1) maxParam = info.hboxes[idx + 1].lineParam - hboxMargin;
+                                d.lineParam = Math.max(minParam, Math.min(maxParam, newParam));
                             }
                             var result = computeHboxPosition(d);
                             if (result) { d.x = result.x; d.y = result.y; }
