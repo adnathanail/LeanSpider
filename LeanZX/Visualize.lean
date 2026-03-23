@@ -49,6 +49,6 @@ structure ZXWidgetProps where
 def ZXWidget : Component ZXWidgetProps where
   javascript := include_str ".." / ".lake" / "build" / "js" / "zxDiagram.js"
 
--- Helper function which converts a ZXDiagram to HTML (passing the daemon URL)
+-- Display a ZXDiagram in the ZXWidget in the InfoView
 def ZXDiagram.toHtml (d : ZXDiagram) : Html :=
   Html.ofComponent ZXWidget ⟨d.toJson⟩ #[]

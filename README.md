@@ -4,14 +4,13 @@
 [![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v0.json)](https://github.com/astral-sh/ty)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json)](https://github.com/j178/prek)
-[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff)](https://www.typescriptlang.org)
 
 ## Usage
 
 Install the [Lean 4 VS Code extension](https://marketplace.visualstudio.com/items?itemName=leanprover.lean4)
 
-Create a diagram and view it
+Create a diagram and view it in the InfoView:
 ```lean
 def zCnotZ : ZXDiagram :=
   .ofList [
@@ -22,6 +21,8 @@ def zCnotZ : ZXDiagram :=
 
 #html zCnotZ.toHtml
 ```
+
+On first use, the widget downloads pyzx and its dependencies (numpy, networkx, matplotlib) from the internet and caches them. Subsequent renders are fully offline.
 
 ## Development
 
@@ -36,16 +37,14 @@ prek --install
 
 ### ZX viewing widget
 
-The InfoView widget lives in `zx_view_widget/src/`
+The InfoView widget lives in `zx_view_widget/src/`.
 
-It is a React component, written in Typescript, bundled with rollup
+It is a React component written in TypeScript, bundled with rollup. It runs pyzx directly inside the InfoView using Pyodide (CPython compiled to WebAssembly) — no external processes or servers are required.
 
-`lake` handles `npm install` and the JS bundle automatically
+The pyodide runtime (~16MB) is bundled into the widget JS at build time so it works without any network access. Python packages (pyzx, numpy, etc.) are fetched from the internet on first use and cached by the browser.
 
-### PyZX daemon
+`lake` handles `npm install` and the JS bundle automatically:
 
-The widget sends diagram data to a local Flask server for processing
-
-The daemon starts automatically when `LeanZX.Visualize` is imported
-
-Logs are written to `pyzx_daemon/pyzx_daemon.log`
+```sh
+lake build
+```

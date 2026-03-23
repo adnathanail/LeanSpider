@@ -3,7 +3,6 @@
     - Conversion to matrices?
     - Do normalization in equality checks, not in rewrites
 - Use PyZX D3 drawing of diagrams - as our output is a React component
-- Run PyZX in the react component (Pyscript?)
 - Simplification routines as tactics
 - To/from circuit form
 - Create typeclass(?) for rewrite rules to implement, so tactics can be automatically derived or something
