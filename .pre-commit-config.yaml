@@ -4,6 +4,6 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
-        files: ^pyzx_daemon/
+        files: ^zx_view_widget/src
       - id: ruff-format
-        files: ^pyzx_daemon/
+        files: ^zx_view_widget/src
