@@ -53,7 +53,10 @@ await micropip.install(['lark==1.3.1', 'pyperclip==1.11.0', 'pyzx==0.10.0'], dep
     await pyodide.runPythonAsync(zxRenderPy)
 
     return pyodide
-  })()
+  })().catch(e => {
+    pyodideReady = null
+    throw e
+  })
   return pyodideReady
 }
 
@@ -77,19 +80,28 @@ export default function ZXDiagram({ diagram }: ZXWidgetProps) {
   const [png, setPng] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [status, setStatus] = React.useState<'loading' | 'rendering'>('loading')
+  const [retryCount, setRetryCount] = React.useState(0)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is intentionally used to force re-runs on retry
   React.useEffect(() => {
+    setError(null)
+    setPng(null)
     setStatus('loading')
-    loadPyodideLocal().then(async (pyodide: any) => {
+    loadPyodideLocal().then(async (pyodide: unknown) => {
       setStatus('rendering')
-      const b64 = await pyodide.runPythonAsync(
+      const b64 = await (pyodide as { runPythonAsync(code: string): Promise<unknown> }).runPythonAsync(
         `render(${JSON.stringify(JSON.stringify(diagram))})`
       )
       setPng(String(b64))
     }).catch(e => setError(String(e)))
-  }, [diagram])
+  }, [diagram, retryCount])
 
-  if (error) return <div style={{ color: 'red', fontFamily: 'monospace' }}>{error}</div>
+  if (error) return (
+    <div style={{ fontFamily: 'monospace' }}>
+      <div style={{ color: 'red' }}>{error}</div>
+      <button type="button" onClick={() => setRetryCount(c => c + 1)}>Retry</button>
+    </div>
+  )
   if (!png) return <div style={{ fontFamily: 'monospace' }}>{status === 'loading' ? 'Loading Python environment...' : 'Rendering...'}</div>
   return <img src={`data:image/png;base64,${png}`} style={{ maxWidth: '100%' }} alt='ZX Diagram' />
 }
