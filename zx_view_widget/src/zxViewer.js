@@ -1,32 +1,85 @@
-// Based on pyzx's zx_viewer.inline.js (Apache 2.0)
-// Modified: added click-to-highlight-neighbours, adapted for ES module use.
+// PyZX - Python library for quantum circuit rewriting 
+//        and optimisation using the ZX-calculus
+// Copyright (C) 2018 - Aleks Kissinger and John van de Wetering
 
-function showGraph(container, graph, width, height, scale, node_size, colors, show_labels) {
-    var d3 = window.d3;
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//    http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+require.undef('zx_viewer');
+
+define('zx_viewer', ['d3'], function(d3) {
+    
+// -- BEGIN INLINE --
+
+// styling functions
+function nodeColor(t) {
+    if (t == 0) return _settings_colors['boundary'];
+    else if (t == 1) return _settings_colors['Z']; // "#ccffcc";
+    else if (t == 2) return _settings_colors['X']; // "#ff8888";
+    else if (t == 3) return _settings_colors['H']; // "yellow";
+    else if (t == 4) return _settings_colors['W']; // "black";
+    else if (t == 5) return _settings_colors['Walt']; // "black";
+    else if (t == 6) return _settings_colors['Zalt']; // "#ccffcc";
+}
+
+function edgeColor(t) {
+    if (t == 1) return _settings_colors['edge']; //"black";
+    else if (t == 2) return _settings_colors['Hedge']; // "#08f";
+    else if (t == 3) return _settings_colors['Xedge']; // "gray";
+}
+
+function webColor(t) {
+    if (t == 'X') return _settings_colors['Xweb'];
+    else if (t == 'Y') return _settings_colors['Yweb'];
+    else if (t == 'Z') return _settings_colors['Zweb'];
+    else if (t == 'I') return '#dddddd';
+}
+
+function nodeStyle(selected) {
+    return selected ? "stroke-width: 2px; stroke: #00f" : "stroke-width: 1.5px";
+}
+
+var symbolGround = {
+    draw: function(context, size){
+        let s = size/2;
+
+        context.moveTo(0,-s);
+        context.lineTo(0,0);
+
+        context.moveTo(-s,0);
+        context.lineTo(s,0);
+
+        context.moveTo(-2*s/3,s/3);
+        context.lineTo(2*s/3,s/3);
+
+        context.moveTo(-s/3,2*s/3);
+        context.lineTo(s/3,2*s/3);
+    }
+}
+
+function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_labels, scalar_str) {
     var ntab = {};
+
     var groundOffset = 2.5 * node_size;
-
-    function nodeColor(t) {
-        if (t == 0) return colors['boundary'];
-        else if (t == 1) return colors['Z'];
-        else if (t == 2) return colors['X'];
-        else if (t == 3) return colors['H'];
-        else if (t == 4) return colors['W'];
-        else if (t == 5) return colors['Walt'];
-        else if (t == 6) return colors['Zalt'];
-    }
-
-    function edgeColor(t) {
-        if (t == 1) return colors['edge'];
-        else if (t == 2) return colors['Hedge'];
-        else if (t == 3) return colors['Xedge'];
-    }
 
     graph.nodes.forEach(function(d) {
         ntab[d.name] = d;
         d.selected = false;
         d.previouslySelected = false;
         d.nhd = [];
+    });
+
+    var spiders_and_boundaries = graph.nodes.filter(function(d) {
+        return d.t != 3;
     });
 
     graph.links.forEach(function(d) {
@@ -38,46 +91,47 @@ function showGraph(container, graph, width, height, scale, node_size, colors, sh
         t.nhd.push(s);
     });
 
-    // --- HIGHLIGHT STATE ---
-    var highlightedNode = null;
+    graph.pauli_web.forEach(function(d) {
+        var s = ntab[d.source];
+        var t = ntab[d.target];
+        d.source = s;
+        d.target = t;
+    });
 
-    function updateHighlight() {
-        if (highlightedNode == null) {
-            // No highlight — full opacity everywhere
-            node.attr("opacity", 1);
-            link.attr("opacity", 1);
-        } else {
-            var hn = highlightedNode;
-            var nhdNames = new Set(hn.nhd.map(function(n) { return n.name; }));
-            nhdNames.add(hn.name);
+    var shiftKey;
 
-            node.attr("opacity", function(d) {
-                return nhdNames.has(d.name) ? 1 : 0.15;
-            });
-            link.attr("opacity", function(d) {
-                var sName = d.source.name;
-                var tName = d.target.name;
-                // Show edge if both endpoints are in the highlighted set
-                return (nhdNames.has(sName) && nhdNames.has(tName)) ? 1 : 0.08;
-            });
-        }
-    }
+    // SETUP SVG ITEMS
 
-    // --- SVG SETUP ---
-    var svg = d3.select(container)
+    var svg = d3.select(tag)
+    //.attr("tabindex", 1)
+        .on("keydown.brush", function() {shiftKey = d3.event.shiftKey || d3.event.metaKey;})
+        .on("keyup.brush", function() {shiftKey = d3.event.shiftKey || d3.event.metaKey;})
+    //.each(function() { this.focus(); })
         .append("svg")
         .attr("style", "max-width: none; max-height: none")
         .attr("width", width)
         .attr("height", height);
 
+    var web = svg.append("g")
+        .attr("class", "web")
+        .selectAll("line")
+        .data(graph.pauli_web)
+        .enter().append("path")
+        .attr("stroke", function(d) { return webColor(d.t); })
+        .attr("fill", "transparent")
+        .attr("style", "stroke-width: 7px");
+
     var link = svg.append("g")
         .attr("class", "link")
-        .selectAll("path")
+        .selectAll("line")
         .data(graph.links)
         .enter().append("path")
         .attr("stroke", function(d) { return edgeColor(d.t); })
         .attr("fill", "transparent")
         .attr("style", "stroke-width: 1.5px");
+
+    var brush = svg.append("g")
+        .attr("class", "brush");
 
     var node = svg.append("g")
         .attr("class", "node")
@@ -85,19 +139,26 @@ function showGraph(container, graph, width, height, scale, node_size, colors, sh
         .data(graph.nodes)
         .enter().append("g")
         .attr("transform", function(d) {
-            return "translate(" + d.x + "," + d.y + ")";
+            return "translate(" + d.x + "," + d.y +")";
         });
 
-    // Draw ground symbols
+    // Draw a ground symbol connected to the node.
     node.filter(function(d) { return d.ground; })
         .append("path")
         .attr("stroke", "black")
         .attr("style", "stroke-width: 1.5px")
         .attr("fill", "none")
-        .attr("d", "M 0 0 L 0 " + groundOffset)
+        .attr("d", "M 0 0 L 0 "+(groundOffset))
+        .attr("class", "selectable");
+    node.filter(function(d) { return d.ground; })
+        .append("path")
+        .attr("stroke", "black")
+        .attr("style", "stroke-width: 1.5px")
+        .attr("fill", "none")
+        .attr("d", d3.symbol().type(symbolGround).size(node_size*1.5))
+        .attr("transform", "translate(0,"+groundOffset+")")
         .attr("class", "selectable");
 
-    // Circles for spiders and boundaries (not H-boxes)
     node.filter(function(d) { return d.t != 3 && d.t != 5 && d.t != 6; })
         .append("circle")
         .attr("r", function(d) {
@@ -109,8 +170,8 @@ function showGraph(container, graph, width, height, scale, node_size, colors, sh
         .attr("stroke", "black")
         .attr("class", "selectable");
 
-    // H-box rectangles
     var hbox = node.filter(function(d) { return d.t == 3; });
+
     hbox.append("rect")
         .attr("x", -0.75 * node_size).attr("y", -0.75 * node_size)
         .attr("width", node_size * 1.5).attr("height", node_size * 1.5)
@@ -118,7 +179,16 @@ function showGraph(container, graph, width, height, scale, node_size, colors, sh
         .attr("stroke", "black")
         .attr("class", "selectable");
 
-    // Z-box squares (t == 6)
+    // draw a triangle for d.t == 5
+    node.filter(function(d) { return d.t == 5; })
+        .append("path")
+        .attr("d", "M 0 0 L "+node_size+" "+node_size+" L -"+node_size+" "+node_size+" Z")
+        .attr("fill", function(d) { return nodeColor(d.t); })
+        .attr("stroke", "black")
+        .attr("class", "selectable")
+        .attr("transform", "translate(" + (-node_size/2) + ", 0) rotate(-90)");
+
+    // draw a square for Z box: d.t == 6
     node.filter(function(d) { return d.t == 6; })
         .append("rect")
         .attr("x", -0.75 * node_size).attr("y", -0.75 * node_size)
@@ -127,128 +197,185 @@ function showGraph(container, graph, width, height, scale, node_size, colors, sh
         .attr("stroke", "black")
         .attr("class", "selectable");
 
-    // Triangle for W_ALT (t == 5)
-    node.filter(function(d) { return d.t == 5; })
-        .append("path")
-        .attr("d", "M 0 0 L " + node_size + " " + node_size + " L -" + node_size + " " + node_size + " Z")
-        .attr("fill", function(d) { return nodeColor(d.t); })
-        .attr("stroke", "black")
-        .attr("class", "selectable")
-        .attr("transform", "translate(" + (-node_size / 2) + ", 0) rotate(-90)");
-
-    // Phase labels
     node.filter(function(d) { return d.phase != ''; })
         .append("text")
         .attr("y", 0.7 * node_size + 14)
-        .text(function(d) { return d.phase; })
+        .text(function (d) { return d.phase })
         .attr("text-anchor", "middle")
         .attr("font-size", "12px")
         .attr("font-family", "monospace")
         .attr("fill", "#00d")
-        .attr("style", "pointer-events: none; user-select: none;");
+        .attr('style', 'pointer-events: none; user-select: none;');
 
-    // Node ID labels
     if (show_labels) {
         node.append("text")
             .attr("y", -0.7 * node_size - 8)
-            .text(function(d) { return d.name; })
+            .text(function (d) { return d.name; })
             .attr("text-anchor", "middle")
             .attr("font-size", "10px")
             .attr("font-family", "monospace")
             .attr("fill", "#999")
-            .attr("style", "pointer-events: none; user-select: none;");
+            .attr('style', 'pointer-events: none; user-select: none;');
     }
 
-    // --- AUTO H-BOX POSITIONING ---
-    function update_hboxes() {
-        var pos = {};
-        hbox.attr("transform", function(d) {
-            var x = 0, y = 0, sz = 0;
-            for (var i = 0; i < d.nhd.length; ++i) {
-                if (d.nhd[i].t != 3) {
-                    sz++;
-                    x += d.nhd[i].x;
-                    y += d.nhd[i].y;
-                }
-            }
-            var offset = 0.25 * scale;
-            if (sz != 0) {
-                x = (x / sz) + offset;
-                y = (y / sz) - offset;
-                while (pos[[x, y]]) { x += offset; }
-                d.x = x;
-                d.y = y;
-                pos[[x, y]] = true;
-            }
-            return "translate(" + d.x + "," + d.y + ")";
-        });
+    // Display the chosen data fields over the node.
+    node.filter(d => d.vdata.length > 0)
+        .append("text")
+        .attr("y", d => -0.7 * node_size - 14 - 10 * d.vdata.length)
+        .attr("text-anchor", "middle")
+        .attr("font-size", "8px")
+        .attr("font-family", "monospace")
+        .attr("fill", "#c66")
+        .attr('style', 'pointer-events: none; user-select: none;')
+        .selectAll("tspan")
+        .data(d => d.vdata)
+        .enter()
+        .append("tspan")
+        .attr("x", "0")
+        .attr("dy", "1.2em")
+        .text(x => x.join(": "));
+
+    if (scalar_str != "") {
+        svg.append("text")
+            .text(scalar_str)
+            .attr("x", 60).attr("y", 40)
+            .attr("text-anchor", "middle")
     }
+
+    function update_hboxes() {
+        if (auto_hbox) {
+            var pos = {};
+            hbox.attr("transform", function(d) {
+                // calculate barycenter of non-hbox neighbours, then nudge a bit
+                // to the NE.
+                var x=0,y=0,sz=0;
+                for (var i = 0; i < d.nhd.length; ++i) {
+                    if (d.nhd[i].t != 3) {
+                        sz++;
+                        x += d.nhd[i].x;
+                        y += d.nhd[i].y;
+                    }
+                }
+
+                offset = 0.25 * scale;
+
+                if (sz != 0) {
+                    x = (x/sz) + offset;
+                    y = (y/sz) - offset;
+
+                    while (pos[[x,y]]) {
+                        x += offset;
+                    }
+                    d.x = x;
+                    d.y = y;
+                    pos[[x,y]] = true;
+                }
+
+                return "translate("+d.x+","+d.y+")";
+            });
+        }
+    }
+
     update_hboxes();
 
-    // --- EDGE CURVES (handles parallel edges) ---
     var link_curve = function(d) {
         var x1 = d.source.x, x2 = d.target.x, y1 = d.source.y, y2 = d.target.y;
         if (x1 == x2 && y1 == y2 && d.num_parallel == 1) {
-            // Self-loop (single)
-            var cx1 = x1 - 40, cy1 = y1 - 40, cx2 = x1 + 40, cy2 = y1 - 40;
-            return "M " + x1 + " " + y1 + " C " + cx1 + " " + cy1 + ", " + cx2 + " " + cy2 + ", " + x2 + " " + y2;
+            var cx1 = x1 - 40;
+            var cy1 = y1 - 40;
+            var cx2 = x1 + 40;
+            var cy2 = y1 - 40;
+            return `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
         } else if (x1 == x2 && y1 == y2) {
-            // Self-loop (multiple)
             var pos = d.index + 1;
-            var cx1 = x1 - 20 - pos * 10, cy1 = y1 - 20 - pos * 10;
-            var cx2 = x1 + 20 + pos * 10, cy2 = y1 - 20 - pos * 10;
-            return "M " + x1 + " " + y1 + " C " + cx1 + " " + cy1 + ", " + cx2 + " " + cy2 + ", " + x2 + " " + y2;
+            var cx1 = x1 - 20 - pos * 10;
+            var cy1 = y1 - 20 - pos * 10;
+            var cx2 = x1 + 20 + pos * 10;
+            var cy2 = y1 - 20 - pos * 10;
+            return `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
         } else if (d.num_parallel == 1) {
-            return "M " + x1 + " " + y1 + " L " + x2 + " " + y2;
+            return `M ${x1} ${y1} L ${x2} ${y2}`;
         } else {
-            // Parallel edges — spread as bezier arcs
             var dx = x2 - x1, dy = y2 - y1;
             var midx = 0.5 * (x1 + x2), midy = 0.5 * (y1 + y2);
-            var p = (d.index / (d.num_parallel - 1)) - 0.5;
-            var cx = midx - p * dy;
-            var cy = midy + p * dx;
-            return "M " + x1 + " " + y1 + " Q " + cx + " " + cy + ", " + x2 + " " + y2;
+            var pos = (d.index / (d.num_parallel-1)) - 0.5;
+            var cx = midx - pos * dy;
+            var cy = midy + pos * dx;
+            return `M ${x1} ${y1} Q ${cx} ${cy}, ${x2} ${y2}`;
+            // return `M ${x1} ${y1} L ${x2} ${y2}`;
         }
     };
     link.attr("d", link_curve);
 
-    // --- DRAG ---
-    node.call(d3.drag().on("drag", function(d) {
-        var dx = d3.event.dx;
-        var dy = d3.event.dy;
-        node.filter(function(d) { return d.selected; })
-            .attr("transform", function(d) {
-                d.x += dx;
-                d.y += dy;
-                return "translate(" + d.x + "," + d.y + ")";
-            });
-        update_hboxes();
-        link.filter(function(d) { return d.source.selected || d.target.selected || d.source.t == 3; })
-            .attr("d", link_curve);
-    }));
 
-    // --- CLICK TO HIGHLIGHT NEIGHBOURS ---
-    node.on("click", function(d) {
-        d3.event.stopPropagation();
-        if (highlightedNode === d) {
-            // Click same node again — deselect
-            highlightedNode = null;
-        } else {
-            highlightedNode = d;
+    var web_curve = function(d) {
+        var x1 = d.source.x, x2 = (x1 + d.target.x)/2, y1 = d.source.y, y2 = (y1 + d.target.y)/2;
+        return `M ${x1} ${y1} L ${x2} ${y2}`;
+    }
+    web.attr("d", web_curve);
+
+    // EVENTS FOR DRAGGING AND SELECTION
+
+    node.on("mousedown", function(d) {
+        if (shiftKey) {
+            d3.select(this).selectAll(".selectable").attr("style", nodeStyle(d.selected = !d.selected));
+            d3.event.stopImmediatePropagation();
+        } else if (!d.selected) {
+            node.selectAll(".selectable").attr("style", function(p) { return nodeStyle(p.selected = d === p); });
         }
-        // Also mark as selected for drag
-        node.each(function(p) { p.selected = (p === highlightedNode); });
-        node.selectAll(".selectable").attr("style", function(p) {
-            return p.selected ? "stroke-width: 2px; stroke: #00f" : "stroke-width: 1.5px";
-        });
-        updateHighlight();
-    });
+    })
+        .call(d3.drag().on("drag", function(d) {
+            var dx = d3.event.dx;
+            var dy = d3.event.dy;
+            // node.filter(function(d) { return d.selected; })
+            //     .attr("cx", function(d) { return d.x += dx; })
+            //     .attr("cy", function(d) { return d.y += dy; });
+            node.filter(function(d) { return d.selected; })
+                .attr("transform", function(d) {
+                    d.x += dx;
+                    d.y += dy;
+                    return "translate(" + d.x + "," + d.y +")";
+                });
 
-    // Click on background to deselect
-    svg.on("click", function() {
-        highlightedNode = null;
-        node.each(function(p) { p.selected = false; });
-        node.selectAll(".selectable").attr("style", "stroke-width: 1.5px");
-        updateHighlight();
-    });
+            update_hboxes();
+
+            link.filter(function(d) { return d.source.selected || d.target.selected ||
+                    (auto_hbox && d.source.t == 3); })
+                .attr("d", link_curve);
+            web.filter(function(d) { return d.source.selected || d.target.selected; })
+                .attr("d", web_curve);
+        }));
+
+    brush.call(d3.brush().keyModifiers(false)
+        .extent([[0, 0], [width, height]])
+        .on("start", function() {
+            if (d3.event.sourceEvent.type !== "end") {
+                node.selectAll(".selectable").attr("style", function(d) {
+                    return nodeStyle(
+                        d.selected = d.previouslySelected = shiftKey &&
+                        d.selected);
+                });
+            }
+        })
+        .on("brush", function() {
+            if (d3.event.sourceEvent.type !== "end") {
+                var selection = d3.event.selection;
+                node.selectAll(".selectable").attr("style", function(d) {
+                    return nodeStyle(d.selected = d.previouslySelected ^
+                        (selection != null
+                            && selection[0][0] <= d.x && d.x < selection[1][0]
+                            && selection[0][1] <= d.y && d.y < selection[1][1]));
+                });
+            }
+        })
+        .on("end", function() {
+            if (d3.event.selection != null) {
+                d3.select(this).call(d3.event.target.move, null);
+            }
+        }));
 }
+
+// -- END INLINE --
+
+return { showGraph: showGraph };
+});
