@@ -3,7 +3,6 @@ zx_view_widget/node_modules/
 zx_view_widget/package-lock.json.hash
 zx_view_widget/package-lock.json.trace
 zx_view_widget/dist/
-pyzx_daemon/.venv/
 
 **/__pycache__/
 **/.ruff_cache/

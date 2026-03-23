@@ -58,7 +58,6 @@ await micropip.install(['lark==1.3.1', 'pyperclip==1.11.0', 'pyzx==0.10.0'], dep
 }
 
 interface ZXWidgetProps {
-  serverUrl: string
   diagram: {
     nodes: Array<{
       id: number

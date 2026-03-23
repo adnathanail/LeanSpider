@@ -3,23 +3,6 @@ import ProofWidgets.Component.HtmlDisplay
 
 open Lean Server ProofWidgets
 
--- == Python daemon config ==
-def daemonHost := "127.0.0.1"
-def daemonPort := 5050
-def daemonUrl := s!"http://{daemonHost}:{daemonPort}"
-
--- == Auto-start Python daemon ==
-initialize do
-  discard <| IO.Process.output {
-    cmd := "sh"
-    -- Kill any existing pyzx daemon
-    args := #["-c", s!"lsof -ti:{daemonPort} | xargs kill 2>/dev/null || true"]
-  }
-  discard <| IO.Process.spawn {
-    cmd := "sh"
-    args := #["-c", s!"cd pyzx_daemon && exec uv run python -u app.py --host {daemonHost} --port {daemonPort} --debug >pyzx_daemon.log 2>&1"]
-  }
-
 -- == ZXDiagram JSON serialization (`ZXDiagram` to `Lean.Json`) ==
 private def natJson (n : Nat) : Json := .num { mantissa := ↑n, exponent := 0 }
 
@@ -59,7 +42,6 @@ def ZXDiagram.toJson (d : ZXDiagram) : Json :=
 -- Props passed to widget
 structure ZXWidgetProps where
   diagram : Json      -- JSON representation of ZXDiagram
-  serverUrl : String  -- URL for Python daemon
   deriving RpcEncodable
 
 -- Widget definition
@@ -69,4 +51,4 @@ def ZXWidget : Component ZXWidgetProps where
 
 -- Helper function which converts a ZXDiagram to HTML (passing the daemon URL)
 def ZXDiagram.toHtml (d : ZXDiagram) : Html :=
-  Html.ofComponent ZXWidget ⟨d.toJson, daemonUrl⟩ #[]
+  Html.ofComponent ZXWidget ⟨d.toJson⟩ #[]

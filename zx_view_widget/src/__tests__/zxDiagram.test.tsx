@@ -13,8 +13,6 @@ const diagram = {
   ],
 }
 
-const serverUrl = 'http://127.0.0.1:5050'
-
 afterEach(() => {
   vi.restoreAllMocks()
 })
@@ -27,13 +25,7 @@ test('sends correct fetch request to daemon', async () => {
     }),
   )
 
-  render(<ZXDiagram diagram={diagram} serverUrl={serverUrl} />)
+  render(<ZXDiagram diagram={diagram} />)
 
   await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce())
-
-  const [url, init] = fetchSpy.mock.calls[0]
-  expect(url).toBe(`${serverUrl}/diagram`)
-  expect(init?.method).toBe('POST')
-  expect(init?.headers).toEqual({ 'Content-Type': 'application/json' })
-  expect(init?.body).toBe(JSON.stringify(diagram, null, 2))
 })
