@@ -44,6 +44,7 @@ function loadPyodideLocal() {
       lockFileContents: lockFileContents,
       packageBaseUrl: `https://cdn.jsdelivr.net/pyodide/v${pyodideVersion}/full/`,
     })
+    globalThis.fetch = realFetch
 
     await pyodide.loadPackage(['micropip', 'numpy', 'networkx', 'typing-extensions', 'tqdm', 'matplotlib'])
     await pyodide.runPythonAsync(`
