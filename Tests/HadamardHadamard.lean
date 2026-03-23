@@ -1,7 +1,7 @@
 import LSpec
 import LeanZX.All
 
-open LSpec
+open LSpec LeanZX
 
 -- Two adjacent Hadamards cancel
 def twoHadamards : ZXDiagram :=
@@ -27,7 +27,7 @@ def branchedHadamard : ZXDiagram :=
           [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨4, 1⟩]
 
 def hadamardHadamardTests : TestSeq :=
-  test "two Hadamards cancel" ((twoHadamards.hadamardHadamard 1 2).get! == twoHadamardsCancelled) $
+  test "two Hadamards cancel" ((twoHadamards.hadamardHadamard 1 2).get! ≈z twoHadamardsCancelled) $
   test "non-Hadamard rejected" ((hadamardAndSpider.hadamardHadamard 1 2).isError) $
   test "disconnected rejected" ((disconnectedHadamards.hadamardHadamard 1 2).isError) $
   test "branched Hadamard rejected" ((branchedHadamard.hadamardHadamard 1 2).isError)
