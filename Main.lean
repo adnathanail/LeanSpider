@@ -14,12 +14,10 @@ def zHadX : ZXDiagram :=
     [.input 0, .spider .Z ⟨1, 1⟩, .hadamard, .spider .X ⟨1, 1⟩, .output 0]
     -- We then give a list of edges, where the nodes are identified by their index in the list
     [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨3, 4⟩]
--- Node indexes are 'stable' in that when nodes are removed from the graph, they are replaced with none
---   this means we don't have to update edges when nodes are removed from the graph
---   this also means that if we want to compare two graphs, we sometimes have to manually enter a bunch of nones
 def zHadXSimplified : ZXDiagram :=
-  { nodes := [some (.input 0), none, none, none, some (.output 0), none, some (.hadamard)]
-    edges := [⟨0, 6⟩, ⟨4, 6⟩] }
+  ZXDiagram.ofList
+    [.input 0, .output 0, .hadamard]
+    [⟨0, 2⟩, ⟨1, 2⟩]
 -- Now we've defined two diagrams, you can view them in the InfoView:
 --   Click the ∀ icon at the top right > Toggle InfoView
 --   Then move your cursor to a line starting with #html
@@ -59,8 +57,9 @@ def piPiPiMinus : ZXDiagram :=
     [.input 0, .spider .Z ⟨1, 1⟩, .spider .Z ⟨1, 1⟩, .spider .Z ⟨-1, 1⟩, .output 0]
     [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨3, 4⟩]
 def pppmSimplified : ZXDiagram :=
-  { nodes := [some (.input 0), some (.spider .Z ⟨1, 1⟩), none, none, some (.output 0)]
-    edges := [⟨0, 1⟩, ⟨1, 4⟩] }
+  ZXDiagram.ofList
+    [.input 0, .spider .Z ⟨1, 1⟩, .output 0]
+    [⟨0, 1⟩, ⟨1, 2⟩]
 #html piPiPiMinus.toHtml
 #html pppmSimplified.toHtml
 
@@ -79,8 +78,9 @@ def piPiMinus : ZXDiagram :=
     [.input 0, .spider .Z ⟨1, 1⟩, .spider .Z ⟨1, 1⟩, .output 0]
     [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩]
 def ppmSimplified : ZXDiagram :=
-  { nodes := [some (.input 0), none, none, some (.output 0)]
-    edges := [⟨0, 3⟩] }
+  ZXDiagram.ofList
+    [.input 0, .output 0]
+    [⟨0, 1⟩]
 #html piPiMinus.toHtml
 #html ppmSimplified.toHtml
 

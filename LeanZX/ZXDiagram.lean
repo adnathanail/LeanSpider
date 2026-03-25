@@ -149,3 +149,27 @@ def ZXDiagram.normalize (d : ZXDiagram) : ZXDiagram :=
       | some (.spider c p) => some (.spider c p.simplify)
       | n => n
     edges := (d.edges.map Edge.normalize).insertionSort }
+
+/-- Build a mapping from old node indices to new compacted indices -/
+private def buildCompactMapping : List (Option Node) → Nat → Nat →
+    List (Option Node) × List (Nat × Nat)
+  | [], _, _ => ([], [])
+  | (some n) :: rest, oldIdx, newIdx =>
+    let (restNodes, restMap) := buildCompactMapping rest (oldIdx + 1) (newIdx + 1)
+    (some n :: restNodes, (oldIdx, newIdx) :: restMap)
+  | none :: rest, oldIdx, newIdx =>
+    buildCompactMapping rest (oldIdx + 1) newIdx
+
+/-- Look up a value in an association list -/
+private def lookupNat : List (Nat × Nat) → Nat → Option Nat
+  | [], _ => none
+  | (k, v) :: rest, key => if k == key then some v else lookupNat rest key
+
+/-- Compact a diagram: remove none slots, remap edge indices accordingly -/
+def ZXDiagram.compact (d : ZXDiagram) : ZXDiagram :=
+  let (compactNodes, mapping) := buildCompactMapping d.nodes 0 0
+  let edges := d.edges.filterMap fun e => do
+    let src' ← lookupNat mapping e.src
+    let tgt' ← lookupNat mapping e.tgt
+    some { src := src', tgt := tgt' }
+  { nodes := compactNodes, edges := edges }

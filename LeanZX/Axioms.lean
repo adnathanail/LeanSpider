@@ -2,14 +2,14 @@ import LeanZX.ZXDiagram
 
 namespace LeanZX
 
-/-- Equivalence of ZX diagrams: equal after normalization -/
+/-- Equivalence of ZX diagrams: equal after compaction and normalization -/
 def ZXDiagram.equiv (d₁ d₂ : ZXDiagram) : Prop :=
-  d₁.normalize = d₂.normalize
+  d₁.compact.normalize = d₂.compact.normalize
 
 scoped infix:50 " ≈z " => ZXDiagram.equiv
 
 instance (d₁ d₂ : ZXDiagram) : Decidable (d₁ ≈z d₂) :=
-  inferInstanceAs (Decidable (d₁.normalize = d₂.normalize))
+  inferInstanceAs (Decidable (d₁.compact.normalize = d₂.compact.normalize))
 
 -- Equivalence relation properties (all provable now, no axioms needed)
 theorem ZXDiagram.equiv_refl (d : ZXDiagram) : d ≈z d :=
