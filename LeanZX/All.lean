@@ -11,5 +11,6 @@ import LeanZX.Rules.HadamardHadamard
 import LeanZX.Rules.ColourChange
 import LeanZX.Rules.PiCopy
 import LeanZX.Rules.SpiderUnfusion
+import LeanZX.Rules.EulerDecomp
 import LeanZX.DerivedRules.PiPi
 import LeanZX.Examples
