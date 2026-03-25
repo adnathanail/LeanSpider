@@ -3,86 +3,84 @@ import LeanZX.All
 
 open LSpec LeanZX
 
-namespace Normalization
-
 -- == Phase simplification tests ==
 
 -- 2/2 simplifies to 1/1
-def unsimplifiedPhase : ZXDiagram :=
+private def unsimplifiedPhase : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨2, 2⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
-def simplifiedPhase : ZXDiagram :=
+private def simplifiedPhase : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- 6/4 simplifies to 3/2 then mod 2π stays 3/2 (since 3/2 < 2)
-def unsimplifiedPhase2 : ZXDiagram :=
+private def unsimplifiedPhase2 : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨6, 4⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
-def simplifiedPhase2 : ZXDiagram :=
+private def simplifiedPhase2 : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨3, 2⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- 2π (2/1) wraps to 0
-def phase2Pi : ZXDiagram :=
+private def phase2Pi : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨2, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
-def phase0 : ZXDiagram :=
+private def phase0 : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨0, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- 5π/2 wraps to π/2
-def phase5Over2 : ZXDiagram :=
+private def phase5Over2 : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨5, 2⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
-def phaseHalfPi : ZXDiagram :=
+private def phaseHalfPi : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 2⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- 3π (3/1) wraps to π (1/1)
-def phase3Pi : ZXDiagram :=
+private def phase3Pi : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨3, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
-def phasePi : ZXDiagram :=
+private def phasePi : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨1, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- == Edge normalization tests (src ≤ tgt) ==
 
-def unsortedEdgeDir : ZXDiagram :=
+private def unsortedEdgeDir : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨0, 1⟩, .output 0] [⟨2, 1⟩, ⟨1, 0⟩]
-def sortedEdgeDir : ZXDiagram :=
+private def sortedEdgeDir : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨0, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- == Edge sorting tests (edge list order) ==
 
-def unsortedEdgeOrder : ZXDiagram :=
+private def unsortedEdgeOrder : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨0, 1⟩, .output 0] [⟨1, 2⟩, ⟨0, 1⟩]
-def sortedEdgeOrder : ZXDiagram :=
+private def sortedEdgeOrder : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨0, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- == Compaction tests ==
 
 -- Compact removes nones and remaps edges
-def withNones : ZXDiagram :=
+private def withNones : ZXDiagram :=
   { nodes := [some (.input 0), none, none, some (.output 0)]
     edges := [⟨0, 3⟩] }
-def withoutNones : ZXDiagram :=
+private def withoutNones : ZXDiagram :=
   .ofList [.input 0, .output 0] [⟨0, 1⟩]
 
 -- Compact with nones in the middle, multiple edges
-def sparseGraph : ZXDiagram :=
+private def sparseGraph : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.spider .Z ⟨1, 2⟩), none, none, some (.output 0)]
     edges := [⟨0, 2⟩, ⟨2, 5⟩] }
-def sparseGraphCompacted : ZXDiagram :=
+private def sparseGraphCompacted : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 2⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- Compact with no nones is identity
-def alreadyCompact : ZXDiagram :=
+private def alreadyCompact : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- Compact with trailing nones
-def trailingNones : ZXDiagram :=
+private def trailingNones : ZXDiagram :=
   { nodes := [some (.input 0), some (.output 0), none, none, none]
     edges := [⟨0, 1⟩] }
 
 -- == Combined: normalization + compaction ==
 
 -- Diagram with nones, unsorted edges, and unsimplified phases
-def messy : ZXDiagram :=
+private def messy : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.spider .Z ⟨4, 2⟩), none, some (.output 0)]
     edges := [⟨4, 2⟩, ⟨2, 0⟩] }
-def clean : ZXDiagram :=
+private def clean : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨0, 1⟩, .output 0] [⟨0, 1⟩, ⟨1, 2⟩]
 
 def normalizationTests : TestSeq :=
@@ -105,6 +103,4 @@ def normalizationTests : TestSeq :=
   -- Combined
   test "compaction + normalization together" (messy ≈z clean)
 
-end Normalization
-
-#lspec Normalization.normalizationTests
+#lspec normalizationTests

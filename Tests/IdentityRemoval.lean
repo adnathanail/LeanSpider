@@ -3,26 +3,24 @@ import LeanZX.All
 
 open LSpec LeanZX
 
-namespace IdentityRemoval
-
 -- Identity removal (Z spider)
-def justPhaseFreeZSpider : ZXDiagram :=
+private def justPhaseFreeZSpider : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨0, 1⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
-def justPhaseFreeZSpiderIdentityRemoved : ZXDiagram :=
+private def justPhaseFreeZSpiderIdentityRemoved : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.output 0)]
     edges := [⟨0, 2⟩] }
 
 -- Identity removal (X spider)
-def justPhaseFreeXSpider : ZXDiagram :=
+private def justPhaseFreeXSpider : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨0, 1⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
-def justPhaseFreeXSpiderIdentityRemoved : ZXDiagram :=
+private def justPhaseFreeXSpiderIdentityRemoved : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.output 0)]
     edges := [⟨0, 2⟩] }
 
 -- Identity removal should fail for spider with phase
-def aZSpiderWithPhase : ZXDiagram :=
+private def aZSpiderWithPhase : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 1⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
 
@@ -31,6 +29,4 @@ def identityRemovalTests : TestSeq :=
   test "removing phase-free X spider" ((justPhaseFreeXSpider.identityRemoval 1).get! ≈z justPhaseFreeXSpiderIdentityRemoved) $
   test "identity remove spider with phase should fail" ((aZSpiderWithPhase.identityRemoval 1).isError)
 
-end IdentityRemoval
-
-#lspec IdentityRemoval.identityRemovalTests
+#lspec identityRemovalTests

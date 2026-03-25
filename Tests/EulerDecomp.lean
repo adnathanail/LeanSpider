@@ -3,51 +3,49 @@ import LeanZX.All
 
 open LSpec LeanZX
 
-namespace EulerDecomp
-
-def hadWire : ZXDiagram :=
+private def hadWire : ZXDiagram :=
   .ofList [.input 0, .hadamard, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- Expected results for each variant
-def euExpected1 : ZXDiagram :=
+private def euExpected1 : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.output 0),
               some (.spider .Z ⟨1, 2⟩), some (.spider .X ⟨1, 2⟩), some (.spider .Z ⟨1, 2⟩)]
     edges := [⟨0, 3⟩, ⟨3, 4⟩, ⟨4, 5⟩, ⟨2, 5⟩] }
 
-def euExpected2 : ZXDiagram :=
+private def euExpected2 : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.output 0),
               some (.spider .Z ⟨-1, 2⟩), some (.spider .X ⟨-1, 2⟩), some (.spider .Z ⟨-1, 2⟩)]
     edges := [⟨0, 3⟩, ⟨3, 4⟩, ⟨4, 5⟩, ⟨2, 5⟩] }
 
-def euExpected3 : ZXDiagram :=
+private def euExpected3 : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.output 0),
               some (.spider .Z ⟨1, 2⟩), some (.spider .X ⟨0, 1⟩),
               some (.spider .Z ⟨1, 2⟩), some (.spider .Z ⟨-1, 2⟩)]
     edges := [⟨0, 3⟩, ⟨3, 4⟩, ⟨4, 5⟩, ⟨2, 5⟩, ⟨4, 6⟩] }
 
-def euExpected4 : ZXDiagram :=
+private def euExpected4 : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.output 0),
               some (.spider .X ⟨1, 2⟩), some (.spider .Z ⟨1, 2⟩), some (.spider .X ⟨1, 2⟩)]
     edges := [⟨0, 3⟩, ⟨3, 4⟩, ⟨4, 5⟩, ⟨2, 5⟩] }
 
-def euExpected5 : ZXDiagram :=
+private def euExpected5 : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.output 0),
               some (.spider .X ⟨-1, 2⟩), some (.spider .Z ⟨-1, 2⟩), some (.spider .X ⟨-1, 2⟩)]
     edges := [⟨0, 3⟩, ⟨3, 4⟩, ⟨4, 5⟩, ⟨2, 5⟩] }
 
-def euExpected6 : ZXDiagram :=
+private def euExpected6 : ZXDiagram :=
   { nodes := [some (.input 0), none, some (.output 0),
               some (.spider .X ⟨1, 2⟩), some (.spider .Z ⟨0, 1⟩),
               some (.spider .X ⟨1, 2⟩), some (.spider .X ⟨-1, 2⟩)]
     edges := [⟨0, 3⟩, ⟨3, 4⟩, ⟨4, 5⟩, ⟨2, 5⟩, ⟨4, 6⟩] }
 
 -- Error cases
-def notHadamard : ZXDiagram :=
+private def notHadamard : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨0, 1⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
 
-def branchedHadamard : ZXDiagram :=
+private def branchedHadamard : ZXDiagram :=
   .ofList [.input 0, .hadamard, .output 0, .input 1]
           [⟨0, 1⟩, ⟨1, 2⟩, ⟨1, 3⟩]
 
@@ -63,6 +61,4 @@ def eulerDecompTests : TestSeq :=
   test "invalid variant rejected" ((hadWire.eulerDecomp 1 7).isError) $
   test "node not found rejected" ((hadWire.eulerDecomp 99 1).isError)
 
-end EulerDecomp
-
-#lspec EulerDecomp.eulerDecompTests
+#lspec eulerDecompTests

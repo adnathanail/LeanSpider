@@ -3,48 +3,46 @@ import LeanZX.All
 
 open LSpec LeanZX
 
-namespace SpiderUnfusion
-
 -- Fuse two Z(π/2) and Z(π) spiders, then unfuse back with the same phase split.
 -- The round-trip changes node ordering (unfusion appends the new spider at the end),
 -- so the result is ≈z to a diagram with nodes reordered: [input, Z(π/2), output, Z(π)].
-def twoSpiders : ZXDiagram :=
+private def twoSpiders : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 2⟩, .spider .Z ⟨1, 1⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩]
-def twoSpidersRoundTrip : ZXDiagram :=
+private def twoSpidersRoundTrip : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 2⟩, .output 0, .spider .Z ⟨1, 1⟩]
           [⟨0, 1⟩, ⟨1, 3⟩, ⟨2, 3⟩]
 
 -- Fuse two X spiders with phases π/4 and 3π/4, then unfuse with a different split: π/2 and π/2.
-def twoXSpiders : ZXDiagram :=
+private def twoXSpiders : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨1, 4⟩, .spider .X ⟨3, 4⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩]
-def twoXSpidersDifferentSplit : ZXDiagram :=
+private def twoXSpidersDifferentSplit : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨1, 2⟩, .output 0, .spider .X ⟨1, 2⟩]
           [⟨0, 1⟩, ⟨1, 3⟩, ⟨2, 3⟩]
 
 -- Fuse three Z spiders into one, then unfuse once to split off the last neighbor.
-def threeSpiders : ZXDiagram :=
+private def threeSpiders : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 2⟩, .spider .Z ⟨1, 1⟩, .spider .Z ⟨3, 4⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨3, 4⟩]
 -- After fusing all three into node 1 (phase 9/4), unfuse with α=1/2, β=7/4, rewire=[4]
-def threeSpidersPartialUnfuse : ZXDiagram :=
+private def threeSpidersPartialUnfuse : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨1, 2⟩, .output 0, .spider .Z ⟨7, 4⟩]
           [⟨0, 1⟩, ⟨1, 3⟩, ⟨2, 3⟩]
 
 -- Unfusion→fusion round-trip: start with a single merged spider, unfuse then fuse back.
 -- The new spider is appended at the end; fusion removes it, leaving a trailing none
 -- that compact drops — so the result is structurally identical to the original.
-def singleZSpider : ZXDiagram :=
+private def singleZSpider : ZXDiagram :=
   .ofList [.input 0, .spider .Z ⟨3, 2⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
 
-def singleXSpider : ZXDiagram :=
+private def singleXSpider : ZXDiagram :=
   .ofList [.input 0, .spider .X ⟨1, 1⟩, .output 0]
           [⟨0, 1⟩, ⟨1, 2⟩]
 
 -- Spider with three neighbors: unfuse to split off one, then fuse back.
-def branchedSpider : ZXDiagram :=
+private def branchedSpider : ZXDiagram :=
   .ofList [.input 0, .input 1, .spider .Z ⟨1, 1⟩, .output 0, .output 1]
           [⟨0, 2⟩, ⟨1, 2⟩, ⟨2, 3⟩, ⟨2, 4⟩]
 
@@ -87,6 +85,4 @@ def spiderUnfusionTests : TestSeq :=
     (let fused := (twoSpiders.spiderFusion 1 2).get!
      (fused.spiderUnfusion 1 ⟨1, 2⟩ ⟨1, 1⟩ [2]).isError)
 
-end SpiderUnfusion
-
-#lspec SpiderUnfusion.spiderUnfusionTests
+#lspec spiderUnfusionTests
