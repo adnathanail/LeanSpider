@@ -42,6 +42,7 @@ def ZXDiagram.toJson (d : ZXDiagram) : Json :=
 -- Props passed to widget
 structure ZXWidgetProps where
   diagram : Json      -- JSON representation of ZXDiagram
+  goal : Json := .null -- optional goal diagram (null = not shown)
   deriving RpcEncodable
 
 -- Widget definition
@@ -50,5 +51,8 @@ def ZXWidget : Component ZXWidgetProps where
   javascript := include_str ".." / ".lake" / "build" / "js" / "zxDiagram.js"
 
 -- Display a ZXDiagram in the ZXWidget in the InfoView
-def ZXDiagram.toHtml (d : ZXDiagram) : Html :=
-  Html.ofComponent ZXWidget ⟨d.toJson⟩ #[]
+def ZXDiagram.toHtml (d : ZXDiagram) (goal? : Option ZXDiagram := none) : Html :=
+  let goalJson := match goal? with
+    | some g => g.toJson
+    | none   => .null
+  Html.ofComponent ZXWidget ⟨d.toJson, goalJson⟩ #[]

@@ -31,10 +31,17 @@ def parseEquivGoal (goalType : Expr) : TacticM (Expr × Expr) := do
 
 -- == Visualization ==
 
-/-- Show a ZXDiagram in the InfoView -/
-def showDiagram (stx : Syntax) (label : String) (e : Expr) : TacticM Unit := do
+/-- Show a ZXDiagram in the InfoView, optionally with the goal diagram side-by-side -/
+def showDiagram (stx : Syntax) (label : String) (e : Expr)
+    (rhs? : Option Expr := none) : TacticM Unit := do
   let d ← evalZXDiagram e
-  let html := d.toHtml
+  let goal? ← if let some rhs := rhs? then
+    if !rhs.isMVar then
+      let dRhs ← evalZXDiagram rhs
+      pure (some dRhs)
+    else pure none
+  else pure none
+  let html := d.toHtml goal?
   let msg ← MessageData.ofHtml html label
   logInfoAt stx msg
 
@@ -75,7 +82,7 @@ def applyRewrite (stx : Syntax) (label : String)
 
   -- Set remaining goal and show diagram
   setGoals [newGoal.mvarId!]
-  showDiagram stx label d₁
+  showDiagram stx label d₁ rhs
 
 -- == General tactics ==
 
@@ -83,8 +90,8 @@ def applyRewrite (stx : Syntax) (label : String)
 elab tk:"zx_show" : tactic => withMainContext do
   let goal ← getMainGoal
   let goalType ← goal.getType
-  let (lhs, _) ← parseEquivGoal goalType
-  showDiagram tk "Current diagram" lhs
+  let (lhs, rhs) ← parseEquivGoal goalType
+  showDiagram tk "Current diagram" lhs rhs
 
 /-- Close a `d₁ ≈z d₂` goal by normalization (both sides normalize to the same diagram). -/
 elab "zx_rfl" : tactic => withMainContext do
@@ -114,7 +121,7 @@ elab tk:"zx_explore" : tactic => withMainContext do
   -- Goals are [witness : ZXDiagram, proof : lhs ≈z ?_]. Focus on the proof goal.
   setGoals [goals[1]!]
   let goalType ← (← getMainGoal).getType
-  let (lhs, _) ← parseEquivGoal goalType
-  showDiagram tk "Current diagram" lhs
+  let (lhs, rhs) ← parseEquivGoal goalType
+  showDiagram tk "Current diagram" lhs rhs
 
 end LeanZX

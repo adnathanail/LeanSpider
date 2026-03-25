@@ -91,20 +91,23 @@ function getShowGraph(colors: Record<string, string>) {
   return showGraphFn!
 }
 
+interface DiagramData {
+  nodes: Array<{
+    id: number
+    type: 'spider' | 'input' | 'output' | 'hadamard'
+    color?: 'Z' | 'X'
+    phase?: string
+    ioId?: number
+  }>
+  edges: Array<{
+    src: number
+    tgt: number
+  }>
+}
+
 interface ZXWidgetProps {
-  diagram: {
-    nodes: Array<{
-      id: number
-      type: 'spider' | 'input' | 'output' | 'hadamard'
-      color?: 'Z' | 'X'
-      phase?: string
-      ioId?: number
-    }>
-    edges: Array<{
-      src: number
-      tgt: number
-    }>
-  }
+  diagram: DiagramData
+  goal?: DiagramData | null
 }
 
 interface RenderData {
@@ -116,7 +119,7 @@ interface RenderData {
   colors: Record<string, string>
 }
 
-export default function ZXDiagram({ diagram }: ZXWidgetProps) {
+function ZXPanel({ diagram, label }: { diagram: DiagramData; label?: string }) {
   const [renderData, setRenderData] = React.useState<RenderData | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [status, setStatus] = React.useState<'loading' | 'rendering'>('loading')
@@ -163,12 +166,80 @@ export default function ZXDiagram({ diagram }: ZXWidgetProps) {
     )
   }, [renderData])
 
-  if (error) return (
-    <div style={{ fontFamily: 'monospace' }}>
-      <pre style={{ color: 'red', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>{error}</pre>
-      <button type="button" onClick={() => setRetryCount(c => c + 1)}>Retry</button>
+  return (
+    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+      {label && <div style={{ fontFamily: 'monospace', fontWeight: 'bold', marginBottom: 4 }}>{label}</div>}
+      {error ? (
+        <div style={{ fontFamily: 'monospace' }}>
+          <pre style={{ color: 'red', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>{error}</pre>
+          <button type="button" onClick={() => setRetryCount(c => c + 1)}>Retry</button>
+        </div>
+      ) : !renderData ? (
+        <div style={{ fontFamily: 'monospace' }}>{status === 'loading' ? 'Loading Python environment...' : 'Rendering...'}</div>
+      ) : (
+        <div ref={containerRef} style={{ overflow: 'auto', backgroundColor: 'white' }} />
+      )}
     </div>
   )
-  if (!renderData) return <div style={{ fontFamily: 'monospace' }}>{status === 'loading' ? 'Loading Python environment...' : 'Rendering...'}</div>
-  return <div ref={containerRef} style={{ overflow: 'auto', backgroundColor: 'white' }} />
+}
+
+const LAYOUT_KEY = 'zx-widget-layout'
+type Layout = 'horizontal' | 'vertical'
+
+function usePersistedLayout(): [Layout, (l: Layout) => void] {
+  const [layout, setLayoutState] = React.useState<Layout>(() => {
+    try {
+      const stored = localStorage.getItem(LAYOUT_KEY)
+      if (stored === 'horizontal' || stored === 'vertical') return stored
+    } catch { /* ignore */ }
+    return 'horizontal'
+  })
+
+  // Listen for changes from other widget instances
+  React.useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === LAYOUT_KEY && (e.newValue === 'horizontal' || e.newValue === 'vertical')) {
+        setLayoutState(e.newValue)
+      }
+    }
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  }, [])
+
+  const setLayout = React.useCallback((l: Layout) => {
+    setLayoutState(l)
+    try { localStorage.setItem(LAYOUT_KEY, l) } catch { /* ignore */ }
+  }, [])
+
+  return [layout, setLayout]
+}
+
+export default function ZXDiagram({ diagram, goal }: ZXWidgetProps) {
+  const [layout, setLayout] = usePersistedLayout()
+
+  if (!goal) {
+    return <ZXPanel diagram={diagram} />
+  }
+
+  const isHorizontal = layout === 'horizontal'
+  return (
+    <div>
+      <div style={{ fontFamily: 'monospace', marginBottom: 4 }}>
+        <button
+          type="button"
+          onClick={() => setLayout(isHorizontal ? 'vertical' : 'horizontal')}
+          style={{ cursor: 'pointer', fontSize: '12px' }}
+        >{isHorizontal ? '↕ Stack' : '↔ Side by side'}</button>
+      </div>
+      <div style={{
+        display: 'flex',
+        flexDirection: isHorizontal ? 'row' : 'column',
+        gap: 16,
+        alignItems: isHorizontal ? 'flex-start' : 'stretch',
+      }}>
+        <ZXPanel diagram={diagram} label="Current" />
+        <ZXPanel diagram={goal} label="Goal" />
+      </div>
+    </div>
+  )
 }
