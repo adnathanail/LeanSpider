@@ -177,15 +177,10 @@ local macro "zx_teleport" : tactic => `(tactic| (
   zx_sp 4 5; zx_sp 4 6; zx_id 4; zx_sp 1 7; zx_id 1
   zx_rfl))
 
-private theorem tp00 : teleportationStart 0 0 ≈z teleportationEnd := by zx_teleport
-private theorem tp01 : teleportationStart 0 1 ≈z teleportationEnd := by zx_teleport
-private theorem tp10 : teleportationStart 1 0 ≈z teleportationEnd := by zx_teleport
-private theorem tp11 : teleportationStart 1 1 ≈z teleportationEnd := by zx_teleport
-
 theorem doTeleportationSimp : ∀ a b : Fin 2,
     teleportationStart ↑a.val ↑b.val ≈z teleportationEnd := by
   intro a b; match a, b with
-  | ⟨0, _⟩, ⟨0, _⟩ => exact tp00
-  | ⟨0, _⟩, ⟨1, _⟩ => exact tp01
-  | ⟨1, _⟩, ⟨0, _⟩ => exact tp10
-  | ⟨1, _⟩, ⟨1, _⟩ => exact tp11
+  | ⟨0, _⟩, ⟨0, _⟩ => exact (by zx_teleport : teleportationStart 0 0 ≈z teleportationEnd)
+  | ⟨0, _⟩, ⟨1, _⟩ => exact (by zx_teleport : teleportationStart 0 1 ≈z teleportationEnd)
+  | ⟨1, _⟩, ⟨0, _⟩ => exact (by zx_teleport : teleportationStart 1 0 ≈z teleportationEnd)
+  | ⟨1, _⟩, ⟨1, _⟩ => exact (by zx_teleport : teleportationStart 1 1 ≈z teleportationEnd)
