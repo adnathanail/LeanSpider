@@ -184,13 +184,18 @@ function ZXPanel({ diagram, label }: { diagram: DiagramData; label?: string }) {
 }
 
 const LAYOUT_KEY = 'zx-widget-layout'
-type Layout = 'horizontal' | 'vertical'
+type Layout = 'horizontal' | 'vertical' | 'goal_hidden'
+const LAYOUTS: Layout[] = ['horizontal', 'vertical', 'goal_hidden']
+
+function isLayout(v: unknown): v is Layout {
+  return v === 'horizontal' || v === 'vertical' || v === 'goal_hidden'
+}
 
 function usePersistedLayout(): [Layout, (l: Layout) => void] {
   const [layout, setLayoutState] = React.useState<Layout>(() => {
     try {
       const stored = localStorage.getItem(LAYOUT_KEY)
-      if (stored === 'horizontal' || stored === 'vertical') return stored
+      if (isLayout(stored)) return stored
     } catch { /* ignore */ }
     return 'horizontal'
   })
@@ -198,7 +203,7 @@ function usePersistedLayout(): [Layout, (l: Layout) => void] {
   // Listen for changes from other widget instances
   React.useEffect(() => {
     const handler = (e: StorageEvent) => {
-      if (e.key === LAYOUT_KEY && (e.newValue === 'horizontal' || e.newValue === 'vertical')) {
+      if (e.key === LAYOUT_KEY && isLayout(e.newValue)) {
         setLayoutState(e.newValue)
       }
     }
@@ -221,25 +226,30 @@ export default function ZXDiagram({ diagram, goal }: ZXWidgetProps) {
     return <ZXPanel diagram={diagram} />
   }
 
-  const isHorizontal = layout === 'horizontal'
+  const nextLayout = LAYOUTS[(LAYOUTS.indexOf(layout) + 1) % LAYOUTS.length]
+  const buttonLabel = { horizontal: '↕ Stack', vertical: '⊘ Hide goal', goal_hidden: '↔ Side by side' }[layout]
   return (
     <div>
       <div style={{ fontFamily: 'monospace', marginBottom: 4 }}>
         <button
           type="button"
-          onClick={() => setLayout(isHorizontal ? 'vertical' : 'horizontal')}
+          onClick={() => setLayout(nextLayout)}
           style={{ cursor: 'pointer', fontSize: '12px' }}
-        >{isHorizontal ? '↕ Stack' : '↔ Side by side'}</button>
+        >{buttonLabel}</button>
       </div>
-      <div style={{
-        display: 'flex',
-        flexDirection: isHorizontal ? 'row' : 'column',
-        gap: 16,
-        alignItems: isHorizontal ? 'flex-start' : 'stretch',
-      }}>
-        <ZXPanel diagram={diagram} label="Current" />
-        <ZXPanel diagram={goal} label="Goal" />
-      </div>
+      {layout === 'goal_hidden' ? (
+        <ZXPanel diagram={diagram} />
+      ) : (
+        <div style={{
+          display: 'flex',
+          flexDirection: layout === 'horizontal' ? 'row' : 'column',
+          gap: 16,
+          alignItems: layout === 'horizontal' ? 'flex-start' : 'stretch',
+        }}>
+          <ZXPanel diagram={diagram} label="Current" />
+          <ZXPanel diagram={goal} label="Goal" />
+        </div>
+      )}
     </div>
   )
 }
