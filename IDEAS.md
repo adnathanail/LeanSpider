@@ -14,3 +14,5 @@
 - Interactive rewrites
 - Prove rewrites
 - Add normal forms
+- Replace the various individual tactics with a single tactic with args
+    - Can we use the existing rw tactic? And just pass it theorems?
