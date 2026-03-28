@@ -12,5 +12,6 @@ import LeanSpider.Rules.ColourChange
 import LeanSpider.Rules.PiCopy
 import LeanSpider.Rules.SpiderUnfusion
 import LeanSpider.Rules.EulerDecomp
+import LeanSpider.Rules.StrongComp
 import LeanSpider.DerivedRules.PiPi
 import LeanSpider.Examples
