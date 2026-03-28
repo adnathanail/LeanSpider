@@ -13,3 +13,4 @@
         - The BFS starts from inputs — disconnected spiders get no row/qubit assignment and default to position 0, causing visual overlap.
 - Interactive rewrites
 - Prove rewrites
+- Add normal forms
