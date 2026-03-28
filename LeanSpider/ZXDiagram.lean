@@ -131,6 +131,15 @@ def ZXDiagram.neighbors (d : ZXDiagram) (n : NodeId) : List NodeId :=
     else if e.tgt == n then acc ++ [e.src]
     else acc
 
+/-- Remove one edge between two nodes (keeps other edges between them, if any) -/
+def ZXDiagram.removeOneEdge (d : ZXDiagram) (a b : NodeId) : ZXDiagram :=
+  let (edges, _) := d.edges.foldl (init := ([], false)) fun (acc, removed) e =>
+    if !removed && ((e.src == a && e.tgt == b) || (e.src == b && e.tgt == a)) then
+      (acc, true)
+    else
+      (acc ++ [e], removed)
+  { d with edges := edges }
+
 /-- Remove all edges touching a given node ID -/
 def ZXDiagram.removeEdgesOf (d : ZXDiagram) (n : NodeId) : ZXDiagram :=
   { d with edges := d.edges.filter fun e => e.src != n && e.tgt != n }
