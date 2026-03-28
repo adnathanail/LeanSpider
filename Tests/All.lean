@@ -5,7 +5,8 @@ import Tests.PiCopy
 import Tests.HadamardHadamard
 import Tests.ColourChange
 import Tests.Normalization
+import Tests.StrongComp
 
 open LSpec
 
-#lspec spiderFusionTests ++ spiderUnfusionTests ++ identityRemovalTests ++ piCopyTests ++ hadamardHadamardTests ++ colourChangeTests ++ normalizationTests
+#lspec spiderFusionTests ++ spiderUnfusionTests ++ identityRemovalTests ++ piCopyTests ++ hadamardHadamardTests ++ colourChangeTests ++ normalizationTests ++ strongCompTests
