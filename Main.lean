@@ -2,9 +2,6 @@ import LeanSpider.All
 
 open LeanSpider
 
-def main : IO Unit :=
-  IO.println "Open Main.lean in VS Code to see the ZX diagram in the InfoView."
-
 -- This is how we define a diagram
 def zHadX : ZXDiagram :=
   ZXDiagram.ofList
@@ -133,19 +130,3 @@ example : ∃ d', exercise3point7 ≈z d' := by
   zx_sp 20 2
   zx_unsp 20 ⟨0, 1⟩ ⟨1, 1⟩ [3]
   zx_rfl
-
--- Hadamard decomposition test
-def hadWire : ZXDiagram :=
-  ZXDiagram.ofList
-    [.input 0, .hadamard, .output 0]
-    [⟨0, 1⟩, ⟨1, 2⟩]
-#html hadWire.toHtml
-
-example : ∃ d', hadWire ≈z d' := by
-  zx_explore
-  zx_eu 1 6
-  zx_rfl
-
--- Current challenge: Graph equality
---   Implemented some normalization - edges are always ordered, phases are always simplified, strip out nones from the node list
---   Medium-term - graph ismorphism
