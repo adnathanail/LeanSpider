@@ -23,10 +23,9 @@ audit is `[propext, Classical.choice, Quot.sound]` only.
 - **`Z_spiderMatrix` is a *sum* of two indicators, not nested `if`s.** Required
   for the `n = m = 0` corner case where both indices collide at `0` (a 0-leg
   spider is the scalar `1 + e^{iφ}`, not `1`).
-- **`phaseToComplex_add` requires `den ≠ 0`** on both phases. Lean's `x/0 = 0`
-  convention breaks the homomorphism otherwise. Theorems consuming it inherit
-  this hypothesis (e.g. `Z_spiderFusion`'s `hα`, `hβ`); discharge with
-  `(by decide)` on concrete phases.
+- **`Phase.den : ℕ+`**, so `den = 0` is ruled out at the type level.
+  `phaseToComplex_add` and the spider-fusion theorems carry no `den ≠ 0`
+  hypothesis.
 
 ## Current placeholder semantics (deliberate, not `sorry`)
 

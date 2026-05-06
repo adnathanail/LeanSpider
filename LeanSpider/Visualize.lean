@@ -8,7 +8,7 @@ private def natJson (n : Nat) : Json := .num { mantissa := ↑n, exponent := 0 }
 
 def Phase.toJson (p : Phase) : Json :=
   if p.den == 1 then .str (toString p.num)
-  else .str s!"{p.num}/{p.den}"
+  else .str s!"{p.num}/{p.den.val}"
 
 def Node.toJson (n : Node) (idx : Nat) : Json :=
   match n with

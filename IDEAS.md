@@ -31,5 +31,4 @@ Things to research
 - chyp
 
 
-- Make it impossible for phases to have denominator 0
 - Add Dirac semantics for neater proofs?

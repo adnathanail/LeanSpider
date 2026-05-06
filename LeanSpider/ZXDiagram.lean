@@ -1,25 +1,28 @@
 import LeanSpider.Utils
+import Mathlib.Data.PNat.Basic
 
 inductive SpiderColor where
   | Z  -- green
   | X  -- red
   deriving Repr, BEq, DecidableEq
 
-/-- Phase as a rational multiple of π, stored as p/q.
-    e.g. phase 1 2 represents π/2 -/
+/-- Phase as a rational multiple of π, stored as p/q with `q : ℕ+`.
+    e.g. phase 1 2 represents π/2. -/
 structure Phase where
   num : Int
-  den : Nat := 1
+  den : ℕ+ := 1
   deriving Repr, DecidableEq
 
 -- Simplify a phase: reduce fraction by GCD, then reduce numerator mod 2*den (mod 2π)
 def Phase.simplify (p : Phase) : Phase :=
-  let g := Int.gcd p.num p.den
-  if g == 0 then p
-  else
-    let num := p.num / g
-    let den := p.den / g
-    { num := num % (2 * den), den := den }
+  let dN : Nat := p.den
+  let g : Nat := Nat.gcd p.num.natAbs dN
+  have hgPos : 0 < g := Nat.gcd_pos_of_pos_right _ p.den.pos
+  have hPos : 0 < dN / g :=
+    Nat.div_pos (Nat.le_of_dvd p.den.pos (Nat.gcd_dvd_right _ _)) hgPos
+  let newDen : ℕ+ := ⟨dN / g, hPos⟩
+  let newNum : Int := (p.num / (g : Int)) % (2 * (dN / g) : Int)
+  { num := newNum, den := newDen }
 
 -- Properly define equality for phases, so that 18/4 == 9/2
 instance : BEq Phase where
@@ -30,7 +33,7 @@ instance : BEq Phase where
 
 /-- a/b + c/d = (ad + bc)/bd -/
 def Phase.add (p q : Phase) : Phase :=
-  { num := p.num * q.den + q.num * p.den
+  { num := p.num * (q.den : Int) + q.num * (p.den : Int)
     den := p.den * q.den }
 
 instance : Add Phase where

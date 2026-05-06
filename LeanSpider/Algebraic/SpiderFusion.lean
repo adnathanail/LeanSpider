@@ -33,7 +33,7 @@ private lemma Z_spider_1k_apply_one (k : Nat) (β : Phase) (j : Fin (2^k)) :
     Z-spider with phases summed.  Stated for the cleanest swap-free form;
     the general multi-leg fusion follows by stacking with identity wires
     (out of scope for this milestone). -/
-theorem Z_spiderFusion (n k : Nat) (α β : Phase) (hα : α.den ≠ 0) (hβ : β.den ≠ 0) :
+theorem Z_spiderFusion (n k : Nat) (α β : Phase) :
     (ZX.spider .Z n 1 α ⨾ ZX.spider .Z 1 k β) ≃ZX ZX.spider .Z n k (α + β) := by
   -- Ask Lean to restate ≃ZX into its definition:
   --   that the semantic matrixes are equal
@@ -68,13 +68,12 @@ theorem Z_spiderFusion (n k : Nat) (α β : Phase) (hα : α.den ≠ 0) (hβ : �
   rw [mul_comm (phaseToComplex β) (phaseToComplex α)]
   -- Adding phase parameters is equivalent to multiplying the resulting phases
   rw [show phaseToComplex (α + β) = phaseToComplex α * phaseToComplex β from
-        phaseToComplex_add α β hα hβ]
+        phaseToComplex_add α β]
 
 /-- Reverse of `Z_spiderFusion`: a single Z-spider with a summed phase is
     equivalent to two Z-spiders connected by a wire. -/
-theorem Z_spiderUnfusion (n k : Nat) (α β : Phase)
-    (hα : α.den ≠ 0) (hβ : β.den ≠ 0) :
+theorem Z_spiderUnfusion (n k : Nat) (α β : Phase) :
     ZX.spider .Z n k (α + β) ≃ZX (ZX.spider .Z n 1 α ⨾ ZX.spider .Z 1 k β) :=
-  (Z_spiderFusion n k α β hα hβ).symm
+  (Z_spiderFusion n k α β).symm
 
 end LeanSpider.Algebraic

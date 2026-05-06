@@ -44,7 +44,8 @@ elab_rules : tactic
   | `(tactic| zx_unsp $a ⟨$αn, $αd⟩ ⟨$βn, $βd⟩ [ $rewire,* ]) => do
     let mkPhase (n d : Nat) : MetaM Expr := do
       let numExpr ← mkAppM ``Int.ofNat #[mkNatLit n]
-      mkAppM ``Phase.mk #[numExpr, mkNatLit d]
+      let denExpr ← mkAppM ``Nat.toPNat' #[mkNatLit d]
+      mkAppM ``Phase.mk #[numExpr, denExpr]
     let α ← mkPhase αn.getNat αd.getNat
     let β ← mkPhase βn.getNat βd.getNat
     let nilExpr ← mkAppOptM ``List.nil #[some (mkConst ``Nat)]
