@@ -89,7 +89,7 @@ structure ZXDiagram where
 -- Make graph equality not care about edge order by sorting the edge lists
 instance : BEq ZXDiagram where
   beq a b := a.nodes == b.nodes &&
-    a.edges.insertionSort == b.edges.insertionSort
+    a.edges.insertionSortByOrd == b.edges.insertionSortByOrd
 
 /-- Build a ZXDiagram from lists of nodes (list indices become node IDs) -/
 def ZXDiagram.ofList (nodes : List Node) (edges : List Edge) : ZXDiagram :=
@@ -157,7 +157,7 @@ def ZXDiagram.normalize (d : ZXDiagram) : ZXDiagram :=
   { nodes := d.nodes.map fun
       | some (.spider c p) => some (.spider c p.simplify)
       | n => n
-    edges := (d.edges.map Edge.normalize).insertionSort }
+    edges := (d.edges.map Edge.normalize).insertionSortByOrd }
 
 /-- Build a mapping from old node indices to new compacted indices -/
 private def buildCompactMapping : List (Option Node) → Nat → Nat →

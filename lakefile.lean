@@ -6,6 +6,9 @@ open Lake DSL System
 package LeanSpider where
   version := v!"0.1.0"
 
+require mathlib from git
+  "https://github.com/leanprover-community/mathlib4" @ "v4.28.0"
+
 require proofwidgets from
   git "https://github.com/leanprover-community/ProofWidgets4" @ "v0.0.87"
 
