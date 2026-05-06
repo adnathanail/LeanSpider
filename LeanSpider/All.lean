@@ -16,3 +16,4 @@ import LeanSpider.Rules.StrongComp
 import LeanSpider.Rules.IdentityInsertion
 import LeanSpider.DerivedRules.PiPi
 import LeanSpider.Examples
+import LeanSpider.Algebraic

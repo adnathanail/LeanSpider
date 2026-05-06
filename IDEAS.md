@@ -29,3 +29,7 @@ Things to research
     - leo collison
     - diagrams formalisation
 - chyp
+
+
+- Make it impossible for phases to have denominator 0
+- Add Dirac semantics for neater proofs?
