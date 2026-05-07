@@ -147,8 +147,7 @@ example : ∃ d', exercise3point7 ≈z d' := by
 #print axioms LeanSpider.Algebraic.Z_spiderFusion
 
 -- Algebraic-ZX terms can now be rendered too: `ZX.toHtml` converts them into
--- the same `ZXDiagram` widget shown above. `wire` becomes an identity Z-spider
--- (a small unmarked dot); inputs/outputs are added at the boundary.
+-- the same `ZXDiagram` widget shown above.
 open LeanSpider.Algebraic in
 def algSpider : ZX 1 1 := .spider .Z 1 1 ⟨1, 2⟩
 #html algSpider.toHtml

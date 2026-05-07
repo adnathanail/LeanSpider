@@ -48,8 +48,9 @@ lowering it to a `ZXDiagram` via `ZX.toZXDiagram`. The lowering threads a
 private `Frag` (diagram + open `left`/`right` port-id lists) through the
 constructors:
 
-- `wire` → identity Z-spider (degree-2, phase 0). A small unmarked dot;
-  removable later via `IdentityRemoval` if you want a cleaner picture.
+- `wire` → a placeholder Z-spider that is spliced out at the top level
+  (`spliceWire` replaces its two incident edges with one bridge edge), so
+  wires render as plain edges with no node on them.
 - `hadamard` → one `.hadamard` node, used as both ports.
 - `spider c n m φ` → one node, `left = replicate n id`, `right = replicate m id`
   (parallel edges to the same node — the widget already draws these as bezier
