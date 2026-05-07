@@ -145,3 +145,19 @@ example : ∃ d', exercise3point7 ≈z d' := by
 -- The axiom audit below should show only `propext`, `Classical.choice`,
 -- `Quot.sound` — the standard Mathlib three, no project-local axioms.
 #print axioms LeanSpider.Algebraic.Z_spiderFusion
+
+-- Algebraic-ZX terms can now be rendered too: `ZX.toHtml` converts them into
+-- the same `ZXDiagram` widget shown above. `wire` becomes an identity Z-spider
+-- (a small unmarked dot); inputs/outputs are added at the boundary.
+open LeanSpider.Algebraic in
+def algSpider : ZX 1 1 := .spider .Z 1 1 ⟨1, 2⟩
+#html algSpider.toHtml
+
+open LeanSpider.Algebraic in
+def algFusionLHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 4⟩ ⨾ .spider .Z 1 1 ⟨1, 4⟩
+#html algFusionLHS.toHtml
+
+open LeanSpider.Algebraic in
+def algStack : ZX 2 2 := .wire ⊗ZX .hadamard
+#html algStack.toHtml
+
