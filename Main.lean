@@ -160,3 +160,6 @@ open LeanSpider.Algebraic in
 def algStack : ZX 2 2 := .wire ⊗ZX .hadamard
 #html algStack.toHtml
 
+open LeanSpider.Algebraic in
+def algCnot : ZX 2 2 := (.spider .Z 1 2 ⟨0, 1⟩ ⊗ZX .wire) ⨾ (.wire ⊗ZX .spider .X 2 1 ⟨0, 1⟩)
+#html algCnot.toHtml
