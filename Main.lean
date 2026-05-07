@@ -137,7 +137,7 @@ example : ∃ d', exercise3point7 ≈z d' := by
 -- ─────────────────────────────────────────────────────────────────────────────
 -- New: spider fusion proven (not axiomatized) on a free-algebra ZX representation
 -- ─────────────────────────────────────────────────────────────────────────────
--- The hypergraph-style ZXDiagram above uses `axiom *_sound` for each rewrite
+-- The graph-style ZXDiagram above uses `axiom *_sound` for each rewrite
 -- rule.  In `LeanSpider/Algebraic/` we have a parallel free-algebra ADT
 -- (`ZX n m`) with denotational matrix semantics, where spider fusion can be
 -- proven outright as a matrix equality.  See:

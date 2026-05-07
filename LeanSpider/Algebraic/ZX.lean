@@ -3,7 +3,7 @@ import LeanSpider.ZXDiagram
 namespace LeanSpider.Algebraic
 
 /-- A free-algebra ZX term, indexed by its arity (`n` inputs, `m` outputs).
-    Reuses `SpiderColor` and `Phase` from the hypergraph-style `ZXDiagram` module. -/
+    Reuses `SpiderColor` and `Phase` from the graph-style `ZXDiagram` module. -/
 inductive ZX : Nat → Nat → Type
   | empty    : ZX 0 0
   | wire     : ZX 1 1

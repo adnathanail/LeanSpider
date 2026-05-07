@@ -32,6 +32,13 @@ The widget (`zx_view_widget/src/zxDiagram.tsx`) renders synchronously:
 1. `zxRender.render(diagram)` (in `zxRender.ts`) walks the Lean diagram JSON, runs a BFS layout from inputs to assign rows/qubits, then emits a `{nodes, links}` object whose shape matches what `zxViewer.js` expects (per-node `t`/`phase`, per-link `index`/`num_parallel` for parallel-edge bezier arcs).
 2. The widget passes that graph JSON to `showGraph()` from `zxViewer.js`, which renders an interactive SVG using D3 v5. Nodes are draggable, H-boxes auto-position at the barycenter of their neighbours, and parallel edges are drawn as bezier arcs.
 
+## Two ZX representations
+
+- **`ZXDiagram`** (`LeanSpider/ZXDiagram.lean`) — graph-style: nodes + edges. Used by all rewrite rules in `Rules/*` and the `≈z` equivalence.
+- **`ZX n m`** (`LeanSpider/Algebraic/ZX.lean`) — free-algebra ADT indexed by arity, with denotational matrix semantics in `Algebraic/Semantics.lean`. Used to *prove* rules (rather than axiomatise them) — see `Algebraic/SpiderFusion.lean`.
+
+Both are renderable in the InfoView: `ZXDiagram.toHtml` directly, `ZX.toHtml` via `ZX.toZXDiagram` (lowers to a graph by threading open ports through `compose`/`stack`; `wire` becomes an identity Z-spider). See `LeanSpider/Algebraic/CLAUDE.md` for details.
+
 ## Lean tips
 
 - `ZXDiagram` has a manual `BEq` instance that sorts edges before comparison, so edge order doesn't affect equality

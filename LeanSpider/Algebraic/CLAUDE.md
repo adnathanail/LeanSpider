@@ -2,8 +2,9 @@
 
 A free-algebra ZX representation (`ZX n m`, indexed by input/output arity) with
 a denotational interpretation into complex matrices over Mathlib. Lives
-*alongside* the graph-style `ZXDiagram` — there is no translation between
-the two yet, and the existing widget / `Rules/*` machinery is untouched.
+*alongside* the graph-style `ZXDiagram`. There is a one-way `ZX → ZXDiagram`
+translation for **rendering only** (`Visualize.lean` — see below); the
+`Rules/*` rewrite machinery still operates on `ZXDiagram` directly.
 
 ## Why this module exists
 
@@ -39,6 +40,27 @@ tensor products needs real semantics first**:
 - `spider .X`: Hadamard sandwich of the Z-spider — depends on `stack` for
   `H^⊗n`.
 - `hadamard`: `![![1, 1], ![1, -1]] / √2`.
+
+## Visualization (`Visualize.lean`)
+
+`ZX.toHtml` renders an algebraic term in the existing `ZXWidget` by first
+lowering it to a `ZXDiagram` via `ZX.toZXDiagram`. The lowering threads a
+private `Frag` (diagram + open `left`/`right` port-id lists) through the
+constructors:
+
+- `wire` → identity Z-spider (degree-2, phase 0). A small unmarked dot;
+  removable later via `IdentityRemoval` if you want a cleaner picture.
+- `hadamard` → one `.hadamard` node, used as both ports.
+- `spider c n m φ` → one node, `left = replicate n id`, `right = replicate m id`
+  (parallel edges to the same node — the widget already draws these as bezier
+  arcs).
+- `stack` → concatenate fragments with id-shifted edges/ports.
+- `compose a b` → wire `a.right` to `b.left` with `zipWith` edges.
+
+Boundary `.input`/`.output` nodes are added **only** at the top level by
+`ZX.toZXDiagram`, so internal fragments stay arity-pure during recursion.
+This is rendering-only — there is no proof that `toZXDiagram` preserves
+semantics (would need a `ZXDiagram` denotation, which doesn't exist yet).
 
 ## Proof tactics that worked here
 
