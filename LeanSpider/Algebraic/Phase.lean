@@ -23,8 +23,6 @@ theorem phaseToComplex_add (a b : Phase) :
         * Complex.exp (Complex.I * Real.pi * (b.num : ℂ) / ((b.den : Nat) : ℂ))
   rw [← Complex.exp_add]
   congr 1
-  have ha' : ((a.den : Nat) : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr a.den.pos.ne'
-  have hb' : ((b.den : Nat) : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr b.den.pos.ne'
   push_cast
   field_simp
 

@@ -2,29 +2,45 @@ import LeanSpider.All
 
 open LeanSpider.Algebraic
 
--- ─────────────────────────────────────────────────────────────────────────────
--- New: spider fusion proven (not axiomatized) on a free-algebra ZX representation
--- ─────────────────────────────────────────────────────────────────────────────
--- The graph-style ZXDiagram above uses `axiom *_sound` for each rewrite
--- rule.  In `LeanSpider/Algebraic/` we have a parallel free-algebra ADT
--- (`ZX n m`) with denotational matrix semantics, where spider fusion can be
--- proven outright as a matrix equality.  See:
---   #check @LeanSpider.Algebraic.Z_spiderFusion
--- The axiom audit below should show only `propext`, `Classical.choice`,
--- `Quot.sound` — the standard Mathlib three, no project-local axioms.
+-- Spider fusion only depends on `propext`, `Classical.choice`, `Quot.sound`
+--   the standard Mathlib three, no project-local axioms.
 #print axioms LeanSpider.Algebraic.Z_spiderFusion
 
--- Algebraic-ZX terms can now be rendered too: `ZX.toHtml` converts them into
--- the same `ZXDiagram` widget shown above.
+-- Algebraic-ZX terms can be rendered
 open LeanSpider.Algebraic
 def algSpider : ZX 1 1 := .spider .Z 1 1 ⟨1, 2⟩
 #html algSpider.toHtml
 
+-- Example spider fusion proof
 def algFusionLHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 4⟩ × .spider .Z 1 1 ⟨1, 4⟩
 #html algFusionLHS.toHtml
 
-def algStack : ZX 2 2 := .wire ⊗ .hadamard
-#html algStack.toHtml
+def algFusionRHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 2⟩
+#html algFusionRHS.toHtml
+
+theorem phasesEqual {a b : Phase}
+    (h : a.num * (b.den : Int) = b.num * (a.den : Int)) :
+    phaseToComplex a = phaseToComplex b := by
+  unfold phaseToComplex
+  congr 1
+  field_simp
+  exact_mod_cast (by linarith [h])
+
+theorem Z_spiderMatrix_congr_phase {n m : Nat} {α β : Phase}
+    (h : phaseToComplex α = phaseToComplex β) :
+    Z_spiderMatrix n m α = Z_spiderMatrix n m β := by
+  unfold Z_spiderMatrix
+  ext j i
+  congr 2
+
+theorem algFusion : algFusionLHS ≃ZX algFusionRHS := by
+  show algFusionLHS.sem = algFusionRHS.sem
+  unfold algFusionLHS algFusionRHS
+  rw [Z_spiderFusion]
+  unfold ZX.sem
+  apply Z_spiderMatrix_congr_phase
+  apply phasesEqual
+  decide
 
 def algLayoutTest1 : ZX 4 4 := GateCNOT ⊗ GateCNOT
 #html algLayoutTest1.toHtml
