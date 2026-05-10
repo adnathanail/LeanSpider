@@ -43,25 +43,40 @@ tensor products needs real semantics first**:
 
 ## Visualization (`Visualize.lean`)
 
-`ZX.toHtml` renders an algebraic term in the existing `ZXWidget` by first
-lowering it to a `ZXDiagram` via `ZX.toZXDiagram`. The lowering threads a
-private `Frag` (diagram + open `left`/`right` port-id lists) through the
-constructors:
+`ZX.toHtml` renders an algebraic term in the existing `ZXWidget`. The walker
+threads a private `Frag` (diagram + open `left`/`right` port-id lists +
+`(width, height, pos)`) through the constructors. Every node carries an
+algebraic-grid `(col, qubit)` position emitted alongside the JSON, so the
+widget skips its BFS layout and the visual reflects the term's structure.
 
-- `wire` → a placeholder Z-spider that is spliced out at the top level
-  (`spliceWire` replaces its two incident edges with one bridge edge), so
-  wires render as plain edges with no node on them.
-- `hadamard` → one `.hadamard` node, used as both ports.
-- `spider c n m φ` → one node, `left = replicate n id`, `right = replicate m id`
-  (parallel edges to the same node — the widget already draws these as bezier
-  arcs).
-- `stack` → concatenate fragments with id-shifted edges/ports.
-- `compose a b` → wire `a.right` to `b.left` with `zipWith` edges.
+Per-constructor layout:
+
+- `wire` → placeholder Z-spider at `(0, 0)`; spliced at the top level
+  (`spliceWire` replaces its two incident edges with a single bridge edge).
+  Width 1, height 1.
+- `hadamard` → one `.hadamard` node at `(0, 0)`. Width 1, height 1.
+- `spider c n m φ` → one node at `(0, 0)` (its top input row); `left = replicate n id`,
+  `right = replicate m id`. Width 1, height `max n m`.
+- `stack a b` → concatenate; shift `b`'s qubits by `a.height`.
+  Width `max a.width b.width`, height `a.height + b.height`.
+- `compose a b` → connect `a.right` to `b.left` and shift `b`'s cols by `a.width`.
+  Width `a.width + b.width`, height `max a.height b.height`.
 
 Boundary `.input`/`.output` nodes are added **only** at the top level by
-`ZX.toZXDiagram`, so internal fragments stay arity-pure during recursion.
-This is rendering-only — there is no proof that `toZXDiagram` preserves
-semantics (would need a `ZXDiagram` denotation, which doesn't exist yet).
+`ZX.toPositionedDiagram`, at `col = -1, qubit = ioId` (inputs) and
+`col = width, qubit = ioId` (outputs). Internal fragments stay arity-pure
+during recursion.
+
+The JSON shape extends `ZXDiagram.toJson` with `col` (Int) and `qubit` (Nat)
+fields per node; `zxRender.ts` honours them and skips `autoLayout` whenever
+any node has `col` set. The widget's `auto_hbox` flag is also turned off in
+that case, so hadamards' supplied positions aren't overwritten by
+neighbour-barycentre repositioning.
+
+`ZX.toZXDiagram` (used by callers that just need the graph) delegates to
+`ZX.toPositionedDiagram` and discards the position list. Rendering-only —
+there is no proof that the lowering preserves semantics (would need a
+`ZXDiagram` denotation, which doesn't exist yet).
 
 ## Proof tactics that worked here
 

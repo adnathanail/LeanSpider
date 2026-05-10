@@ -68,7 +68,7 @@ function ZXPanel({ diagram, label }: { diagram: DiagramData; label?: string }) {
       renderData.height,
       renderData.scale,
       renderData.node_size,
-      true, // auto_hbox
+      renderData.auto_hbox,
       true, // show_labels
       '', // scalar_str
     )

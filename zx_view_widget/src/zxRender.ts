@@ -7,6 +7,11 @@ export interface DiagramNode {
   color?: 'Z' | 'X'
   phase?: string
   ioId?: number
+  /** Pre-computed column from the algebraic ZX walker. When present on
+   *  any node, autoLayout is skipped — every node is expected to carry
+   *  both `col` and `qubit`. */
+  col?: number
+  qubit?: number
 }
 
 export interface DiagramEdge {
@@ -50,6 +55,11 @@ export interface RenderData {
   scale: number
   node_size: number
   colors: Record<string, string>
+  /** Whether the viewer should auto-position H-boxes at the barycentre of
+   *  their neighbours. False when positions came pre-computed from the
+   *  algebraic ZX walker — otherwise hadamards' supplied positions get
+   *  overwritten on every paint. */
+  auto_hbox: boolean
 }
 
 const VertexType = { BOUNDARY: 0, Z: 1, X: 2, H_BOX: 3 } as const
@@ -143,19 +153,23 @@ function buildNodes(diagram: DiagramData): Map<number, InternalNode> {
 
     if (n.type === 'input') {
       t = VertexType.BOUNDARY
-      row = 0
-      qubit = n.ioId ?? 0
+      row = n.col ?? 0
+      qubit = n.qubit ?? n.ioId ?? 0
       isInput = true
     } else if (n.type === 'output') {
       t = VertexType.BOUNDARY
-      row = -1
-      qubit = n.ioId ?? 0
+      row = n.col ?? -1
+      qubit = n.qubit ?? n.ioId ?? 0
       isOutput = true
     } else if (n.type === 'spider') {
       t = n.color === 'X' ? VertexType.X : VertexType.Z
+      if (n.col !== undefined) row = n.col
+      if (n.qubit !== undefined) qubit = n.qubit
       phaseStr = phaseToString(parsePhase(n.phase), t)
     } else if (n.type === 'hadamard') {
       t = VertexType.H_BOX
+      if (n.col !== undefined) row = n.col
+      if (n.qubit !== undefined) qubit = n.qubit
       phaseStr = phaseToString(parsePhase(n.phase ?? '1'), t)
     } else {
       t = VertexType.BOUNDARY
@@ -254,7 +268,8 @@ function pairKey(a: number, b: number): string {
 
 export function render(diagram: DiagramData): RenderData {
   const nodes = buildNodes(diagram)
-  autoLayout(nodes, diagram.edges)
+  const positioned = diagram.nodes.some(n => n.col !== undefined)
+  if (!positioned) autoLayout(nodes, diagram.edges)
 
   // Skip H-boxes (no row/qubit) when computing the bounds.
   let minrow = Number.POSITIVE_INFINITY
@@ -330,5 +345,6 @@ export function render(diagram: DiagramData): RenderData {
     scale,
     node_size,
     colors: COLORS,
+    auto_hbox: !positioned,
   }
 }
