@@ -8,7 +8,7 @@ inductive ZX : Nat → Nat → Type
   | empty    : ZX 0 0
   | wire     : ZX 1 1
   | hadamard : ZX 1 1
-  | spider   : SpiderColor → (n m : Nat) → Phase → ZX n m
+  | spider   (c : SpiderColor) (n m : Nat) (φ : Phase := ⟨0, 1⟩) : ZX n m
   | stack    {n m p q : Nat} : ZX n m → ZX p q → ZX (n + p) (m + q)
   | compose  {n m k : Nat} : ZX n m → ZX m k → ZX n k
 
