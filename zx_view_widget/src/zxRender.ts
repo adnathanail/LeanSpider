@@ -19,9 +19,20 @@ export interface DiagramEdge {
   tgt: number
 }
 
+/** A bounding rectangle in algebraic-grid space, emitted by the Lean walker
+ *  for every `stack`/`compose` subtree. Bounds are inclusive. */
+export interface DiagramBox {
+  kind: 'stack' | 'compose'
+  minCol: number
+  maxCol: number
+  minQubit: number
+  maxQubit: number
+}
+
 export interface DiagramData {
   nodes: DiagramNode[]
   edges: DiagramEdge[]
+  boxes?: DiagramBox[]
 }
 
 export interface GraphNode {
@@ -48,6 +59,16 @@ export interface GraphData {
   pauli_web: never[]
 }
 
+/** A box rendered behind the diagram, with pixel coordinates pre-computed
+ *  in `render` so the consumer can directly emit an SVG `<rect>`. */
+export interface RenderBox {
+  kind: 'stack' | 'compose'
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface RenderData {
   graph: GraphData
   width: number
@@ -60,6 +81,9 @@ export interface RenderData {
    *  algebraic ZX walker — otherwise hadamards' supplied positions get
    *  overwritten on every paint. */
   auto_hbox: boolean
+  /** Bounding rectangles for `stack`/`compose` subtrees, sorted largest-area
+   *  first so outer boxes paint behind inner ones. */
+  boxes: RenderBox[]
 }
 
 const VertexType = { BOUNDARY: 0, Z: 1, X: 2, H_BOX: 3 } as const
@@ -338,6 +362,21 @@ export function render(diagram: DiagramData): RenderData {
     links[i].num_parallel = counts.get(linkKeys[i]) ?? 1
   }
 
+  // Boxes from the algebraic walker. Same coord mapping as nodes:
+  // x = (col - minrow + 1) * scale, y = (qubit - minqub + 2) * scale.
+  // Padding shrinks/expands inclusive bounds so the rect wraps the nodes.
+  const BOX_PAD = 0.4
+  const inputBoxes = diagram.boxes ?? []
+  const boxes: RenderBox[] = inputBoxes.map(b => ({
+    kind: b.kind,
+    x: (b.minCol - minrow + 1 - BOX_PAD) * scale,
+    y: (b.minQubit - minqub + 2 - BOX_PAD) * scale,
+    width: (b.maxCol - b.minCol + 2 * BOX_PAD) * scale,
+    height: (b.maxQubit - b.minQubit + 2 * BOX_PAD) * scale,
+  }))
+  // Largest area first so outer boxes paint behind inner ones.
+  boxes.sort((a, b) => b.width * b.height - a.width * a.height)
+
   return {
     graph: { nodes: outNodes, links, pauli_web: [] },
     width,
@@ -346,5 +385,6 @@ export function render(diagram: DiagramData): RenderData {
     node_size,
     colors: COLORS,
     auto_hbox: !positioned,
+    boxes,
   }
 }

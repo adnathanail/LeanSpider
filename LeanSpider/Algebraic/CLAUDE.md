@@ -45,9 +45,12 @@ tensor products needs real semantics first**:
 
 `ZX.toHtml` renders an algebraic term in the existing `ZXWidget`. The walker
 threads a private `Frag` (diagram + open `left`/`right` port-id lists +
-`(width, height, pos)`) through the constructors. Every node carries an
+`(width, height, pos, boxes)`) through the constructors. Every node carries an
 algebraic-grid `(col, qubit)` position emitted alongside the JSON, so the
 widget skips its BFS layout and the visual reflects the term's structure.
+Each `stack`/`compose` subtree also records a `BoxRecord` covering its
+extent; the widget draws translucent rectangles behind the diagram so the
+algebraic nesting is visible at a glance.
 
 Per-constructor layout:
 
@@ -62,16 +65,25 @@ Per-constructor layout:
 - `compose a b` → connect `a.right` to `b.left` and shift `b`'s cols by `a.width`.
   Width `a.width + b.width`, height `max a.height b.height`.
 
+`stack` and `compose` each emit a `BoxRecord` covering `(0..width-1, 0..height-1)`
+of the combined fragment (in local coords, then shifted alongside child boxes).
+Leaves (`empty`/`wire`/`hadamard`/`spider`) emit no box. Wire-only subtrees
+still emit boxes — the box just contains pass-through edges, which is fine.
+
 Boundary `.input`/`.output` nodes are added **only** at the top level by
 `ZX.toPositionedDiagram`, at `col = -1, qubit = ioId` (inputs) and
 `col = width, qubit = ioId` (outputs). Internal fragments stay arity-pure
 during recursion.
 
 The JSON shape extends `ZXDiagram.toJson` with `col` (Int) and `qubit` (Nat)
-fields per node; `zxRender.ts` honours them and skips `autoLayout` whenever
-any node has `col` set. The widget's `auto_hbox` flag is also turned off in
-that case, so hadamards' supplied positions aren't overwritten by
-neighbour-barycentre repositioning.
+fields per node, plus a top-level `boxes` array of
+`{kind, minCol, maxCol, minQubit, maxQubit}` records. `zxRender.ts` honours
+the positions (skipping `autoLayout` whenever any node has `col` set) and
+converts boxes into pixel-space `RenderBox`es sorted largest-area first.
+`zxDiagram.tsx` injects a `<g class="boxes">` group as the SVG's first child
+after `showGraph` runs, so rects paint behind nodes and edges. The widget's
+`auto_hbox` flag is also turned off in the positioned case, so hadamards'
+supplied positions aren't overwritten by neighbour-barycentre repositioning.
 
 `ZX.toZXDiagram` (used by callers that just need the graph) delegates to
 `ZX.toPositionedDiagram` and discards the position list. Rendering-only —

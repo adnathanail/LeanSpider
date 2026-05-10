@@ -72,6 +72,36 @@ function ZXPanel({ diagram, label }: { diagram: DiagramData; label?: string }) {
       true, // show_labels
       '', // scalar_str
     )
+    if (renderData.boxes.length > 0) {
+      const svg = container.querySelector('svg')
+      if (svg) {
+        const NS = 'http://www.w3.org/2000/svg'
+        const g = document.createElementNS(NS, 'g')
+        g.setAttribute('class', 'boxes')
+        for (const box of renderData.boxes) {
+          const rect = document.createElementNS(NS, 'rect')
+          rect.setAttribute('x', String(box.x))
+          rect.setAttribute('y', String(box.y))
+          rect.setAttribute('width', String(box.width))
+          rect.setAttribute('height', String(box.height))
+          rect.setAttribute('rx', '8')
+          rect.setAttribute('ry', '8')
+          const isStack = box.kind === 'stack'
+          rect.setAttribute(
+            'fill',
+            isStack ? 'rgba(255, 165, 80, 0.10)' : 'rgba(100, 160, 255, 0.10)',
+          )
+          rect.setAttribute(
+            'stroke',
+            isStack ? 'rgba(220, 130, 30, 0.65)' : 'rgba(50, 110, 220, 0.65)',
+          )
+          rect.setAttribute('stroke-width', '1')
+          rect.setAttribute('stroke-dasharray', isStack ? '4 3' : '0')
+          g.appendChild(rect)
+        }
+        svg.insertBefore(g, svg.firstChild)
+      }
+    }
   }, [renderData])
 
   return (

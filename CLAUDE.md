@@ -37,7 +37,7 @@ The widget (`zx_view_widget/src/zxDiagram.tsx`) renders synchronously:
 - **`ZXDiagram`** (`LeanSpider/ZXDiagram.lean`) — graph-style: nodes + edges. Used by all rewrite rules in `Rules/*` and the `≈z` equivalence.
 - **`ZX n m`** (`LeanSpider/Algebraic/ZX.lean`) — free-algebra ADT indexed by arity, with denotational matrix semantics in `Algebraic/Semantics.lean`. Used to *prove* rules (rather than axiomatise them) — see `Algebraic/SpiderFusion.lean`.
 
-Both are renderable in the InfoView: `ZXDiagram.toHtml` directly, `ZX.toHtml` via `ZX.toPositionedDiagram` (lowers to a graph and emits per-node `(col, qubit)` positions from the algebraic structure — `compose` advances col, `stack` advances qubit; `wire` is spliced into a plain edge). See `LeanSpider/Algebraic/CLAUDE.md` for details.
+Both are renderable in the InfoView: `ZXDiagram.toHtml` directly, `ZX.toHtml` via `ZX.toPositionedDiagram` (lowers to a graph and emits per-node `(col, qubit)` positions from the algebraic structure — `compose` advances col, `stack` advances qubit; `wire` is spliced into a plain edge). Each `stack`/`compose` subtree also records a bounding rectangle that the widget draws behind the diagram. See `LeanSpider/Algebraic/CLAUDE.md` for details.
 
 ## Lean tips
 
