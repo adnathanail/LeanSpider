@@ -42,8 +42,12 @@ noncomputable def ZX.sem : {n m : Nat} → ZX n m → Matrix (Fin (2^m)) (Fin (2
   | _, _, ZX.stack _ _        => 0  -- TODO: Kronecker product with Fin (2^(n+p)) reindex
   | _, _, ZX.compose a b      => b.sem * a.sem
 
-/-- Semantic equivalence of ZX terms: equal denotations as complex matrices. -/
-def ZX.equiv {n m : Nat} (a b : ZX n m) : Prop := a.sem = b.sem
+/-- Semantic equivalence of ZX terms: equal denotations as complex matrices.
+
+    Marked `@[reducible]` so `rw` and `exact` see through it to the underlying
+    `Eq` of matrices — this lets named ZX rules like `Z_spiderFusion` be applied
+    directly with `rw`. -/
+@[reducible] def ZX.equiv {n m : Nat} (a b : ZX n m) : Prop := a.sem = b.sem
 
 scoped infix:50 " ≃ZX " => ZX.equiv
 

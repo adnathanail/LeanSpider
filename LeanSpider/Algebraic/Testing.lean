@@ -12,35 +12,16 @@ def algSpider : ZX 1 1 := .spider .Z 1 1 ⟨1, 2⟩
 #html algSpider.toHtml
 
 -- Example spider fusion proof
-def algFusionLHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 4⟩ × .spider .Z 1 1 ⟨1, 4⟩
+abbrev algFusionLHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 4⟩ × .spider .Z 1 1 ⟨1, 4⟩
 #html algFusionLHS.toHtml
 
-def algFusionRHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 2⟩
+abbrev algFusionRHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 2⟩
 #html algFusionRHS.toHtml
 
-theorem phasesEqual {a b : Phase}
-    (h : a.num * (b.den : Int) = b.num * (a.den : Int)) :
-    phaseToComplex a = phaseToComplex b := by
-  unfold phaseToComplex
-  congr 1
-  field_simp
-  exact_mod_cast (by linarith [h])
-
-theorem Z_spiderMatrix_congr_phase {n m : Nat} {α β : Phase}
-    (h : phaseToComplex α = phaseToComplex β) :
-    Z_spiderMatrix n m α = Z_spiderMatrix n m β := by
-  unfold Z_spiderMatrix
-  ext j i
-  congr 2
-
 theorem algFusion : algFusionLHS ≃ZX algFusionRHS := by
-  show algFusionLHS.sem = algFusionRHS.sem
-  unfold algFusionLHS algFusionRHS
+  show _ = _
   rw [Z_spiderFusion]
-  unfold ZX.sem
-  apply Z_spiderMatrix_congr_phase
-  apply phasesEqual
-  decide
+  exact spider_phase_eq (congr_phase (by decide))
 
 def algLayoutTest1 : ZX 4 4 := GateCNOT ⊗ GateCNOT
 #html algLayoutTest1.toHtml
