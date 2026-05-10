@@ -34,7 +34,7 @@ private lemma Z_spider_1k_apply_one (k : Nat) (β : Phase) (j : Fin (2^k)) :
     the general multi-leg fusion follows by stacking with identity wires
     (out of scope for this milestone). -/
 theorem Z_spiderFusion (n k : Nat) (α β : Phase) :
-    (ZX.spider .Z n 1 α ⨾ ZX.spider .Z 1 k β) ≃ZX ZX.spider .Z n k (α + β) := by
+    (ZX.spider .Z n 1 α × ZX.spider .Z 1 k β) ≃ZX ZX.spider .Z n k (α + β) := by
   -- Ask Lean to restate ≃ZX into its definition:
   --   that the semantic matrixes are equal
   show ZX.sem _ = ZX.sem _
@@ -73,7 +73,7 @@ theorem Z_spiderFusion (n k : Nat) (α β : Phase) :
 /-- Reverse of `Z_spiderFusion`: a single Z-spider with a summed phase is
     equivalent to two Z-spiders connected by a wire. -/
 theorem Z_spiderUnfusion (n k : Nat) (α β : Phase) :
-    ZX.spider .Z n k (α + β) ≃ZX (ZX.spider .Z n 1 α ⨾ ZX.spider .Z 1 k β) :=
+    ZX.spider .Z n k (α + β) ≃ZX (ZX.spider .Z n 1 α × ZX.spider .Z 1 k β) :=
   (Z_spiderFusion n k α β).symm
 
 end LeanSpider.Algebraic

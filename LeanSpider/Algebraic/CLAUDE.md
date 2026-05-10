@@ -18,7 +18,7 @@ audit is `[propext, Classical.choice, Quot.sound]` only.
 ## Conventions
 
 - **Composition order**: `compose a b` reads "first `a`, then `b`", so
-  `⟦a ⨾ b⟧ = ⟦b⟧ * ⟦a⟧` (matrices act right-to-left).
+  `⟦a × b⟧ = ⟦b⟧ * ⟦a⟧` (matrices act right-to-left).
 - **Index convention**: `Matrix (Fin (2^m)) (Fin (2^n)) ℂ` — rows are outputs,
   columns are inputs. All-zeros basis vector at index `0`, all-ones at `2^k - 1`.
 - **`Z_spiderMatrix` is a *sum* of two indicators, not nested `if`s.** Required

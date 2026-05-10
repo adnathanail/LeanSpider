@@ -152,25 +152,25 @@ open LeanSpider.Algebraic
 def algSpider : ZX 1 1 := .spider .Z 1 1 ⟨1, 2⟩
 #html algSpider.toHtml
 
-def algFusionLHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 4⟩ ⨾ .spider .Z 1 1 ⟨1, 4⟩
+def algFusionLHS : ZX 1 1 := .spider .Z 1 1 ⟨1, 4⟩ × .spider .Z 1 1 ⟨1, 4⟩
 #html algFusionLHS.toHtml
 
-def algStack : ZX 2 2 := .wire ⊗ZX .hadamard
+def algStack : ZX 2 2 := .wire ⊗ .hadamard
 #html algStack.toHtml
 
-def algCnot : ZX 2 2 := (.spider .Z 1 2 ⟨0, 1⟩ ⊗ZX .wire) ⨾ (.wire ⊗ZX .spider .X 2 1 ⟨0, 1⟩)
+def algCnot : ZX 2 2 := (.spider .Z 1 2 ⟨0, 1⟩ ⊗ .wire) × (.wire ⊗ .spider .X 2 1 ⟨0, 1⟩)
 #html algCnot.toHtml
 
-def algLayoutTest1 : ZX 4 4 := algCnot ⊗ZX algCnot
+def algLayoutTest1 : ZX 4 4 := algCnot ⊗ algCnot
 #html algLayoutTest1.toHtml
 
-def algLayoutTest2 : ZX 2 2 := algCnot ⨾ algCnot
+def algLayoutTest2 : ZX 2 2 := algCnot × algCnot
 #html algLayoutTest2.toHtml
 
-def algLayoutTest3 : ZX 3 3 := (algCnot ⊗ZX .wire) ⨾ (.wire ⊗ZX algCnot)
+def algLayoutTest3 : ZX 3 3 := (algCnot ⊗ .wire) × (.wire ⊗ algCnot)
 #html algLayoutTest3.toHtml
 
-def algLayoutTest4a : ZX 2 4 := (.spider .Z 1 3 ⟨0, 1⟩ ⊗ZX .wire)
-def algLayoutTest4b : ZX 4 2 := (.wire ⊗ZX .spider .Z 3 1 ⟨0, 1⟩)
-def algLayoutTest4 : ZX 2 2 := (.spider .Z 1 3 ⟨0, 1⟩ ⊗ZX .wire) ⨾ (.wire ⊗ZX .spider .X 3 1 ⟨0, 1⟩)
+def algLayoutTest4a : ZX 2 4 := (.spider .Z 1 3 ⟨0, 1⟩ ⊗ .wire)
+def algLayoutTest4b : ZX 4 2 := (.wire ⊗ .spider .Z 3 1 ⟨0, 1⟩)
+def algLayoutTest4 : ZX 2 2 := (.spider .Z 1 3 ⟨0, 1⟩ ⊗ .wire) × (.wire ⊗ .spider .X 3 1 ⟨0, 1⟩)
 #html algLayoutTest4.toHtml

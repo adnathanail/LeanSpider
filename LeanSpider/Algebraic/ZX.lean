@@ -12,10 +12,10 @@ inductive ZX : Nat → Nat → Type
   | stack    {n m p q : Nat} : ZX n m → ZX p q → ZX (n + p) (m + q)
   | compose  {n m k : Nat} : ZX n m → ZX m k → ZX n k
 
-/-- Sequential composition: `a ⨾ b` feeds the outputs of `a` into the inputs of `b`. -/
-scoped infixl:55 " ⨾ " => ZX.compose
+/-- Sequential composition: `a × b` feeds the outputs of `a` into the inputs of `b`. -/
+scoped infixl:55 " × " => ZX.compose
 
-/-- Parallel composition (stacking): `a ⊗ZX b` puts `a` and `b` side by side. -/
-scoped infixl:60 " ⊗ZX " => ZX.stack
+/-- Parallel composition (stacking): `a ⊗ b` puts `a` and `b` side by side. -/
+scoped infixl:60 " ⊗ " => ZX.stack
 
 end LeanSpider.Algebraic
