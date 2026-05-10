@@ -44,27 +44,43 @@ tensor products needs real semantics first**:
 ## Visualization (`Visualize.lean`)
 
 `ZX.toHtml` renders an algebraic term in the existing `ZXWidget`. The walker
-threads a private `Frag` (diagram + open `left`/`right` port-id lists +
-`(width, height, pos, boxes)`) through the constructors. Every node carries an
-algebraic-grid `(col, qubit)` position emitted alongside the JSON, so the
-widget skips its BFS layout and the visual reflects the term's structure.
-Each `stack`/`compose` subtree also records a `BoxRecord` covering its
-extent; the widget draws translucent rectangles behind the diagram so the
-algebraic nesting is visible at a glance.
+threads a private `Frag` (diagram + open `left`/`right` port lists, each port
+paired with the qubit-in-halves at which it enters/leaves the body, +
+`(width, height, pos, boxes)`) through the constructors. Every node carries
+an algebraic-grid `(col, qubitHalves)` position emitted alongside the JSON,
+so the widget skips its BFS layout and the visual reflects the term's
+structure. Each `stack`/`compose` subtree also records a `BoxRecord` covering
+its extent; the widget draws translucent rectangles behind the diagram so
+the algebraic nesting is visible at a glance.
 
-Per-constructor layout:
+Qubit positions are stored internally as `2 ×` the actual qubit (i.e.
+"halves") so a spider with mismatched arity (e.g. `Z 1→2`) can sit on a
+half-row at the centre of its span. The structural `Frag.height` stays a
+count of integer slots; `stack` shifts the lower fragment's qubits by
+`2 * a.height`. JSON emission divides by two — `qubit` is a real number
+(e.g. `0.5`, `1`, `1.5`) on the wire, and `zxRender.ts` already accepts
+`qubit?: number` unchanged.
 
-- `wire` → one `.wire` node at `(0, 0)`, rendered by the widget as a small
-  black dot (radius `0.2 * node_size`). Wires stay as real nodes so that
-  `stack`/`compose` boxes around them are non-empty and the visual extent of
-  a subtree matches its algebraic shape. Width 1, height 1.
-- `hadamard` → one `.hadamard` node at `(0, 0)`. Width 1, height 1.
-- `spider c n m φ` → one node at `(0, 0)` (its top input row); `left = replicate n id`,
-  `right = replicate m id`. Width 1, height `max n m`.
-- `stack a b` → concatenate; shift `b`'s qubits by `a.height`.
+Per-constructor layout (all qubit values are halves; `centre = max(n, m) - 1`
+is the midpoint of slots `0..max-1` in halves):
+
+- `wire` → one `.wire` node at `(col 0, q 0)`, rendered by the widget as a
+  small black dot (radius `0.2 * node_size`). Wires stay as real nodes so
+  that `stack`/`compose` boxes around them are non-empty and the visual
+  extent of a subtree matches its algebraic shape. `left = right = [(id, 0)]`,
+  width 1, height 1.
+- `hadamard` → one `.hadamard` node at `(col 0, q 0)`. `left = right = [(id, 0)]`,
+  width 1, height 1.
+- `spider c n m φ` → one node at `(col 0, q centre)` (centre of its span).
+  Each port is paired with its qubitHalves: when the arity is `1` the lone
+  port sits at `centre` (so a single-leg connection is horizontal); when
+  arity > 1 the ports occupy integer slots `0, 2, …, 2(k-1)`. Width 1,
+  height `max n m`.
+- `stack a b` → concatenate; shift `b`'s qubitHalves by `2 * a.height`.
   Width `max a.width b.width`, height `a.height + b.height`.
-- `compose a b` → connect `a.right` to `b.left` and shift `b`'s cols by `a.width`.
-  Width `a.width + b.width`, height `max a.height b.height`.
+- `compose a b` → connect `a.right` to `b.left` (by node id, qubits do not
+  need to match) and shift `b`'s cols by `a.width`. Width `a.width + b.width`,
+  height `max a.height b.height`.
 
 `stack` and `compose` each emit a `BoxRecord {kind, nodeIds}` listing the ids
 of every node in their subtree (with appropriate shifts on `compose`/`stack`).
@@ -74,12 +90,17 @@ with positions, every subtree's bounding box extends exactly to its outermost
 member — no overshoot, no live-id filter needed.
 
 Boundary `.input`/`.output` nodes are added **only** at the top level by
-`ZX.toPositionedDiagram`, at `col = -1, qubit = ioId` (inputs) and
-`col = width, qubit = ioId` (outputs). Internal fragments stay arity-pure
-during recursion.
+`ZX.toPositionedDiagram`. Each boundary inherits the qubit of the body port
+it connects to: input `i` sits at `(col -1, q (f.left[i].2))`, and output
+`j` at `(col width, q (f.right[j].2))`. So a top-level input feeding a
+`Z 1→2` spider lands on the spider's centred half-row, and an input feeding
+a wire that has been pushed downward by a sibling stack lands at that wire's
+shifted qubit — no big diagonal jumps from the boundary into the body.
+Internal fragments stay arity-pure during recursion.
 
-The JSON shape extends `ZXDiagram.toJson` with `col` (Int) and `qubit` (Nat)
-fields per node, plus a top-level `boxes` array of `{kind, nodeIds}` records.
+The JSON shape extends `ZXDiagram.toJson` with `col` (Int) and `qubit`
+(real number, possibly half-integer) fields per node, plus a top-level
+`boxes` array of `{kind, nodeIds}` records.
 `zxRender.ts` honours the positions (skipping `autoLayout` whenever any node
 has `col` set) and forwards boxes unchanged, sorted largest-id-count first
 so outer paints behind inner. `zxViewer.js` accepts the box list as an extra
