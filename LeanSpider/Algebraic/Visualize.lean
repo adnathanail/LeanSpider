@@ -17,15 +17,12 @@ structure BoxRecord where
 /-- A partially-built diagram together with its currently-open boundary ports
     and the algebraic-grid `(col, qubit)` position of every node it contains.
     `compose` advances `col`; `stack` advances `qubit`.
-    `wireIds` tracks placeholder spider nodes created from `wire`; they are
-    spliced out at the end so wires render as plain edges.
     `boxes` records bounding rectangles for every `stack`/`compose` subtree
     so the widget can draw them behind the diagram. -/
 private structure Frag where
   diagram : ZXDiagram
   left    : List NodeId
   right   : List NodeId
-  wireIds : List NodeId
   /-- Number of compose-columns this fragment occupies. -/
   width   : Nat
   /-- Number of stack-qubits this fragment occupies. -/
@@ -39,7 +36,7 @@ private structure Frag where
 
 private def Frag.empty : Frag :=
   { diagram := { nodes := [], edges := [] }
-    left := [], right := [], wireIds := []
+    left := [], right := []
     width := 0, height := 0, pos := [], boxes := [] }
 
 private def shiftEdge (off : Nat) (e : Edge) : Edge :=
@@ -66,7 +63,6 @@ private def Frag.append (a b : Frag) : Frag :=
                  edges := a.diagram.edges ++ b.diagram.edges.map (shiftEdge off) }
     left    := a.left    ++ b.left.map    (· + off)
     right   := a.right   ++ b.right.map   (· + off)
-    wireIds := a.wireIds ++ b.wireIds.map (· + off)
     width   := Nat.max a.width b.width
     height  := a.height + b.height
     pos     := a.pos ++ b.pos.map (shiftPos off 0 a.height)
@@ -89,7 +85,6 @@ private def Frag.then (a b : Frag) : Frag :=
                  edges := a.diagram.edges ++ bEdges ++ connecting }
     left    := a.left
     right   := bRight
-    wireIds := a.wireIds ++ b.wireIds.map (· + off)
     width   := a.width + b.width
     height  := Nat.max a.height b.height
     pos     := a.pos ++ b.pos.map (shiftPos off (a.width : Int) 0)
@@ -100,39 +95,26 @@ private def Frag.then (a b : Frag) : Frag :=
 private def buildFrag : {n m : Nat} → ZX n m → Frag
   | _, _, .empty    => Frag.empty
   | _, _, .wire     =>
-    let (d, id) := Frag.empty.diagram.addNode (.spider .Z ⟨0, 1⟩)
-    { diagram := d, left := [id], right := [id], wireIds := [id]
+    let (d, id) := Frag.empty.diagram.addNode .wire
+    { diagram := d, left := [id], right := [id]
       width := 1, height := 1, pos := [(id, 0, 0)], boxes := [] }
   | _, _, .hadamard =>
     let (d, id) := Frag.empty.diagram.addNode .hadamard
-    { diagram := d, left := [id], right := [id], wireIds := []
+    { diagram := d, left := [id], right := [id]
       width := 1, height := 1, pos := [(id, 0, 0)], boxes := [] }
   | _, _, .spider c n m φ =>
     let (d, id) := Frag.empty.diagram.addNode (.spider c φ)
-    { diagram := d, left := List.replicate n id, right := List.replicate m id, wireIds := []
+    { diagram := d, left := List.replicate n id, right := List.replicate m id
       width := 1, height := Nat.max n m, pos := [(id, 0, 0)], boxes := [] }
   | _, _, .stack a b   => Frag.append (buildFrag a) (buildFrag b)
   | _, _, .compose a b => Frag.then   (buildFrag a) (buildFrag b)
-
-/-- Remove a placeholder wire node by replacing its two incident edges with a
-    single bridge edge between its neighbours. Idempotent if `w` is no longer
-    present. The wire's position entry stays in the position list but its
-    `nodes` slot is set to `none`, so the JSON emitter skips it. -/
-private def spliceWire (d : ZXDiagram) (w : NodeId) : ZXDiagram :=
-  let other (e : Edge) : NodeId := if e.src == w then e.tgt else e.src
-  let (incident, kept) := d.edges.partition (fun e => e.src == w || e.tgt == w)
-  match incident with
-  | [e₁, e₂] =>
-    let bridge : Edge := { src := other e₁, tgt := other e₂ }
-    { nodes := d.nodes.set w none, edges := kept ++ [bridge] }
-  | _ => d
 
 /-- Convert an algebraic ZX term to a positioned diagram: a `ZXDiagram`, a
     list of `(NodeId, col, qubit)` triples giving the algebraic-grid position
     of each node, and a list of `BoxRecord`s describing the bounding rectangle
     of every `stack`/`compose` subtree. Inputs sit at `col = -1`, outputs at
-    `col = width`, each at `qubit = ioId`. Wires are spliced; their entries
-    remain in the position list but their node slots are `none`. -/
+    `col = width`, each at `qubit = ioId`. Wires render as `.wire` nodes
+    (drawn as small dots in the widget). -/
 def ZX.toPositionedDiagram {n m : Nat} (z : ZX n m) :
     ZXDiagram × List (NodeId × Int × Nat) × List BoxRecord :=
   let f := buildFrag z
@@ -143,12 +125,11 @@ def ZX.toPositionedDiagram {n m : Nat} (z : ZX n m) :
   let inEdges  := List.zipWith (fun s t => ({ src := s, tgt := t } : Edge)) ins f.left
   let outEdges := List.zipWith (fun s t => ({ src := s, tgt := t } : Edge)) f.right outs
   let d₃ := d₂.addEdges (inEdges ++ outEdges)
-  let d₄ := f.wireIds.foldl spliceWire d₃
   let inPos : List (NodeId × Int × Nat) :=
     List.zipWith (fun id i => ((id, (-1 : Int), i) : NodeId × Int × Nat)) ins (List.range n)
   let outPos : List (NodeId × Int × Nat) :=
     List.zipWith (fun id i => ((id, (f.width : Int), i) : NodeId × Int × Nat)) outs (List.range m)
-  (d₄, f.pos ++ inPos ++ outPos, f.boxes)
+  (d₃, f.pos ++ inPos ++ outPos, f.boxes)
 
 /-- The graph-style `ZXDiagram` lowering, identical in result to the previous
     implementation; positions and boxes are discarded for callers that don't
@@ -175,6 +156,8 @@ private def nodeToJsonPositioned (n : Node) (idx : Nat) (col : Int) (qubit : Nat
     let phase : Phase := ⟨1, 1⟩
     .mkObj ([("id", natJson idx), ("type", .str "hadamard"),
              ("phase", phase.toJson)] ++ posFields)
+  | .wire =>
+    .mkObj ([("id", natJson idx), ("type", .str "wire")] ++ posFields)
   | .input id =>
     .mkObj ([("id", natJson idx), ("type", .str "input"), ("ioId", natJson id)] ++ posFields)
   | .output id =>
@@ -190,9 +173,7 @@ private def boxToJson (b : BoxRecord) : Lean.Json :=
 
 /-- Emit the algebraic-positioned diagram as JSON: same shape as
     `ZXDiagram.toJson` plus per-node `col`/`qubit` fields and a top-level
-    `boxes` array. Nodes whose slot is `none` (spliced wires) are skipped,
-    and any boxes whose every contained id has been spliced are dropped so
-    the widget never has to render an empty rectangle. -/
+    `boxes` array. -/
 private def algebraicJson (d : ZXDiagram) (pos : List (NodeId × Int × Nat))
     (boxes : List BoxRecord) : Lean.Json :=
   let nodes := d.nodes.foldl (init := (#[], 0)) fun (acc, idx) opt =>
@@ -204,12 +185,7 @@ private def algebraicJson (d : ZXDiagram) (pos : List (NodeId × Int × Nat))
     | none => (acc, idx + 1)
   let nodes := nodes.1
   let edges := (d.edges.map Edge.toJson).toArray
-  let isLive (id : NodeId) : Bool :=
-    match d.nodes[id]? with | some (some _) => true | _ => false
-  let boxes' := boxes.filterMap fun b =>
-    let live := b.nodeIds.filter isLive
-    if live.isEmpty then none else some { b with nodeIds := live }
-  let boxesJson := (boxes'.map boxToJson).toArray
+  let boxesJson := (boxes.map boxToJson).toArray
   .mkObj [("nodes", .arr nodes), ("edges", .arr edges), ("boxes", .arr boxesJson)]
 
 open ProofWidgets in

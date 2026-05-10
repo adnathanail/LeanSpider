@@ -255,7 +255,7 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
         .append("circle")
         .attr("r", function(d) {
             if (d.t == 0) return 0.5 * node_size;
-            else if (d.t == 4) return 0.25 * node_size;
+            else if (d.t == 4) return 0.2 * node_size; // wire dot
             else return node_size;
         })
         .attr("fill", function(d) { return nodeColor(d.t); })

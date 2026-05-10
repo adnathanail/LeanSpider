@@ -39,10 +39,11 @@ def Phase.add (p q : Phase) : Phase :=
 instance : Add Phase where
   add := Phase.add
 
-/-- Internal spider (Z/X) or input or output -/
+/-- Internal spider (Z/X), Hadamard box, plain wire dot, input or output -/
 inductive Node where
   | spider (color : SpiderColor) (phase : Phase)
   | hadamard
+  | wire
   | input  (id : Nat)
   | output (id : Nat)
   deriving Repr, BEq, DecidableEq

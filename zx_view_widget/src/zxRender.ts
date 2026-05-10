@@ -3,7 +3,7 @@
 
 export interface DiagramNode {
   id: number
-  type: 'spider' | 'input' | 'output' | 'hadamard'
+  type: 'spider' | 'input' | 'output' | 'hadamard' | 'wire'
   color?: 'Z' | 'X'
   phase?: string
   ioId?: number
@@ -81,7 +81,7 @@ export interface RenderData {
   boxes: RenderBox[]
 }
 
-const VertexType = { BOUNDARY: 0, Z: 1, X: 2, H_BOX: 3 } as const
+const VertexType = { BOUNDARY: 0, Z: 1, X: 2, H_BOX: 3, WIRE: 4 } as const
 const EdgeType = { SIMPLE: 1 } as const
 
 // pyzx.utils.original_colors
@@ -190,6 +190,10 @@ function buildNodes(diagram: DiagramData): Map<number, InternalNode> {
       if (n.col !== undefined) row = n.col
       if (n.qubit !== undefined) qubit = n.qubit
       phaseStr = phaseToString(parsePhase(n.phase ?? '1'), t)
+    } else if (n.type === 'wire') {
+      t = VertexType.WIRE
+      if (n.col !== undefined) row = n.col
+      if (n.qubit !== undefined) qubit = n.qubit
     } else {
       t = VertexType.BOUNDARY
     }

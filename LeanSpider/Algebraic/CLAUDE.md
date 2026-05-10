@@ -54,9 +54,10 @@ algebraic nesting is visible at a glance.
 
 Per-constructor layout:
 
-- `wire` → placeholder Z-spider at `(0, 0)`; spliced at the top level
-  (`spliceWire` replaces its two incident edges with a single bridge edge).
-  Width 1, height 1.
+- `wire` → one `.wire` node at `(0, 0)`, rendered by the widget as a small
+  black dot (radius `0.2 * node_size`). Wires stay as real nodes so that
+  `stack`/`compose` boxes around them are non-empty and the visual extent of
+  a subtree matches its algebraic shape. Width 1, height 1.
 - `hadamard` → one `.hadamard` node at `(0, 0)`. Width 1, height 1.
 - `spider c n m φ` → one node at `(0, 0)` (its top input row); `left = replicate n id`,
   `right = replicate m id`. Width 1, height `max n m`.
@@ -68,9 +69,9 @@ Per-constructor layout:
 `stack` and `compose` each emit a `BoxRecord {kind, nodeIds}` listing the ids
 of every node in their subtree (with appropriate shifts on `compose`/`stack`).
 Leaves emit no box. Pixel bounds are computed in `zxViewer.js` from each
-node's live `.x/.y`, so boxes follow drags and don't extend past visible
-nodes (which would otherwise happen on subtrees containing spliced wires).
-The JSON emitter drops boxes whose `nodeIds` are all `none` after splicing.
+node's live `.x/.y`, so boxes follow drags. Because wires are now real nodes
+with positions, every subtree's bounding box extends exactly to its outermost
+member — no overshoot, no live-id filter needed.
 
 Boundary `.input`/`.output` nodes are added **only** at the top level by
 `ZX.toPositionedDiagram`, at `col = -1, qubit = ioId` (inputs) and

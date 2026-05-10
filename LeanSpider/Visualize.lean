@@ -21,6 +21,8 @@ def Node.toJson (n : Node) (idx : Nat) : Json :=
     let phase: Phase := ⟨1, 1⟩
     .mkObj [("id", natJson idx), ("type", .str "hadamard"),
             ("phase", phase.toJson)]
+  | .wire =>
+    .mkObj [("id", natJson idx), ("type", .str "wire")]
   | .input id =>
     .mkObj [("id", natJson idx), ("type", .str "input"), ("ioId", natJson id)]
   | .output id =>
