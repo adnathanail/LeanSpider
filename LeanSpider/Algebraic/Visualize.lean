@@ -5,15 +5,13 @@ namespace LeanSpider.Algebraic
 
 open LeanSpider
 
-/-- A bounding rectangle in algebraic-grid space, drawn behind the diagram
-    to visually mark a `stack` or `compose` subtree. Bounds are inclusive.
-    `kind` is "stack" or "compose". -/
+/-- The set of node ids inside a `stack` or `compose` subtree, drawn behind
+    the diagram as a bounding rectangle. The widget computes pixel bounds
+    from each node's live position so boxes follow drags and don't extend
+    into spliced-wire empty space. `kind` is "stack" or "compose". -/
 structure BoxRecord where
-  kind     : String
-  minCol   : Int
-  maxCol   : Int
-  minQubit : Nat
-  maxQubit : Nat
+  kind    : String
+  nodeIds : List NodeId
   deriving Repr
 
 /-- A partially-built diagram together with its currently-open boundary ports
@@ -52,57 +50,50 @@ private def shiftPos (idOff : Nat) (cOff : Int) (qOff : Nat)
   let (id, c, q) := p
   (id + idOff, c + cOff, q + qOff)
 
-private def shiftBox (cOff : Int) (qOff : Nat) (b : BoxRecord) : BoxRecord :=
-  { b with minCol := b.minCol + cOff, maxCol := b.maxCol + cOff,
-           minQubit := b.minQubit + qOff, maxQubit := b.maxQubit + qOff }
+private def shiftBoxIds (idOff : Nat) (b : BoxRecord) : BoxRecord :=
+  { b with nodeIds := b.nodeIds.map (· + idOff) }
 
 /-- Stack `a` on top of `b` (parallel composition `stack`).
     `b`'s qubits shift down by `a.height`; widths are taken as `max`.
-    Records a "stack" box covering the combined extent. -/
+    Records a "stack" box covering the union of subtree node ids. -/
 private def Frag.append (a b : Frag) : Frag :=
   let off := a.diagram.nodes.length
-  let combinedWidth  := Nat.max a.width b.width
-  let combinedHeight := a.height + b.height
+  let allIds : List NodeId :=
+    a.pos.map (·.1) ++ (b.pos.map (·.1)).map (· + off)
   let newBox : List BoxRecord :=
-    if 0 < combinedWidth ∧ 0 < combinedHeight then
-      [{ kind := "stack", minCol := 0, maxCol := (combinedWidth : Int) - 1,
-         minQubit := 0, maxQubit := combinedHeight - 1 }]
-    else []
+    if allIds.isEmpty then [] else [{ kind := "stack", nodeIds := allIds }]
   { diagram := { nodes := a.diagram.nodes ++ b.diagram.nodes
                  edges := a.diagram.edges ++ b.diagram.edges.map (shiftEdge off) }
     left    := a.left    ++ b.left.map    (· + off)
     right   := a.right   ++ b.right.map   (· + off)
     wireIds := a.wireIds ++ b.wireIds.map (· + off)
-    width   := combinedWidth
-    height  := combinedHeight
+    width   := Nat.max a.width b.width
+    height  := a.height + b.height
     pos     := a.pos ++ b.pos.map (shiftPos off 0 a.height)
-    boxes   := a.boxes ++ b.boxes.map (shiftBox 0 a.height) ++ newBox }
+    boxes   := a.boxes ++ b.boxes.map (shiftBoxIds off) ++ newBox }
 
 /-- Sequentially compose `a` then `b`.
     `b`'s columns shift right by `a.width`; heights are taken as `max`.
-    Records a "compose" box covering the combined extent. -/
+    Records a "compose" box covering the union of subtree node ids. -/
 private def Frag.then (a b : Frag) : Frag :=
   let off := a.diagram.nodes.length
   let bLeft  := b.left.map  (· + off)
   let bRight := b.right.map (· + off)
   let bEdges := b.diagram.edges.map (shiftEdge off)
   let connecting := List.zipWith (fun s t => ({ src := s, tgt := t } : Edge)) a.right bLeft
-  let combinedWidth  := a.width + b.width
-  let combinedHeight := Nat.max a.height b.height
+  let allIds : List NodeId :=
+    a.pos.map (·.1) ++ (b.pos.map (·.1)).map (· + off)
   let newBox : List BoxRecord :=
-    if 0 < combinedWidth ∧ 0 < combinedHeight then
-      [{ kind := "compose", minCol := 0, maxCol := (combinedWidth : Int) - 1,
-         minQubit := 0, maxQubit := combinedHeight - 1 }]
-    else []
+    if allIds.isEmpty then [] else [{ kind := "compose", nodeIds := allIds }]
   { diagram := { nodes := a.diagram.nodes ++ b.diagram.nodes
                  edges := a.diagram.edges ++ bEdges ++ connecting }
     left    := a.left
     right   := bRight
     wireIds := a.wireIds ++ b.wireIds.map (· + off)
-    width   := combinedWidth
-    height  := combinedHeight
+    width   := a.width + b.width
+    height  := Nat.max a.height b.height
     pos     := a.pos ++ b.pos.map (shiftPos off (a.width : Int) 0)
-    boxes   := a.boxes ++ b.boxes.map (shiftBox (a.width : Int) 0) ++ newBox }
+    boxes   := a.boxes ++ b.boxes.map (shiftBoxIds off) ++ newBox }
 
 /-- Build a positioned `Frag` from an algebraic `ZX n m` term. Boundary
     input/output nodes are added later by `ZX.toPositionedDiagram`. -/
@@ -195,14 +186,13 @@ private def lookupPos (pos : List (NodeId × Int × Nat)) (id : NodeId) :
 
 private def boxToJson (b : BoxRecord) : Lean.Json :=
   .mkObj [("kind", .str b.kind),
-          ("minCol", intJson b.minCol),
-          ("maxCol", intJson b.maxCol),
-          ("minQubit", natJson b.minQubit),
-          ("maxQubit", natJson b.maxQubit)]
+          ("nodeIds", .arr (b.nodeIds.map natJson).toArray)]
 
 /-- Emit the algebraic-positioned diagram as JSON: same shape as
     `ZXDiagram.toJson` plus per-node `col`/`qubit` fields and a top-level
-    `boxes` array. Nodes whose slot is `none` (spliced wires) are skipped. -/
+    `boxes` array. Nodes whose slot is `none` (spliced wires) are skipped,
+    and any boxes whose every contained id has been spliced are dropped so
+    the widget never has to render an empty rectangle. -/
 private def algebraicJson (d : ZXDiagram) (pos : List (NodeId × Int × Nat))
     (boxes : List BoxRecord) : Lean.Json :=
   let nodes := d.nodes.foldl (init := (#[], 0)) fun (acc, idx) opt =>
@@ -214,7 +204,12 @@ private def algebraicJson (d : ZXDiagram) (pos : List (NodeId × Int × Nat))
     | none => (acc, idx + 1)
   let nodes := nodes.1
   let edges := (d.edges.map Edge.toJson).toArray
-  let boxesJson := (boxes.map boxToJson).toArray
+  let isLive (id : NodeId) : Bool :=
+    match d.nodes[id]? with | some (some _) => true | _ => false
+  let boxes' := boxes.filterMap fun b =>
+    let live := b.nodeIds.filter isLive
+    if live.isEmpty then none else some { b with nodeIds := live }
+  let boxesJson := (boxes'.map boxToJson).toArray
   .mkObj [("nodes", .arr nodes), ("edges", .arr edges), ("boxes", .arr boxesJson)]
 
 open ProofWidgets in

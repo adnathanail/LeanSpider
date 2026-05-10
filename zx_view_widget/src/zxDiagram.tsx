@@ -1,6 +1,11 @@
 import * as d3 from 'd3'
 import * as React from 'react'
-import { type DiagramData, type RenderData, render as renderDiagram } from './zxRender'
+import {
+  type DiagramData,
+  type RenderBox,
+  type RenderData,
+  render as renderDiagram,
+} from './zxRender'
 import zxViewerJs from './zxViewer.js'
 
 // Eval the viewer module once and cache the showGraph function.
@@ -16,6 +21,7 @@ let showGraphFn:
       auto_hbox: boolean,
       show_labels: boolean,
       scalar_str: string,
+      boxes: RenderBox[],
     ) => void)
   | null = null
 
@@ -71,37 +77,8 @@ function ZXPanel({ diagram, label }: { diagram: DiagramData; label?: string }) {
       renderData.auto_hbox,
       true, // show_labels
       '', // scalar_str
+      renderData.boxes,
     )
-    if (renderData.boxes.length > 0) {
-      const svg = container.querySelector('svg')
-      if (svg) {
-        const NS = 'http://www.w3.org/2000/svg'
-        const g = document.createElementNS(NS, 'g')
-        g.setAttribute('class', 'boxes')
-        for (const box of renderData.boxes) {
-          const rect = document.createElementNS(NS, 'rect')
-          rect.setAttribute('x', String(box.x))
-          rect.setAttribute('y', String(box.y))
-          rect.setAttribute('width', String(box.width))
-          rect.setAttribute('height', String(box.height))
-          rect.setAttribute('rx', '8')
-          rect.setAttribute('ry', '8')
-          const isStack = box.kind === 'stack'
-          rect.setAttribute(
-            'fill',
-            isStack ? 'rgba(255, 165, 80, 0.10)' : 'rgba(100, 160, 255, 0.10)',
-          )
-          rect.setAttribute(
-            'stroke',
-            isStack ? 'rgba(220, 130, 30, 0.65)' : 'rgba(50, 110, 220, 0.65)',
-          )
-          rect.setAttribute('stroke-width', '1')
-          rect.setAttribute('stroke-dasharray', isStack ? '4 3' : '0')
-          g.appendChild(rect)
-        }
-        svg.insertBefore(g, svg.firstChild)
-      }
-    }
   }, [renderData])
 
   return (

@@ -65,10 +65,12 @@ Per-constructor layout:
 - `compose a b` → connect `a.right` to `b.left` and shift `b`'s cols by `a.width`.
   Width `a.width + b.width`, height `max a.height b.height`.
 
-`stack` and `compose` each emit a `BoxRecord` covering `(0..width-1, 0..height-1)`
-of the combined fragment (in local coords, then shifted alongside child boxes).
-Leaves (`empty`/`wire`/`hadamard`/`spider`) emit no box. Wire-only subtrees
-still emit boxes — the box just contains pass-through edges, which is fine.
+`stack` and `compose` each emit a `BoxRecord {kind, nodeIds}` listing the ids
+of every node in their subtree (with appropriate shifts on `compose`/`stack`).
+Leaves emit no box. Pixel bounds are computed in `zxViewer.js` from each
+node's live `.x/.y`, so boxes follow drags and don't extend past visible
+nodes (which would otherwise happen on subtrees containing spliced wires).
+The JSON emitter drops boxes whose `nodeIds` are all `none` after splicing.
 
 Boundary `.input`/`.output` nodes are added **only** at the top level by
 `ZX.toPositionedDiagram`, at `col = -1, qubit = ioId` (inputs) and
@@ -76,13 +78,14 @@ Boundary `.input`/`.output` nodes are added **only** at the top level by
 during recursion.
 
 The JSON shape extends `ZXDiagram.toJson` with `col` (Int) and `qubit` (Nat)
-fields per node, plus a top-level `boxes` array of
-`{kind, minCol, maxCol, minQubit, maxQubit}` records. `zxRender.ts` honours
-the positions (skipping `autoLayout` whenever any node has `col` set) and
-converts boxes into pixel-space `RenderBox`es sorted largest-area first.
-`zxDiagram.tsx` injects a `<g class="boxes">` group as the SVG's first child
-after `showGraph` runs, so rects paint behind nodes and edges. The widget's
-`auto_hbox` flag is also turned off in the positioned case, so hadamards'
+fields per node, plus a top-level `boxes` array of `{kind, nodeIds}` records.
+`zxRender.ts` honours the positions (skipping `autoLayout` whenever any node
+has `col` set) and forwards boxes unchanged, sorted largest-id-count first
+so outer paints behind inner. `zxViewer.js` accepts the box list as an extra
+parameter to `showGraph`, renders them as the first `<g class="boxes">` child
+of the SVG (with `pointer-events: none` so the brush layer still works), and
+recomputes their bounds in `update_boxes()` after every drag tick. The
+widget's `auto_hbox` flag is turned off in the positioned case, so hadamards'
 supplied positions aren't overwritten by neighbour-barycentre repositioning.
 
 `ZX.toZXDiagram` (used by callers that just need the graph) delegates to

@@ -19,14 +19,12 @@ export interface DiagramEdge {
   tgt: number
 }
 
-/** A bounding rectangle in algebraic-grid space, emitted by the Lean walker
- *  for every `stack`/`compose` subtree. Bounds are inclusive. */
+/** The set of node ids inside a `stack` or `compose` subtree, emitted by
+ *  the Lean walker. The viewer computes pixel bounds from each node's live
+ *  position so boxes follow drags and don't extend into spliced-wire space. */
 export interface DiagramBox {
   kind: 'stack' | 'compose'
-  minCol: number
-  maxCol: number
-  minQubit: number
-  maxQubit: number
+  nodeIds: number[]
 }
 
 export interface DiagramData {
@@ -59,14 +57,11 @@ export interface GraphData {
   pauli_web: never[]
 }
 
-/** A box rendered behind the diagram, with pixel coordinates pre-computed
- *  in `render` so the consumer can directly emit an SVG `<rect>`. */
+/** A box passed through to `zxViewer.js` unchanged; pixel bounds are
+ *  computed there from live node positions so they follow drags. */
 export interface RenderBox {
   kind: 'stack' | 'compose'
-  x: number
-  y: number
-  width: number
-  height: number
+  nodeIds: number[]
 }
 
 export interface RenderData {
@@ -362,20 +357,14 @@ export function render(diagram: DiagramData): RenderData {
     links[i].num_parallel = counts.get(linkKeys[i]) ?? 1
   }
 
-  // Boxes from the algebraic walker. Same coord mapping as nodes:
-  // x = (col - minrow + 1) * scale, y = (qubit - minqub + 2) * scale.
-  // Padding shrinks/expands inclusive bounds so the rect wraps the nodes.
-  const BOX_PAD = 0.4
-  const inputBoxes = diagram.boxes ?? []
-  const boxes: RenderBox[] = inputBoxes.map(b => ({
+  // Boxes pass through unchanged. Pixel bounds are computed in zxViewer.js
+  // from live node positions. Sort largest first (id-count is a proxy for
+  // area since parents strictly contain children) so outer paints behind.
+  const boxes: RenderBox[] = (diagram.boxes ?? []).map(b => ({
     kind: b.kind,
-    x: (b.minCol - minrow + 1 - BOX_PAD) * scale,
-    y: (b.minQubit - minqub + 2 - BOX_PAD) * scale,
-    width: (b.maxCol - b.minCol + 2 * BOX_PAD) * scale,
-    height: (b.maxQubit - b.minQubit + 2 * BOX_PAD) * scale,
+    nodeIds: b.nodeIds,
   }))
-  // Largest area first so outer boxes paint behind inner ones.
-  boxes.sort((a, b) => b.width * b.height - a.width * a.height)
+  boxes.sort((a, b) => b.nodeIds.length - a.nodeIds.length)
 
   return {
     graph: { nodes: outNodes, links, pauli_web: [] },

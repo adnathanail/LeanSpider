@@ -60,7 +60,8 @@ var symbolGround = {
     }
 }
 
-function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_labels, scalar_str) {
+function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_labels, scalar_str, boxes) {
+    boxes = boxes || [];
     var ntab = {};
 
     var groundOffset = 2.5 * node_size;
@@ -155,6 +156,53 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
         .attr("style", "max-width: none; max-height: none")
         .attr("width", width)
         .attr("height", height);
+
+    // Bounding-box group for stack/compose subtrees. Painted behind everything
+    // else (first child of <svg>); pointer-events disabled so brush still
+    // receives drag-select events.
+    var box_pad = 0.4 * scale + node_size;
+    var box_g = svg.append("g")
+        .attr("class", "boxes")
+        .attr("pointer-events", "none");
+    var boxRect = box_g.selectAll("rect")
+        .data(boxes)
+        .enter().append("rect")
+        .attr("rx", 4).attr("ry", 4)
+        .attr("fill", function(d) {
+            return d.kind === 'stack'
+                ? 'rgba(255,165,80,0.10)'
+                : 'rgba(100,160,255,0.10)';
+        })
+        .attr("stroke", function(d) {
+            return d.kind === 'stack'
+                ? 'rgba(220,130,30,0.65)'
+                : 'rgba(50,110,220,0.65)';
+        })
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", function(d) { return d.kind === 'stack' ? '4 3' : '0'; });
+
+    function update_boxes() {
+        boxRect.each(function(d) {
+            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            var found = false;
+            for (var i = 0; i < d.nodeIds.length; i++) {
+                var n = ntab[String(d.nodeIds[i])];
+                if (!n) continue;            // wire-spliced id, skip
+                found = true;
+                if (n.x < minX) minX = n.x;
+                if (n.y < minY) minY = n.y;
+                if (n.x > maxX) maxX = n.x;
+                if (n.y > maxY) maxY = n.y;
+            }
+            var sel = d3.select(this);
+            if (!found) { sel.attr("display", "none"); return; }
+            sel.attr("display", null)
+               .attr("x", minX - box_pad)
+               .attr("y", minY - box_pad)
+               .attr("width",  (maxX - minX) + 2 * box_pad)
+               .attr("height", (maxY - minY) + 2 * box_pad);
+        });
+    }
 
     var web = svg.append("g")
         .attr("class", "web")
@@ -338,6 +386,7 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
     }
 
     update_hboxes();
+    update_boxes();
 
     var link_curve = function(d) {
         var x1 = d.source.x, x2 = d.target.x, y1 = d.source.y, y2 = d.target.y;
@@ -419,6 +468,7 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
                 });
 
             update_hboxes();
+            update_boxes();
 
             link.filter(function(d) { return d.source.selected || d.target.selected ||
                     (auto_hbox && (d.source.t == 3 || d.target.t == 3)); })
