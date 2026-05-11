@@ -36,6 +36,8 @@ Things to research
 
 - TensorRocq: Enabling diagrammatic reasoning in Rocq
     - https://arxiv.org/pdf/2604.17592
+- VyZX: Formal Verification of a Graphical Quantum Language
+    - https://arxiv.org/abs/2311.11571
 - String Diagram Rewrite Theory II: Rewriting with Symmetric Monoidal Structure
     - https://arxiv.org/pdf/2104.14686
     - Frobenius algebra
@@ -44,5 +46,14 @@ Things to research
     - PROPs: a particularly simple family of symmetric strict monoidal categories
     - The notion of algebraic theory here is that of symmetric monoidal theory, with the essential difference being that the underlying assumption of Cartesianity is discarded
     - Lawvere theories (Cartesian PROPs)
-    
+- ZX-Calculus and Extended Hypergraph Rewriting Systems I: A Multiway Approach to Categorical Quantum Information Theory
+    - https://arxiv.org/pdf/2010.02752
+    - Lots of physics, category theory, and quite unhelpful diagrams
+    - Sequel https://arxiv.org/pdf/2103.15820
+
 https://github.com/inQWIRE/LeanQuantum
+
+https://github.com/tannerduve/zxLean/blob/main/ZxCalculus/MultiQubit/DenotationalSemantics.lean
+
+https://github.com/Timeroot/Lean-QuantumInfo
+https://github.com/leanprover-community/physlib

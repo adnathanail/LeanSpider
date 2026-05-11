@@ -208,11 +208,16 @@ private def boxToJson (b : BoxRecord) : Lean.Json :=
   .mkObj [("kind", .str b.kind),
           ("nodeIds", .arr (b.nodeIds.map natJson).toArray)]
 
+private def labelToJson (entry : Nat × String) : Lean.Json :=
+  .arr #[natJson entry.1, .str entry.2]
+
 /-- Emit the algebraic-positioned diagram as JSON: same shape as
-    `ZXDiagram.toJson` plus per-node `col`/`qubit` fields and a top-level
-    `boxes` array. -/
+    `ZXDiagram.toJson` plus per-node `col`/`qubit` fields, a top-level
+    `boxes` array, and a top-level `labels` array of `[nodeId, name]`
+    overrides used to display symbolic phases on parameterized
+    diagrams. -/
 private def algebraicJson (d : ZXDiagram) (pos : List (NodeId × Int × Nat))
-    (boxes : List BoxRecord) : Lean.Json :=
+    (boxes : List BoxRecord) (labels : List (Nat × String) := []) : Lean.Json :=
   let nodes := d.nodes.foldl (init := (#[], 0)) fun (acc, idx) opt =>
     match opt with
     | some n =>
@@ -223,24 +228,30 @@ private def algebraicJson (d : ZXDiagram) (pos : List (NodeId × Int × Nat))
   let nodes := nodes.1
   let edges := (d.edges.map Edge.toJson).toArray
   let boxesJson := (boxes.map boxToJson).toArray
-  .mkObj [("nodes", .arr nodes), ("edges", .arr edges), ("boxes", .arr boxesJson)]
+  let labelsJson := (labels.map labelToJson).toArray
+  .mkObj [("nodes", .arr nodes), ("edges", .arr edges),
+          ("boxes", .arr boxesJson), ("labels", .arr labelsJson)]
 
 open ProofWidgets in
 /-- Render an algebraic ZX term in the InfoView. Positions come from the
     algebraic structure (`compose` → col, `stack` → qubit), and bounding
-    boxes are emitted for every `stack`/`compose` subtree. -/
-def ZX.toHtml {n m : Nat} (z : ZX n m) : Html :=
+    boxes are emitted for every `stack`/`compose` subtree. `labels` lets
+    the caller override the displayed phase text for specific node IDs —
+    used by tactics to render symbolic phases from parameterized goals. -/
+def ZX.toHtml {n m : Nat} (z : ZX n m) (labels : List (Nat × String) := []) : Html :=
   let (d, pos, boxes) := z.toPositionedDiagram
-  Html.ofComponent ZXWidget ⟨algebraicJson d pos boxes, .null⟩ #[]
+  Html.ofComponent ZXWidget ⟨algebraicJson d pos boxes labels, .null⟩ #[]
 
 open ProofWidgets in
 /-- Render two algebraic ZX terms side-by-side in the InfoView — the first
     appears in the `Current` panel, the second in the `Goal` panel. Both
-    sides share the same arity so the widget renders them at equal scale. -/
-def ZX.toHtmlPair {n m : Nat} (z g : ZX n m) : Html :=
+    sides share the same arity so the widget renders them at equal scale.
+    `labels` / `gLabels` override displayed phase text per panel. -/
+def ZX.toHtmlPair {n m : Nat} (z g : ZX n m)
+    (labels gLabels : List (Nat × String) := []) : Html :=
   let (d,  pos,  boxes)  := z.toPositionedDiagram
   let (gd, gpos, gboxes) := g.toPositionedDiagram
   Html.ofComponent ZXWidget
-    ⟨algebraicJson d pos boxes, algebraicJson gd gpos gboxes⟩ #[]
+    ⟨algebraicJson d pos boxes labels, algebraicJson gd gpos gboxes gLabels⟩ #[]
 
 end LeanSpider.Algebraic

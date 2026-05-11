@@ -60,8 +60,16 @@ var symbolGround = {
     }
 }
 
-function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_labels, scalar_str, boxes) {
+function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_labels, scalar_str, boxes, labels) {
     boxes = boxes || [];
+    // Map<number, string>: label overrides for spider phase text (used by
+    // tactics to render symbolic phases on parameterized diagrams). Lookup
+    // by parseInt(d.name) since graph node names are strings.
+    var labelMap = labels || new Map();
+    var labelFor = function(d) {
+        var k = parseInt(d.name, 10);
+        return labelMap.get ? labelMap.get(k) : labelMap[k];
+    };
     var ntab = {};
 
     var groundOffset = 2.5 * node_size;
@@ -289,10 +297,13 @@ function showGraph(tag, graph, width, height, scale, node_size, auto_hbox, show_
         .attr("stroke", "black")
         .attr("class", "selectable");
 
-    node.filter(function(d) { return d.phase != ''; })
+    node.filter(function(d) { return d.phase != '' || labelFor(d) !== undefined; })
         .append("text")
         .attr("y", 0.7 * node_size + 14)
-        .text(function (d) { return d.phase })
+        .text(function (d) {
+            var lbl = labelFor(d);
+            return lbl !== undefined ? lbl : d.phase;
+        })
         .attr("text-anchor", "middle")
         .attr("font-size", "12px")
         .attr("font-family", "monospace")

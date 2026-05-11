@@ -28,16 +28,85 @@ private def matchZXType? (ty : Expr) : Option (Expr × Expr) :=
     some (args[0]!, args[1]!)
   else none
 
-/-- Build an `Expr` calling `ZX.toHtml`/`ZX.toHtmlPair` and evaluate it to
-    `Html`. `ZX n m` is arity-indexed so we can't `Meta.evalExpr` the term
-    itself — but `Html` is a plain type, so we evaluate the *application*. -/
+/-- Build a `Phase` `Expr` from a concrete `Phase` value. Lives this high
+    in the file so `substitutePhaseFVars` (below) can build a placeholder. -/
+private def phaseToExpr (γ : Phase) : MetaM Expr := do
+  let numE : Expr := Lean.toExpr γ.num
+  let denValE : Expr := Lean.toExpr γ.den.val
+  let denE ← mkAppOptM ``OfNat.ofNat #[some (mkConst ``PNat), some denValE, none]
+  mkAppM ``Phase.mk #[numE, denE]
+
+/-- Walk a `ZX n m` `Expr` in the same DFS / offset scheme as `buildFrag`
+    in `Visualize.lean` (and `buildFusionProof` below). At each spider
+    whose phase contains a free variable, pretty-print the phase Expr and
+    record `(nodeId, prettyString)`. Returns `(labels, endOffset)`. -/
+partial def collectPhaseLabels (z : Expr) (off : Nat := 0) :
+    MetaM (List (Nat × String) × Nat) := do
+  let z ← whnf z
+  let f := z.getAppFn
+  match f.constName? with
+  | some ``ZX.empty    => return ([], off)
+  | some ``ZX.wire     => return ([], off + 1)
+  | some ``ZX.hadamard => return ([], off + 1)
+  | some ``ZX.spider   =>
+      let args := z.getAppArgs
+      if args.size = 4 then
+        let phaseE := args[3]!
+        if phaseE.hasFVar then
+          let fmt ← Lean.PrettyPrinter.ppExpr phaseE
+          return ([(off, fmt.pretty)], off + 1)
+      return ([], off + 1)
+  | some ``ZX.stack    =>
+      let args := z.getAppArgs
+      let (la, off1) ← collectPhaseLabels args[4]! off
+      let (lb, off2) ← collectPhaseLabels args[5]! off1
+      return (la ++ lb, off2)
+  | some ``ZX.compose  =>
+      let args := z.getAppArgs
+      let (la, off1) ← collectPhaseLabels args[3]! off
+      let (lb, off2) ← collectPhaseLabels args[4]! off1
+      return (la ++ lb, off2)
+  | _ => return ([], off)
+
+/-- Substitute every free variable of type `Phase` in `z` with a placeholder
+    `Phase.mk 0 1`. After this the Expr is closed wrt Phase fvars and can be
+    fed to `Meta.evalExpr` — symbolic phases are recovered visually via the
+    labels list emitted by `collectPhaseLabels`. -/
+def substitutePhaseFVars (z : Expr) : MetaM Expr := do
+  let phaseTy := mkConst ``Phase
+  let lctx ← getLCtx
+  let mut fvars : Array Expr := #[]
+  for decl in lctx do
+    unless decl.isImplementationDetail do
+      if ← isDefEq decl.type phaseTy then
+        fvars := fvars.push decl.toExpr
+  if fvars.isEmpty then return z
+  let placeholder ← phaseToExpr ⟨0, 1⟩
+  let replacements := fvars.map fun _ => placeholder
+  return z.replaceFVars fvars replacements
+
+/-- Build an `Expr` calling `ZX.toHtml`/`ZX.toHtmlPair` (with symbolic-phase
+    labels) and evaluate it to `Html`. `ZX n m` is arity-indexed so we can't
+    `Meta.evalExpr` the term itself — but `Html` is a plain type, so we
+    evaluate the *application*. -/
 private unsafe def evalAlgHtmlImpl (lhs : Expr) (rhs? : Option Expr) : MetaM Html := do
   let ty ← inferType lhs
   let some (nE, mE) := matchZXType? ty
     | throwError "evalAlgHtml: expected `ZX n m`, got {ty}"
+  let (lhsLabels, _) ← collectPhaseLabels lhs
+  let lhs' ← substitutePhaseFVars lhs
+  let lhsLabelsE : Expr := Lean.toExpr lhsLabels
   let htmlE ← match rhs? with
-    | none     => mkAppOptM ``ZX.toHtml     #[some nE, some mE, some lhs]
-    | some rhs => mkAppOptM ``ZX.toHtmlPair #[some nE, some mE, some lhs, some rhs]
+    | none =>
+        mkAppOptM ``ZX.toHtml
+          #[some nE, some mE, some lhs', some lhsLabelsE]
+    | some rhs =>
+        let (rhsLabels, _) ← collectPhaseLabels rhs
+        let rhs' ← substitutePhaseFVars rhs
+        let rhsLabelsE : Expr := Lean.toExpr rhsLabels
+        mkAppOptM ``ZX.toHtmlPair
+          #[some nE, some mE, some lhs', some rhs',
+            some lhsLabelsE, some rhsLabelsE]
   Meta.evalExpr Html (mkConst ``ProofWidgets.Html) htmlE
 
 @[implemented_by evalAlgHtmlImpl]
@@ -87,13 +156,6 @@ private unsafe def tryEvalPhaseImpl (e : Expr) : MetaM (Option Phase) := do
 
 @[implemented_by tryEvalPhaseImpl]
 private opaque tryEvalPhase (e : Expr) : MetaM (Option Phase)
-
-/-- Build a `Phase` `Expr` from a concrete `Phase` value. -/
-private def phaseToExpr (γ : Phase) : MetaM Expr := do
-  let numE : Expr := Lean.toExpr γ.num
-  let denValE : Expr := Lean.toExpr γ.den.val
-  let denE ← mkAppOptM ``OfNat.ofNat #[some (mkConst ``PNat), some denValE, none]
-  mkAppM ``Phase.mk #[numE, denE]
 
 /-- Walk a `ZX n m` expression in the same DFS order as `buildFrag` in
     `Visualize.lean`, building both the rewritten term and a proof

@@ -142,10 +142,19 @@ pick two node IDs, apply a rule, get back a residual `≃ZX` goal.
   (`buildFusionProof` in `Tactics.lean`).
 - `zx_alg_fusion idA idB` (`Tactics.lean`): direct-compose only. Both
   spiders must be Z with arities `(_, 1)` and `(1, _)` and sit as the
-  immediate children of one `compose`. The fused result has the *raw*
-  phase sum (e.g. `⟨1,4⟩+⟨1,4⟩ = ⟨8,16⟩` via `Phase.add`, not the
-  simplified `⟨1,2⟩`) — phase simplification stays a separate concern
-  (use `spider_phase_eq` + `congr_phase`).
+  immediate children of one `compose`.
+  - **Concrete phases** (`⟨num, den⟩` literals): the fused result is
+    gcd-reduced — e.g. `⟨1,4⟩+⟨1,4⟩` becomes `⟨1,2⟩`, not the raw
+    `⟨8,16⟩`. Reduction is `num/gcd, den/gcd` only (no mod-2π — that
+    wouldn't preserve `congr_phase`'s integer equation).
+    Implementation: `Z_spiderFusion_simp` combines `Z_spiderFusion`
+    with `spider_phase_eq (congr_phase _)`, and the tactic discharges
+    the integer congruence by `decide`.
+  - **Symbolic phases** (free variables, e.g. `α β : Phase`): the
+    tactic falls back to raw `Z_spiderFusion` and leaves the residual
+    as `spider .Z n k (α + β)`. The user can then chain
+    `spider_phase_eq` + `congr_phase` by hand if a specific
+    simplification is needed.
 
 ### Architecture (mirror of `applyRewrite`)
 
@@ -156,9 +165,14 @@ pick two node IDs, apply a rule, get back a residual `≃ZX` goal.
 2. `buildFusionProof` walks `lhs` DFS-style, threading an offset
    counter, returning `(lhs', proof : lhs ≃ZX lhs', endOffset)`. At
    each `compose a b` it walks `a` first to learn `offB := off + count a`,
-   then either applies `Z_spiderFusion` (if `(offA, offB) = (idA, idB)`)
-   or recurses into `b` and combines with `ZX.compose_congr`. For non-
-   target subtrees the proof piece is `ZX.equiv_refl`.
+   then either applies fusion (if `(offA, offB) = (idA, idB)`) or
+   recurses into `b` and combines with `ZX.compose_congr`. For non-
+   target subtrees the proof piece is `ZX.equiv_refl`. At the leaf, both
+   spider phases are run through `tryEvalPhase` (`Meta.evalExpr`): if
+   both reduce to concrete `Phase` values, `Z_spiderFusion_simp` is
+   invoked with a gcd-reduced phase and a `mkDecideProof`-discharged
+   congruence hypothesis; otherwise raw `Z_spiderFusion` is used and
+   the summed phase stays as `α + β`.
 3. `applyZxAlgFusion` combines the constructed proof with the residual
    via `ZX.equiv_trans` and leaves the user a `lhs' ≃ZX rhs` goal —
    usually closable with `rfl` if the user wrote `rhs` to match the
@@ -204,6 +218,18 @@ and `Meta.evalExpr`s it to `Html`. Arity is recovered from
 because `ZX n m` is index-dependent, but the `Html` application is).
 Render failures degrade to a warning so visualization can't block a
 proof.
+
+**Parameterized diagrams** (free-variable phases, e.g. `(α β : Phase)`)
+also render: before `Meta.evalExpr`, `evalAlgHtml` walks the term twice —
+once via `collectPhaseLabels` to pretty-print any phase Exprs that
+contain free vars and pair them with the corresponding spider node IDs,
+once via `substitutePhaseFVars` to swap every `Phase` fvar in the
+locally-visible context for the placeholder `Phase.mk 0 1` so the term
+becomes evalable. Both label lists (LHS + RHS) flow as a `List
+(Nat × String)` argument to `ZX.toHtml` / `ZX.toHtmlPair`, end up as a
+top-level `"labels"` array of `[nodeId, name]` pairs in the JSON, get
+materialised as a `Map<number, string>` in `zxRender.ts`, and override
+the displayed phase text in `zxViewer.js`.
 
 ### Out of scope (yet)
 

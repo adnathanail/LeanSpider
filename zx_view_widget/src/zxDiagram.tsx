@@ -22,6 +22,7 @@ let showGraphFn:
       show_labels: boolean,
       scalar_str: string,
       boxes: RenderBox[],
+      labels: Map<number, string>,
     ) => void)
   | null = null
 
@@ -78,6 +79,7 @@ function ZXPanel({ diagram, label }: { diagram: DiagramData; label?: string }) {
       true, // show_labels
       '', // scalar_str
       renderData.boxes,
+      renderData.labels,
     )
   }, [renderData])
 

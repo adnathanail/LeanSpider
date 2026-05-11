@@ -31,6 +31,10 @@ export interface DiagramData {
   nodes: DiagramNode[]
   edges: DiagramEdge[]
   boxes?: DiagramBox[]
+  /** Optional phase-label overrides keyed by node id. Used by tactics to
+   *  display symbolic phases (variable names, `α + 1/2`, etc.) on
+   *  parameterized diagrams in place of the placeholder `phase` field. */
+  labels?: [number, string][]
 }
 
 export interface GraphNode {
@@ -79,6 +83,9 @@ export interface RenderData {
   /** Bounding rectangles for `stack`/`compose` subtrees, sorted largest-area
    *  first so outer boxes paint behind inner ones. */
   boxes: RenderBox[]
+  /** Phase-label overrides keyed by node id. The viewer renders these
+   *  strings in place of the spider's parsed phase when present. */
+  labels: Map<number, string>
 }
 
 const VertexType = { BOUNDARY: 0, Z: 1, X: 2, H_BOX: 3, WIRE: 4 } as const
@@ -370,6 +377,11 @@ export function render(diagram: DiagramData): RenderData {
   }))
   boxes.sort((a, b) => b.nodeIds.length - a.nodeIds.length)
 
+  const labels = new Map<number, string>()
+  for (const entry of diagram.labels ?? []) {
+    labels.set(entry[0], entry[1])
+  }
+
   return {
     graph: { nodes: outNodes, links, pauli_web: [] },
     width,
@@ -379,5 +391,6 @@ export function render(diagram: DiagramData): RenderData {
     colors: COLORS,
     auto_hbox: !positioned,
     boxes,
+    labels,
   }
 }

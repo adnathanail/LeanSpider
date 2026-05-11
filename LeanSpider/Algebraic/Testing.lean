@@ -72,6 +72,12 @@ theorem zxAlgFusion_parameterized (α β : Phase) :
   zx_alg_fusion 0 1
   rfl
 
+theorem zxAlgFusion_parameterized2 (α : Phase) :
+    (ZX.spider .Z 1 1 α × ZX.spider .Z 1 1 ⟨1, 2⟩)
+      ≃ZX ZX.spider .Z 1 1 (α + ⟨1, 2⟩) := by
+  zx_alg_fusion 0 1
+  rfl
+
 -- (2) Nested under a surrounding compose. IDs (DFS):
 --   s1=0 (outer left), s2=1 (target left), s3=2 (target right), s4=3 (outer right).
 theorem zxAlgFusion_nested :
