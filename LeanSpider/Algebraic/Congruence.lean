@@ -43,4 +43,36 @@ theorem spider_phase_eq {c : SpiderColor} {n m : Nat} {α β : Phase}
   | Z => simp [ZX.sem, Z_spiderMatrix_congr_phase h]
   | X => rfl
 
+/-- Compose respects `≃ZX` in both arguments.
+
+    Used by `Quotient.lift₂` when defining `ZXQ.compose`, and useful in its
+    own right for hand-rolled congruence proofs. -/
+theorem ZX.compose_congr {n m k : Nat} {a a' : ZX n m} {b b' : ZX m k}
+    (ha : a ≃ZX a') (hb : b ≃ZX b') : (a × b) ≃ZX (a' × b') := by
+  show ZX.sem _ = ZX.sem _
+  simp only [ZX.sem]
+  rw [show a.sem = a'.sem from ha, show b.sem = b'.sem from hb]
+
+/-- Stack respects `≃ZX` in both arguments.
+
+    Currently trivial under the placeholder `stack` semantics (`.sem = 0`).
+    Once `stack` semantics is filled in (Kronecker product), this will need
+    a real proof; the *statement* will not change. -/
+theorem ZX.stack_congr {n m p q : Nat} {a a' : ZX n m} {b b' : ZX p q}
+    (_ha : a ≃ZX a') (_hb : b ≃ZX b') : (a ⊗ b) ≃ZX (a' ⊗ b') := by
+  show ZX.sem _ = ZX.sem _
+  simp only [ZX.sem]
+
+/-- Composition is associative up to `≃ZX`.
+
+    Follows from `Matrix.mul_assoc`: with the right-to-left compose
+    convention, `((a × b) × c).sem = c.sem * (b.sem * a.sem)` and
+    `(a × (b × c)).sem = (c.sem * b.sem) * a.sem`. -/
+theorem ZX.compose_assoc {n m k l : Nat}
+    (a : ZX n m) (b : ZX m k) (c : ZX k l) :
+    ((a × b) × c) ≃ZX (a × (b × c)) := by
+  show ZX.sem _ = ZX.sem _
+  simp only [ZX.sem]
+  exact (Matrix.mul_assoc c.sem b.sem a.sem).symm
+
 end LeanSpider.Algebraic
