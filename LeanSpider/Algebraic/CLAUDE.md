@@ -124,3 +124,78 @@ there is no proof that the lowering preserves semantics (would need a
   AND-indicator: `simp only [mul_ite, ite_mul, mul_one, mul_zero, zero_mul, ← ite_and]`.
   Note `simp` happens to apply `mul_ite` first, which controls which condition
   ends up "outside" in the resulting AND.
+
+## Rewrite infrastructure
+
+`Rewrite.lean` and `Tactics.lean` provide a graph-style rewrite UX
+parallel to what `LeanSpider/Tactics.lean` does for `ZXDiagram` —
+pick two node IDs, apply a rule, get back a residual `≃ZX` goal.
+
+- `ZX.nodeCount` (`Rewrite.lean`) mirrors `buildFrag`'s DFS counting
+  exactly. Per-constructor contributions: `empty` 0; `wire`/`hadamard`/
+  `spider` 1; `stack`/`compose` sum of children. Body nodes get IDs
+  `0..count-1`; boundary inputs/outputs are added *after* the body in
+  `ZX.toPositionedDiagram` so body IDs are stable.
+- `ZX.applySpiderFusionAt` (`Rewrite.lean`) is the standalone
+  computable rewrite — kept for future tactics or testing, but the
+  live `zx_alg_fusion` tactic walks the term in MetaM directly
+  (`buildFusionProof` in `Tactics.lean`).
+- `zx_alg_fusion idA idB` (`Tactics.lean`): direct-compose only. Both
+  spiders must be Z with arities `(_, 1)` and `(1, _)` and sit as the
+  immediate children of one `compose`. The fused result has the *raw*
+  phase sum (e.g. `⟨1,4⟩+⟨1,4⟩ = ⟨8,16⟩` via `Phase.add`, not the
+  simplified `⟨1,2⟩`) — phase simplification stays a separate concern
+  (use `spider_phase_eq` + `congr_phase`).
+
+### Architecture (mirror of `applyRewrite`)
+
+1. `parseAlgEquivGoal` extracts `(lhs, rhs)` from a goal
+   `@ZX.equiv n m lhs rhs`. **Watch out:** `ZX.equiv` has two implicit
+   index args (so 4 total), so `Expr.app2?` does *not* work — use
+   `getAppFn`/`getAppArgs` and check `args.size == 4`.
+2. `buildFusionProof` walks `lhs` DFS-style, threading an offset
+   counter, returning `(lhs', proof : lhs ≃ZX lhs', endOffset)`. At
+   each `compose a b` it walks `a` first to learn `offB := off + count a`,
+   then either applies `Z_spiderFusion` (if `(offA, offB) = (idA, idB)`)
+   or recurses into `b` and combines with `ZX.compose_congr`. For non-
+   target subtrees the proof piece is `ZX.equiv_refl`.
+3. `applyZxAlgFusion` combines the constructed proof with the residual
+   via `ZX.equiv_trans` and leaves the user a `lhs' ≃ZX rhs` goal —
+   usually closable with `rfl` if the user wrote `rhs` to match the
+   raw fused form.
+
+### When the tactic fails
+
+- **Free `ZX` variables in `lhs`.** The walker hits the variable and
+  has no constructor to discriminate on; `whnf` doesn't help. Restate
+  the example with concrete sub-terms.
+- **`×` notation gets parsed as `Prod`.** `ZX.compose`'s `×` and
+  Lean's `Prod` `×` are both `infixl:55`, and in some elaboration
+  contexts (multi-argument goal statements) the overload resolution
+  emits spurious errors even though `ZX.compose` succeeds. Workaround:
+  use `ZX.compose` explicitly in the statement.
+
+### Extending to other rules
+
+The reusable pieces in `Congruence.lean` (`ZX.compose_congr`,
+`ZX.stack_congr`, `ZX.compose_assoc`) plus `ZX.equiv_refl`/`equiv_trans`
+in `Semantics.lean` are sufficient for any tactic that wants to descend
+to a target subterm and apply a proved equivalence at the leaf. Pattern
+for a new `zx_alg_<rule>` tactic:
+
+1. Write the leaf theorem (`Z_spiderFusion`-style) with `≃ZX`
+   conclusion.
+2. Write a computable structural matcher in `Rewrite.lean` (or write
+   the matching inline in MetaM — `buildFusionProof` does the latter).
+3. Copy `buildFusionProof` and swap the leaf application for the new
+   theorem.
+4. Add an `elab_rules` block with whatever syntax fits the rule's
+   inputs.
+
+### Out of scope (yet)
+
+- Goal-state visualization for `≃ZX` (`zx_alg_show`). Needs an `evalZX`
+  parallel of `evalZXDiagram` plus arity extraction from the goal type.
+- Multi-leg spider fusion (requires generalized `Z_spiderFusion`).
+- Fusion through intervening `wire`/`hadamard` chains.
+- X-spider variants (need real X semantics — currently `.sem = 0`).
