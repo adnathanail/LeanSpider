@@ -233,4 +233,14 @@ def ZX.toHtml {n m : Nat} (z : ZX n m) : Html :=
   let (d, pos, boxes) := z.toPositionedDiagram
   Html.ofComponent ZXWidget ⟨algebraicJson d pos boxes, .null⟩ #[]
 
+open ProofWidgets in
+/-- Render two algebraic ZX terms side-by-side in the InfoView — the first
+    appears in the `Current` panel, the second in the `Goal` panel. Both
+    sides share the same arity so the widget renders them at equal scale. -/
+def ZX.toHtmlPair {n m : Nat} (z g : ZX n m) : Html :=
+  let (d,  pos,  boxes)  := z.toPositionedDiagram
+  let (gd, gpos, gboxes) := g.toPositionedDiagram
+  Html.ofComponent ZXWidget
+    ⟨algebraicJson d pos boxes, algebraicJson gd gpos gboxes⟩ #[]
+
 end LeanSpider.Algebraic

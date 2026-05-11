@@ -192,10 +192,21 @@ for a new `zx_alg_<rule>` tactic:
 4. Add an `elab_rules` block with whatever syntax fits the rule's
    inputs.
 
+### Tactic visualization
+
+`zx_alg_fusion` logs an InfoView widget after rewriting, showing the new
+LHS in the `Current` panel and the user's RHS in the `Goal` panel
+(hidden when RHS is an unassigned metavariable) — mirrors the graph-side
+`zx_sp` flow. Wired via `showAlgDiagram` in `Tactics.lean`, which builds
+an `Expr` calling `ZX.toHtml` / `ZX.toHtmlPair` (in `Visualize.lean`)
+and `Meta.evalExpr`s it to `Html`. Arity is recovered from
+`Meta.inferType` on the LHS `Expr` (the term itself isn't evaluable
+because `ZX n m` is index-dependent, but the `Html` application is).
+Render failures degrade to a warning so visualization can't block a
+proof.
+
 ### Out of scope (yet)
 
-- Goal-state visualization for `≃ZX` (`zx_alg_show`). Needs an `evalZX`
-  parallel of `evalZXDiagram` plus arity extraction from the goal type.
 - Multi-leg spider fusion (requires generalized `Z_spiderFusion`).
 - Fusion through intervening `wire`/`hadamard` chains.
 - X-spider variants (need real X semantics — currently `.sem = 0`).

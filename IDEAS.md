@@ -32,3 +32,17 @@ Things to research
 
 
 - Add Dirac semantics for neater proofs?
+
+
+- TensorRocq: Enabling diagrammatic reasoning in Rocq
+    - https://arxiv.org/pdf/2604.17592
+- String Diagram Rewrite Theory II: Rewriting with Symmetric Monoidal Structure
+    - https://arxiv.org/pdf/2104.14686
+    - Frobenius algebra
+    - monads provide a powerful theory for principled and compositional definitions of denotational semantics
+    - algebraic theories are particularly useful in the development of formal and principled approaches to operational semantics
+    - PROPs: a particularly simple family of symmetric strict monoidal categories
+    - The notion of algebraic theory here is that of symmetric monoidal theory, with the essential difference being that the underlying assumption of Cartesianity is discarded
+    - Lawvere theories (Cartesian PROPs)
+    
+https://github.com/inQWIRE/LeanQuantum

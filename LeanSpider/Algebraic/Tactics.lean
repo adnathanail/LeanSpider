@@ -1,8 +1,10 @@
 import LeanSpider.Algebraic.SpiderFusion
 import LeanSpider.Algebraic.Congruence
 import LeanSpider.Algebraic.Rewrite
+import LeanSpider.Algebraic.Visualize
+import ProofWidgets.Component.HtmlDisplay
 
-open Lean Elab Tactic Meta
+open Lean Elab Tactic Meta ProofWidgets
 
 namespace LeanSpider.Algebraic
 
@@ -15,6 +17,44 @@ def parseAlgEquivGoal (goalType : Expr) : TacticM (Expr × Expr) := do
   if fn.constName? == some ``ZX.equiv && args.size == 4 then
     return (args[2]!, args[3]!)
   throwError "Goal is not of the form `lhs ≃ZX rhs` (got: {goalType})"
+
+-- == Visualization helpers ==
+
+/-- If `ty` is `ZX n m`, return `(n, m)` as expressions. -/
+private def matchZXType? (ty : Expr) : Option (Expr × Expr) :=
+  let fn := ty.getAppFn
+  let args := ty.getAppArgs
+  if fn.constName? == some ``ZX && args.size == 2 then
+    some (args[0]!, args[1]!)
+  else none
+
+/-- Build an `Expr` calling `ZX.toHtml`/`ZX.toHtmlPair` and evaluate it to
+    `Html`. `ZX n m` is arity-indexed so we can't `Meta.evalExpr` the term
+    itself — but `Html` is a plain type, so we evaluate the *application*. -/
+private unsafe def evalAlgHtmlImpl (lhs : Expr) (rhs? : Option Expr) : MetaM Html := do
+  let ty ← inferType lhs
+  let some (nE, mE) := matchZXType? ty
+    | throwError "evalAlgHtml: expected `ZX n m`, got {ty}"
+  let htmlE ← match rhs? with
+    | none     => mkAppOptM ``ZX.toHtml     #[some nE, some mE, some lhs]
+    | some rhs => mkAppOptM ``ZX.toHtmlPair #[some nE, some mE, some lhs, some rhs]
+  Meta.evalExpr Html (mkConst ``ProofWidgets.Html) htmlE
+
+@[implemented_by evalAlgHtmlImpl]
+opaque evalAlgHtml (lhs : Expr) (rhs? : Option Expr) : MetaM Html
+
+/-- Log a widget showing `lhs` on the `Current` panel and (when concrete)
+    `rhs?` on the `Goal` panel. Render failures are downgraded to a warning
+    so visualization never blocks an otherwise-successful proof. -/
+def showAlgDiagram (stx : Syntax) (label : String)
+    (lhs : Expr) (rhs? : Option Expr := none) : TacticM Unit := do
+  let rhs? := rhs?.filter (fun r => !r.isMVar)
+  try
+    let html ← evalAlgHtml lhs rhs?
+    let msg ← Lean.MessageData.ofHtml html label
+    logInfoAt stx msg
+  catch e =>
+    logWarningAt stx m!"could not render ZX diagram: {e.toMessageData}"
 
 /-- Walk a `ZX n m` expression in the same DFS order as `buildFrag` in
     `Visualize.lean`, building both the rewritten term and a proof
@@ -104,7 +144,11 @@ def applyZxAlgFusion (idA idB : Nat) : TacticM Unit := withMainContext do
   goal.assign trans
   setGoals [newGoal.mvarId!]
 
-elab "zx_alg_fusion " idA:num idB:num : tactic =>
+elab tk:"zx_alg_fusion " idA:num idB:num : tactic => do
   applyZxAlgFusion idA.getNat idB.getNat
+  withMainContext do
+    let goalType ← (← getMainGoal).getType
+    let (lhs', rhs) ← parseAlgEquivGoal goalType
+    showAlgDiagram tk "After spider fusion" lhs' (some rhs)
 
 end LeanSpider.Algebraic
