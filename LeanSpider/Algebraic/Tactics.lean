@@ -56,10 +56,51 @@ def showAlgDiagram (stx : Syntax) (label : String)
   catch e =>
     logWarningAt stx m!"could not render ZX diagram: {e.toMessageData}"
 
+/-- Combined spider fusion + phase simplification. The integer equation
+    in `h` is decidable when `α`, `β`, `γ` are concrete `Phase` literals,
+    so the tactic can supply it via `decide`. For symbolic phases, fall
+    back to plain `Z_spiderFusion` instead. -/
+private theorem Z_spiderFusion_simp (n k : Nat) (α β γ : Phase)
+    (h : (α + β).num * ((γ.den : ℕ) : Int) = γ.num * (((α + β).den : ℕ) : Int)) :
+    (ZX.spider .Z n 1 α × ZX.spider .Z 1 k β) ≃ZX ZX.spider .Z n k γ :=
+  ZX.equiv_trans (Z_spiderFusion n k α β) (spider_phase_eq (congr_phase h))
+
+/-- Reduce a `Phase` by dividing `num` and `den` by their gcd. Does NOT
+    reduce numerator mod `2 * den` — that wouldn't preserve `congr_phase`'s
+    integer equation (e.g. `⟨5,2⟩` vs `⟨1,2⟩` mod 2π satisfies
+    `phaseToComplex` equality but not `5*2 = 1*2`). -/
+private def gcdReducePhase (p : Phase) : Phase :=
+  let dN : Nat := p.den
+  let g : Nat := Nat.gcd p.num.natAbs dN
+  have hg : 0 < g := Nat.gcd_pos_of_pos_right _ p.den.pos
+  have hd : 0 < dN / g :=
+    Nat.div_pos (Nat.le_of_dvd p.den.pos (Nat.gcd_dvd_right _ _)) hg
+  { num := p.num / (g : Int), den := ⟨dN / g, hd⟩ }
+
+/-- Try to evaluate an `Expr` of type `Phase` to a concrete `Phase` value.
+    Returns `none` for symbolic phases (free variables, unreduced binders). -/
+private unsafe def tryEvalPhaseImpl (e : Expr) : MetaM (Option Phase) := do
+  try
+    let v ← Meta.evalExpr Phase (mkConst ``Phase) e
+    return some v
+  catch _ => return none
+
+@[implemented_by tryEvalPhaseImpl]
+private opaque tryEvalPhase (e : Expr) : MetaM (Option Phase)
+
+/-- Build a `Phase` `Expr` from a concrete `Phase` value. -/
+private def phaseToExpr (γ : Phase) : MetaM Expr := do
+  let numE : Expr := Lean.toExpr γ.num
+  let denValE : Expr := Lean.toExpr γ.den.val
+  let denE ← mkAppOptM ``OfNat.ofNat #[some (mkConst ``PNat), some denValE, none]
+  mkAppM ``Phase.mk #[numE, denE]
+
 /-- Walk a `ZX n m` expression in the same DFS order as `buildFrag` in
     `Visualize.lean`, building both the rewritten term and a proof
     `original ≃ZX rewritten`. At the target `compose` (whose children
-    have node IDs `idA` and `idB`), applies `Z_spiderFusion`.
+    have node IDs `idA` and `idB`), applies `Z_spiderFusion` — and, when
+    both spider phases are concrete `Phase` literals, also gcd-reduces
+    the summed phase via `Z_spiderFusion_simp`.
 
     Returns `(rewritten, proof, endOffset)`. -/
 partial def buildFusionProof (z : Expr) (idA idB : Nat) (off : Nat) :
@@ -115,12 +156,31 @@ partial def buildFusionProof (z : Expr) (idA idB : Nat) (off : Nat) :
         let α := aArgs[3]!
         let k := bArgs[2]!
         let β := bArgs[3]!
-        let proof ← mkAppM ``Z_spiderFusion #[n, k, α, β]
-        -- Construct the fused result: ZX.spider .Z n k (α + β)
-        let sumPhase ← mkAppM ``HAdd.hAdd #[α, β]
         let colorZ := mkConst ``SpiderColor.Z
-        let fused ← mkAppM ``ZX.spider #[colorZ, n, k, sumPhase]
-        return (fused, proof, offB + 1)
+        -- If both phases are concrete `Phase` literals, gcd-reduce the
+        -- summed phase and discharge the integer congruence via `decide`.
+        -- Otherwise fall back to raw `Z_spiderFusion` (symbolic phases).
+        let αVal? ← tryEvalPhase α
+        let βVal? ← tryEvalPhase β
+        match αVal?, βVal? with
+        | some αV, some βV =>
+            let γV := gcdReducePhase (αV + βV)
+            let γE ← phaseToExpr γV
+            let simpPartial ← mkAppOptM ``Z_spiderFusion_simp
+              #[some n, some k, some α, some β, some γE]
+            let partialTy ← inferType simpPartial
+            let hType ← match partialTy with
+              | .forallE _ d _ _ => pure d
+              | _ => throwError "Z_spiderFusion_simp: expected forall (got {partialTy})"
+            let hProof ← mkDecideProof hType
+            let proof := mkApp simpPartial hProof
+            let fused ← mkAppM ``ZX.spider #[colorZ, n, k, γE]
+            return (fused, proof, offB + 1)
+        | _, _ =>
+            let proof ← mkAppM ``Z_spiderFusion #[n, k, α, β]
+            let sumPhase ← mkAppM ``HAdd.hAdd #[α, β]
+            let fused ← mkAppM ``ZX.spider #[colorZ, n, k, sumPhase]
+            return (fused, proof, offB + 1)
       else
         let (b', proofB, offEnd) ← buildFusionProof b idA idB offB
         let composed ← mkAppM ``ZX.compose #[a', b']

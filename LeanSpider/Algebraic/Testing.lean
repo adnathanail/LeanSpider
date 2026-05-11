@@ -57,10 +57,18 @@ def algExercise3point7 : ZX 2 2 := ((algExercise3point7a × algExercise3point7b)
     `compose`. The fused result has the *raw* phase sum (no
     simplification) — phase simplification stays a separate concern. -/
 
--- (1) Top-level fusion. IDs: s1=0, s2=1.
+-- (1) Top-level fusion with concrete phases. IDs: s1=0, s2=1.
+--     The tactic gcd-reduces the summed phase, so ⟨1,4⟩+⟨1,4⟩ = ⟨8,16⟩
+--     becomes ⟨1,2⟩.
 theorem zxAlgFusion_topLevel :
     (ZX.spider .Z 1 1 ⟨1, 4⟩ × ZX.spider .Z 1 1 ⟨1, 4⟩)
-      ≃ZX ZX.spider .Z 1 1 (⟨1, 4⟩ + ⟨1, 4⟩) := by
+      ≃ZX ZX.spider .Z 1 1 ⟨1, 2⟩ := by
+  zx_alg_fusion 0 1
+  rfl
+
+theorem zxAlgFusion_parameterized (α β : Phase) :
+    (ZX.spider .Z 1 1 α × ZX.spider .Z 1 1 β)
+      ≃ZX ZX.spider .Z 1 1 (α + β) := by
   zx_alg_fusion 0 1
   rfl
 
@@ -73,14 +81,14 @@ theorem zxAlgFusion_nested :
         (ZX.spider .Z 1 1 ⟨1, 8⟩)
       ≃ZX
     ZX.compose
-        (ZX.compose (ZX.spider .Z 1 1 ⟨1, 8⟩)
-          (ZX.spider .Z 1 1 (⟨1, 4⟩ + ⟨1, 4⟩)))
+        (ZX.spider .Z 1 1 (⟨5, 8⟩))
         (ZX.spider .Z 1 1 ⟨1, 8⟩) := by
   zx_alg_fusion 1 2
+  zx_alg_fusion 0 1
   rfl
 
 -- Axiom audit: proofs built by the tactic depend only on the standard
 -- three axioms — no project-local soundness axioms.
 #print axioms zxAlgFusion_topLevel
+#print axioms zxAlgFusion_parameterized
 #print axioms zxAlgFusion_nested
-
