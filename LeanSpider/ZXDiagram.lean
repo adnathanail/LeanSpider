@@ -39,6 +39,12 @@ def Phase.add (p q : Phase) : Phase :=
 instance : Add Phase where
   add := Phase.add
 
+def Phase.neg (p : Phase) : Phase :=
+  { num := -p.num, den := p.den }
+
+instance : Neg Phase where
+  neg := Phase.neg
+
 /-- Internal spider (Z/X), Hadamard box, plain wire dot, input or output -/
 inductive Node where
   | spider (color : SpiderColor) (phase : Phase)
