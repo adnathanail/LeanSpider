@@ -6,9 +6,21 @@ open Lean Server ProofWidgets
 -- == ZXDiagram JSON serialization (`ZXDiagram` to `Lean.Json`) ==
 private def natJson (n : Nat) : Json := .num { mantissa := ↑n, exponent := 0 }
 
-def Phase.toJson (p : Phase) : Json :=
-  if p.den == 1 then .str (toString p.num)
-  else .str s!"{p.num}/{p.den.val}"
+/-- Human-readable phase string used by the widget. gcd + mod-2π normalize
+    via `Phase.simplify`, then format as `π/2`, `-π/4`, `2π/3`, `π`, or `0`.
+    Single source of truth for phase display — both the closed-phase JSON
+    field (`Phase.toJson` below) and the symbolic-phase label walker in
+    `LeanSpider/Algebraic/Tactics.lean` route through this. -/
+def Phase.format (p : Phase) : String :=
+  let p := p.simplify
+  if p.num == 0 then "0"
+  else
+    let ns := if p.num == 1 then "" else if p.num == -1 then "-"
+              else toString p.num
+    let ds := if p.den.val == 1 then "" else s!"/{p.den.val}"
+    s!"{ns}π{ds}"
+
+def Phase.toJson (p : Phase) : Json := .str p.format
 
 def Node.toJson (n : Node) (idx : Nat) : Json :=
   match n with

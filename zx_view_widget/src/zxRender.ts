@@ -109,53 +109,10 @@ const COLORS: Record<string, string> = {
   Zdark: '#99dd99',
 }
 
-function gcd(a: number, b: number): number {
-  let x = Math.abs(a)
-  let y = Math.abs(b)
-  while (y) {
-    const t = y
-    y = x % y
-    x = t
-  }
-  return x || 1
-}
-
-interface Phase {
-  num: number
-  den: number
-}
-
-function parsePhase(s: string | undefined): Phase {
-  const str = (s ?? '0').trim()
-  let num: number
-  let den: number
-  if (str.includes('/')) {
-    const [n, d] = str.split('/')
-    num = Number.parseInt(n, 10)
-    den = Number.parseInt(d, 10)
-  } else {
-    num = Number.parseInt(str, 10)
-    den = 1
-  }
-  if (den < 0) {
-    num = -num
-    den = -den
-  }
-  const g = gcd(num, den)
-  return { num: num / g, den: den / g }
-}
-
-// pyzx.utils.phase_fraction_to_s for spiders/H-boxes (poly_with_pi irrelevant
-// here because Lean phases are always rational).
-function phaseToString(p: Phase, t: number): string {
-  const isHBox = t === VertexType.H_BOX
-  if (p.num === 0 && !isHBox) return ''
-  if (p.num === p.den && isHBox) return ''
-  if (p.num === 0) return '0'
-  const ns = p.num === 1 ? '' : String(p.num)
-  const ds = p.den === 1 ? '' : `/${String(p.den)}`
-  return `${ns}π${ds}`
-}
+// Phase strings now arrive pre-formatted from Lean (see `Phase.format` in
+// LeanSpider/Visualize.lean) — e.g. `"π/2"`, `"-π/4"`, `"π"`, `"0"`. The
+// widget passes them through verbatim; only the H-box default suppression
+// remains (a Hadamard with the default phase `π` renders no text).
 
 interface InternalNode {
   id: number
@@ -191,12 +148,14 @@ function buildNodes(diagram: DiagramData): Map<number, InternalNode> {
       t = n.color === 'X' ? VertexType.X : VertexType.Z
       if (n.col !== undefined) row = n.col
       if (n.qubit !== undefined) qubit = n.qubit
-      phaseStr = phaseToString(parsePhase(n.phase), t)
+      phaseStr = n.phase ?? ''
     } else if (n.type === 'hadamard') {
       t = VertexType.H_BOX
       if (n.col !== undefined) row = n.col
       if (n.qubit !== undefined) qubit = n.qubit
-      phaseStr = phaseToString(parsePhase(n.phase ?? '1'), t)
+      const raw = n.phase ?? 'π'
+      // Default H-box phase (π) renders no text — matches pyzx convention.
+      phaseStr = raw === 'π' ? '' : raw
     } else if (n.type === 'wire') {
       t = VertexType.WIRE
       if (n.col !== undefined) row = n.col

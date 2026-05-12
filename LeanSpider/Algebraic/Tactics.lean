@@ -36,10 +36,60 @@ private def phaseToExpr (γ : Phase) : MetaM Expr := do
   let denE ← mkAppOptM ``OfNat.ofNat #[some (mkConst ``PNat), some denValE, none]
   mkAppM ``Phase.mk #[numE, denE]
 
+/-- Try to evaluate an `Expr` of type `Phase` to a concrete `Phase` value.
+    Returns `none` for symbolic phases (free variables, unreduced binders). -/
+private unsafe def tryEvalPhaseImpl (e : Expr) : MetaM (Option Phase) := do
+  try
+    let v ← Meta.evalExpr Phase (mkConst ``Phase) e
+    return some v
+  catch _ => return none
+
+@[implemented_by tryEvalPhaseImpl]
+private opaque tryEvalPhase (e : Expr) : MetaM (Option Phase)
+
+/-- Render a `Phase`-typed `Expr` as a display string. Concrete sub-Exprs go
+    through the Lean-side formatter `Phase.format` (e.g. `π/2`); free
+    variables render as their user name; `+`/`-`/unary minus combinators
+    recurse on their arguments. Falls back to `ppExpr` for shapes the
+    walker doesn't recognise.
+
+    Important: do **not** `whnf` the Expr before matching — `whnf` would
+    unfold `HAdd.hAdd Phase Phase Phase _` into `Phase.add` and then into
+    `Phase.mk (a.num * b.den + b.num * a.den) (a.den * b.den)`, exposing
+    Phase's internal arithmetic to the label string. We need to recognise
+    the surface form (`HAdd.hAdd …`) first. -/
+partial def phaseExprToLabel (e : Expr) : MetaM String := do
+  let e ← instantiateMVars e
+  let fallback : MetaM String := do
+    return (← Lean.PrettyPrinter.ppExpr e).pretty
+  -- 1. Free variable — render as the user name.
+  if e.isFVar then
+    let decl ← e.fvarId!.getDecl
+    return decl.userName.toString
+  -- 2. Structural combinators — recurse without reducing.
+  let (fn, args) := (e.getAppFn, e.getAppArgs)
+  match fn.constName?, args.size with
+  | some ``HAdd.hAdd, 6 =>
+      return s!"{← phaseExprToLabel args[4]!} + {← phaseExprToLabel args[5]!}"
+  | some ``HSub.hSub, 6 =>
+      return s!"{← phaseExprToLabel args[4]!} - {← phaseExprToLabel args[5]!}"
+  | some ``Phase.add, 2 =>
+      return s!"{← phaseExprToLabel args[0]!} + {← phaseExprToLabel args[1]!}"
+  | some ``Neg.neg, 3 =>
+      return s!"-{← phaseExprToLabel args[2]!}"
+  | _, _ =>
+      -- 3. Closed Phase — evaluate and format. Otherwise fall back to ppExpr.
+      if !e.hasFVar then
+        match (← tryEvalPhase e) with
+        | some p => return p.format
+        | none   => fallback
+      else fallback
+
 /-- Walk a `ZX n m` `Expr` in the same DFS / offset scheme as `buildFrag`
     in `Visualize.lean` (and `buildFusionProof` below). At each spider
-    whose phase contains a free variable, pretty-print the phase Expr and
-    record `(nodeId, prettyString)`. Returns `(labels, endOffset)`. -/
+    whose phase contains a free variable, format the phase Expr via
+    `phaseExprToLabel` and record `(nodeId, prettyString)`. Returns
+    `(labels, endOffset)`. -/
 partial def collectPhaseLabels (z : Expr) (off : Nat := 0) :
     MetaM (List (Nat × String) × Nat) := do
   let z ← whnf z
@@ -53,8 +103,8 @@ partial def collectPhaseLabels (z : Expr) (off : Nat := 0) :
       if args.size = 4 then
         let phaseE := args[3]!
         if phaseE.hasFVar then
-          let fmt ← Lean.PrettyPrinter.ppExpr phaseE
-          return ([(off, fmt.pretty)], off + 1)
+          let s ← phaseExprToLabel phaseE
+          return ([(off, s)], off + 1)
       return ([], off + 1)
   | some ``ZX.stack    =>
       let args := z.getAppArgs
@@ -145,17 +195,6 @@ private def gcdReducePhase (p : Phase) : Phase :=
   have hd : 0 < dN / g :=
     Nat.div_pos (Nat.le_of_dvd p.den.pos (Nat.gcd_dvd_right _ _)) hg
   { num := p.num / (g : Int), den := ⟨dN / g, hd⟩ }
-
-/-- Try to evaluate an `Expr` of type `Phase` to a concrete `Phase` value.
-    Returns `none` for symbolic phases (free variables, unreduced binders). -/
-private unsafe def tryEvalPhaseImpl (e : Expr) : MetaM (Option Phase) := do
-  try
-    let v ← Meta.evalExpr Phase (mkConst ``Phase) e
-    return some v
-  catch _ => return none
-
-@[implemented_by tryEvalPhaseImpl]
-private opaque tryEvalPhase (e : Expr) : MetaM (Option Phase)
 
 /-- Walk a `ZX n m` expression in the same DFS order as `buildFrag` in
     `Visualize.lean`, building both the rewritten term and a proof
