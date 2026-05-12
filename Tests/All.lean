@@ -7,7 +7,8 @@ import Tests.ColourChange
 import Tests.Normalization
 import Tests.StrongComp
 import Tests.IdentityInsertion
+import Tests.PhaseLabel
 
-open LSpec
+open LSpec LeanSpider.Tests.PhaseLabel
 
-#lspec spiderFusionTests ++ spiderUnfusionTests ++ identityRemovalTests ++ identityInsertionTests ++ piCopyTests ++ hadamardHadamardTests ++ colourChangeTests ++ normalizationTests ++ strongCompTests
+#lspec spiderFusionTests ++ spiderUnfusionTests ++ identityRemovalTests ++ identityInsertionTests ++ piCopyTests ++ hadamardHadamardTests ++ colourChangeTests ++ normalizationTests ++ strongCompTests ++ phaseLabelTests
