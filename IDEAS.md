@@ -12,6 +12,10 @@
 - Add normal forms
 - Replace the various individual tactics with a single tactic with args
     - Can we use the existing rw tactic? And just pass it theorems?
+- Make the widget display current proof state at cursor position
+- Prove 2 CNOT versions are equal
+- Prove scalar universality
+- Implement the rest of the semantics (X/H/etc.)
 
 - Try to simplify to a single rewrite tactic
 - Try to prove a very simple spider fusion

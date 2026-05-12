@@ -16,7 +16,7 @@ open Complex Matrix
     Written as a sum of two indicators (rather than nested `if`s) so the
     `n = m = 0` corner case correctly evaluates to `1 + e^{iφ}` — both
     indices collide at `0` there, and the spider is a scalar. -/
-noncomputable def Z_spiderMatrix (n m : Nat) (φ : Phase) :
+noncomputable def Z_spiderMatrix (n m : Nat) (φ : AlgPhase) :
     Matrix (Fin (2^m)) (Fin (2^n)) ℂ :=
   fun j i =>
     (if i.val = 0 ∧ j.val = 0 then (1 : ℂ) else 0) +

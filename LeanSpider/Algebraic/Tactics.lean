@@ -28,36 +28,43 @@ private def matchZXType? (ty : Expr) : Option (Expr × Expr) :=
     some (args[0]!, args[1]!)
   else none
 
-/-- Build a `Phase` `Expr` from a concrete `Phase` value. Lives this high
-    in the file so `substitutePhaseFVars` (below) can build a placeholder. -/
-private def phaseToExpr (γ : Phase) : MetaM Expr := do
-  let numE : Expr := Lean.toExpr γ.num
-  let denValE : Expr := Lean.toExpr γ.den.val
-  let denE ← mkAppOptM ``OfNat.ofNat #[some (mkConst ``PNat), some denValE, none]
-  mkAppM ``Phase.mk #[numE, denE]
+/-- The `AlgPhase` type as an `Expr` — used as the type filter when
+    substituting symbolic phase free variables, and to type the placeholder
+    `(0 : AlgPhase)` returned by `algPhaseZeroExpr`. -/
+private def algPhaseTypeExpr : Expr := mkConst ``AlgPhase
 
-/-- Try to evaluate an `Expr` of type `Phase` to a concrete `Phase` value.
+/-- Build the placeholder phase `Expr`: `(0 : AlgPhase)`. Used to close
+    a parameterized term before `Meta.evalExpr` so the eval can succeed —
+    the visualized symbolic phases are recovered separately via the labels
+    side-channel. -/
+private def algPhaseZeroExpr : MetaM Expr :=
+  mkAppOptM ``OfNat.ofNat #[some algPhaseTypeExpr, some (mkRawNatLit 0), none]
+
+/-- Try to evaluate an `Expr` of type `AlgPhase` (a `ℚ`) to a concrete value.
     Returns `none` for symbolic phases (free variables, unreduced binders). -/
-private unsafe def tryEvalPhaseImpl (e : Expr) : MetaM (Option Phase) := do
+private unsafe def tryEvalAlgPhaseImpl (e : Expr) : MetaM (Option AlgPhase) := do
   try
-    let v ← Meta.evalExpr Phase (mkConst ``Phase) e
+    let v ← Meta.evalExpr AlgPhase algPhaseTypeExpr e
     return some v
   catch _ => return none
 
-@[implemented_by tryEvalPhaseImpl]
-private opaque tryEvalPhase (e : Expr) : MetaM (Option Phase)
+@[implemented_by tryEvalAlgPhaseImpl]
+private opaque tryEvalAlgPhase (e : Expr) : MetaM (Option AlgPhase)
 
-/-- Render a `Phase`-typed `Expr` as a display string. Concrete sub-Exprs go
-    through the Lean-side formatter `Phase.format` (e.g. `π/2`); free
-    variables render as their user name; `+`/`-`/unary minus combinators
-    recurse on their arguments. Falls back to `ppExpr` for shapes the
-    walker doesn't recognise.
+/-- Format an `AlgPhase` (a `ℚ`) using the same string convention as graph-side
+    `Phase.format`. Routes through `AlgPhase.toGraphPhase` so display stays
+    consistent across both representations. -/
+private def algPhaseFormat (q : AlgPhase) : String :=
+  q.toGraphPhase.format
 
-    Important: do **not** `whnf` the Expr before matching — `whnf` would
-    unfold `HAdd.hAdd Phase Phase Phase _` into `Phase.add` and then into
-    `Phase.mk (a.num * b.den + b.num * a.den) (a.den * b.den)`, exposing
-    Phase's internal arithmetic to the label string. We need to recognise
-    the surface form (`HAdd.hAdd …`) first. -/
+/-- Render an `AlgPhase`-typed `Expr` as a display string. The walker
+    prioritises *evaluation* over surface preservation: any sub-expression
+    free of fvars is evaluated to a concrete `ℚ` and formatted via
+    `algPhaseFormat`, so e.g. `phaseLit 1 4 + phaseLit 1 4` shows as `π/2`
+    rather than `π/4 + π/4`. Surface `HAdd` / `HSub` / `Neg` combinators
+    are only walked recursively when an fvar prevents evaluation. Free
+    variables render as their user name; anything else falls back to
+    `ppExpr`. -/
 partial def phaseExprToLabel (e : Expr) : MetaM String := do
   let e ← instantiateMVars e
   let fallback : MetaM String := do
@@ -66,24 +73,24 @@ partial def phaseExprToLabel (e : Expr) : MetaM String := do
   if e.isFVar then
     let decl ← e.fvarId!.getDecl
     return decl.userName.toString
-  -- 2. Structural combinators — recurse without reducing.
+  -- 2. Closed (no fvars) — evaluate as ℚ and format. Reduces
+  --    `phaseLit 1 4 + phaseLit 1 4` to `π/2`.
+  if !e.hasFVar then
+    match (← tryEvalAlgPhase e) with
+    | some q => return algPhaseFormat q
+    | none   => return ← fallback
+  -- 3. Has fvars — recurse through surface combinators so closed
+  --    sub-expressions still evaluate cleanly while symbolic parts
+  --    preserve their user names.
   let (fn, args) := (e.getAppFn, e.getAppArgs)
   match fn.constName?, args.size with
   | some ``HAdd.hAdd, 6 =>
       return s!"{← phaseExprToLabel args[4]!} + {← phaseExprToLabel args[5]!}"
   | some ``HSub.hSub, 6 =>
       return s!"{← phaseExprToLabel args[4]!} - {← phaseExprToLabel args[5]!}"
-  | some ``Phase.add, 2 =>
-      return s!"{← phaseExprToLabel args[0]!} + {← phaseExprToLabel args[1]!}"
   | some ``Neg.neg, 3 =>
       return s!"-{← phaseExprToLabel args[2]!}"
-  | _, _ =>
-      -- 3. Closed Phase — evaluate and format. Otherwise fall back to ppExpr.
-      if !e.hasFVar then
-        match (← tryEvalPhase e) with
-        | some p => return p.format
-        | none   => fallback
-      else fallback
+  | _, _ => fallback
 
 /-- Walk a `ZX n m` `Expr` in the same DFS / offset scheme as `buildFrag`
     in `Visualize.lean` (and `buildFusionProof` below). At each spider
@@ -118,20 +125,20 @@ partial def collectPhaseLabels (z : Expr) (off : Nat := 0) :
       return (la ++ lb, off2)
   | _ => return ([], off)
 
-/-- Substitute every free variable of type `Phase` in `z` with a placeholder
-    `Phase.mk 0 1`. After this the Expr is closed wrt Phase fvars and can be
-    fed to `Meta.evalExpr` — symbolic phases are recovered visually via the
-    labels list emitted by `collectPhaseLabels`. -/
+/-- Substitute every free variable of type `AlgPhase` in `z` with the
+    placeholder `(0 : AlgPhase)`. After this the Expr is closed wrt
+    `AlgPhase` fvars and can be fed to `Meta.evalExpr` — symbolic phases
+    are recovered visually via the labels list emitted by
+    `collectPhaseLabels`. -/
 def substitutePhaseFVars (z : Expr) : MetaM Expr := do
-  let phaseTy := mkConst ``Phase
   let lctx ← getLCtx
   let mut fvars : Array Expr := #[]
   for decl in lctx do
     unless decl.isImplementationDetail do
-      if ← isDefEq decl.type phaseTy then
+      if ← isDefEq decl.type algPhaseTypeExpr then
         fvars := fvars.push decl.toExpr
   if fvars.isEmpty then return z
-  let placeholder ← phaseToExpr ⟨0, 1⟩
+  let placeholder ← algPhaseZeroExpr
   let replacements := fvars.map fun _ => placeholder
   return z.replaceFVars fvars replacements
 
@@ -175,33 +182,13 @@ def showAlgDiagram (stx : Syntax) (label : String)
   catch e =>
     logWarningAt stx m!"could not render ZX diagram: {e.toMessageData}"
 
-/-- Combined spider fusion + phase simplification. The integer equation
-    in `h` is decidable when `α`, `β`, `γ` are concrete `Phase` literals,
-    so the tactic can supply it via `decide`. For symbolic phases, fall
-    back to plain `Z_spiderFusion` instead. -/
-private theorem Z_spiderFusion_simp (n k : Nat) (α β γ : Phase)
-    (h : (α + β).num * ((γ.den : ℕ) : Int) = γ.num * (((α + β).den : ℕ) : Int)) :
-    (ZX.spider .Z n 1 α × ZX.spider .Z 1 k β) ≃ZX ZX.spider .Z n k γ :=
-  ZX.equiv_trans (Z_spiderFusion n k α β) (spider_phase_eq (congr_phase h))
-
-/-- Reduce a `Phase` by dividing `num` and `den` by their gcd. Does NOT
-    reduce numerator mod `2 * den` — that wouldn't preserve `congr_phase`'s
-    integer equation (e.g. `⟨5,2⟩` vs `⟨1,2⟩` mod 2π satisfies
-    `phaseToComplex` equality but not `5*2 = 1*2`). -/
-private def gcdReducePhase (p : Phase) : Phase :=
-  let dN : Nat := p.den
-  let g : Nat := Nat.gcd p.num.natAbs dN
-  have hg : 0 < g := Nat.gcd_pos_of_pos_right _ p.den.pos
-  have hd : 0 < dN / g :=
-    Nat.div_pos (Nat.le_of_dvd p.den.pos (Nat.gcd_dvd_right _ _)) hg
-  { num := p.num / (g : Int), den := ⟨dN / g, hd⟩ }
-
 /-- Walk a `ZX n m` expression in the same DFS order as `buildFrag` in
     `Visualize.lean`, building both the rewritten term and a proof
     `original ≃ZX rewritten`. At the target `compose` (whose children
-    have node IDs `idA` and `idB`), applies `Z_spiderFusion` — and, when
-    both spider phases are concrete `Phase` literals, also gcd-reduces
-    the summed phase via `Z_spiderFusion_simp`.
+    have node IDs `idA` and `idB`), applies `Z_spiderFusion` with the raw
+    summed phase `α + β` — no fast-path simplification, since `AlgPhase = ℚ`
+    handles phase arithmetic via `abel`/`ring`/`norm_num` at the user's
+    discretion.
 
     Returns `(rewritten, proof, endOffset)`. -/
 partial def buildFusionProof (z : Expr) (idA idB : Nat) (off : Nat) :
@@ -258,30 +245,10 @@ partial def buildFusionProof (z : Expr) (idA idB : Nat) (off : Nat) :
         let k := bArgs[2]!
         let β := bArgs[3]!
         let colorZ := mkConst ``SpiderColor.Z
-        -- If both phases are concrete `Phase` literals, gcd-reduce the
-        -- summed phase and discharge the integer congruence via `decide`.
-        -- Otherwise fall back to raw `Z_spiderFusion` (symbolic phases).
-        let αVal? ← tryEvalPhase α
-        let βVal? ← tryEvalPhase β
-        match αVal?, βVal? with
-        | some αV, some βV =>
-            let γV := gcdReducePhase (αV + βV)
-            let γE ← phaseToExpr γV
-            let simpPartial ← mkAppOptM ``Z_spiderFusion_simp
-              #[some n, some k, some α, some β, some γE]
-            let partialTy ← inferType simpPartial
-            let hType ← match partialTy with
-              | .forallE _ d _ _ => pure d
-              | _ => throwError "Z_spiderFusion_simp: expected forall (got {partialTy})"
-            let hProof ← mkDecideProof hType
-            let proof := mkApp simpPartial hProof
-            let fused ← mkAppM ``ZX.spider #[colorZ, n, k, γE]
-            return (fused, proof, offB + 1)
-        | _, _ =>
-            let proof ← mkAppM ``Z_spiderFusion #[n, k, α, β]
-            let sumPhase ← mkAppM ``HAdd.hAdd #[α, β]
-            let fused ← mkAppM ``ZX.spider #[colorZ, n, k, sumPhase]
-            return (fused, proof, offB + 1)
+        let proof ← mkAppM ``Z_spiderFusion #[n, k, α, β]
+        let sumPhase ← mkAppM ``HAdd.hAdd #[α, β]
+        let fused ← mkAppM ``ZX.spider #[colorZ, n, k, sumPhase]
+        return (fused, proof, offB + 1)
       else
         let (b', proofB, offEnd) ← buildFusionProof b idA idB offB
         let composed ← mkAppM ``ZX.compose #[a', b']
@@ -311,105 +278,5 @@ elab tk:"zx_alg_fusion " idA:num idB:num : tactic => do
     let goalType ← (← getMainGoal).getType
     let (lhs', rhs) ← parseAlgEquivGoal goalType
     showAlgDiagram tk "After spider fusion" lhs' (some rhs)
-
-/-- Walk a `ZX n m` expression like `buildFusionProof`, but at the spider
-    with node ID `id` rewrite its phase from `α + (-α)` to the default
-    zero phase using `ZX.spider_add_neg_self`. The phase must syntactically
-    match `HAdd.hAdd _ _ _ _ α (Neg.neg _ _ α)` — no semantic phase
-    simplification is attempted, mirroring `zx_alg_fusion`'s surface match.
-
-    Returns `(rewritten, proof, endOffset)`. -/
-partial def buildPhaseCancelProof (z : Expr) (id : Nat) (off : Nat) :
-    MetaM (Expr × Expr × Nat) := do
-  let z ← whnf z
-  let f := z.getAppFn
-  let name := f.constName?
-  match name with
-  | some ``ZX.empty =>
-      let proof ← mkAppM ``ZX.equiv_refl #[z]
-      return (z, proof, off)
-  | some ``ZX.wire =>
-      let proof ← mkAppM ``ZX.equiv_refl #[z]
-      return (z, proof, off + 1)
-  | some ``ZX.hadamard =>
-      let proof ← mkAppM ``ZX.equiv_refl #[z]
-      return (z, proof, off + 1)
-  | some ``ZX.spider =>
-      if off == id then
-        let args := z.getAppArgs
-        unless args.size == 4 do
-          throwError "ZX.spider: expected 4 args, got {args.size}"
-        let φ := args[3]!
-        -- Match `HAdd.hAdd _ _ _ _ α (Neg.neg _ _ α)` on the surface form
-        -- — do NOT whnf φ, that would expose Phase.add's internals.
-        let phaseFn := φ.getAppFn
-        let phaseArgs := φ.getAppArgs
-        unless phaseFn.constName? == some ``HAdd.hAdd && phaseArgs.size == 6 do
-          throwError "Node {id}'s phase is not of the form `α + (-α)` \
-                     (head: {phaseFn})."
-        let α := phaseArgs[4]!
-        let negTerm := phaseArgs[5]!
-        let negFn := negTerm.getAppFn
-        let negArgs := negTerm.getAppArgs
-        unless negFn.constName? == some ``Neg.neg && negArgs.size == 3 do
-          throwError "Node {id}'s phase is `α + β` but β is not `-_`."
-        let β := negArgs[2]!
-        unless ← isDefEq α β do
-          throwError "Node {id}'s phase is `α + (-β)` but α ≠ β."
-        let c := args[0]!
-        let nE := args[1]!
-        let mE := args[2]!
-        -- The lemma's RHS *is* the rewritten spider — pull it from the
-        -- proof's type so default-arg / implicit handling stays consistent.
-        let proof ← mkAppOptM ``ZX.spider_add_neg_self
-          #[some c, some nE, some mE, some α]
-        let proofTy ← inferType proof
-        let proofArgs := proofTy.getAppArgs
-        unless proofArgs.size == 4 do
-          throwError "spider_add_neg_self: unexpected equiv arity \
-                     ({proofArgs.size}, expected 4)"
-        let replaced := proofArgs[3]!
-        return (replaced, proof, off + 1)
-      else
-        let proof ← mkAppM ``ZX.equiv_refl #[z]
-        return (z, proof, off + 1)
-  | some ``ZX.stack =>
-      let args := z.getAppArgs
-      let a := args[4]!
-      let b := args[5]!
-      let (a', proofA, off1) ← buildPhaseCancelProof a id off
-      let (b', proofB, off2) ← buildPhaseCancelProof b id off1
-      let stacked ← mkAppM ``ZX.stack #[a', b']
-      let proof ← mkAppM ``ZX.stack_congr #[proofA, proofB]
-      return (stacked, proof, off2)
-  | some ``ZX.compose =>
-      let args := z.getAppArgs
-      let a := args[3]!
-      let b := args[4]!
-      let (a', proofA, off1) ← buildPhaseCancelProof a id off
-      let (b', proofB, off2) ← buildPhaseCancelProof b id off1
-      let composed ← mkAppM ``ZX.compose #[a', b']
-      let proof ← mkAppM ``ZX.compose_congr #[proofA, proofB]
-      return (composed, proof, off2)
-  | _ => throwError "Unrecognized ZX expression head: {name}"
-
-/-- Engine for `zx_alg_phase_cancel`, mirroring `applyZxAlgFusion`. -/
-def applyZxAlgPhaseCancel (id : Nat) : TacticM Unit := withMainContext do
-  let goal ← getMainGoal
-  let goalType ← goal.getType
-  let (lhs, rhs) ← parseAlgEquivGoal goalType
-  let (lhs', proof, _) ← buildPhaseCancelProof lhs id 0
-  let newGoalType ← mkAppM ``ZX.equiv #[lhs', rhs]
-  let newGoal ← mkFreshExprMVar newGoalType
-  let trans ← mkAppM ``ZX.equiv_trans #[proof, newGoal]
-  goal.assign trans
-  setGoals [newGoal.mvarId!]
-
-elab tk:"zx_alg_phase_cancel " id:num : tactic => do
-  applyZxAlgPhaseCancel id.getNat
-  withMainContext do
-    let goalType ← (← getMainGoal).getType
-    let (lhs', rhs) ← parseAlgEquivGoal goalType
-    showAlgDiagram tk "After phase cancellation" lhs' (some rhs)
 
 end LeanSpider.Algebraic

@@ -7,25 +7,25 @@ open Complex Matrix
 
 /-- The `(s = 0)`-row of an `n → 1` Z-spider: a `1` at the all-zeros input,
     `0` elsewhere. -/
-private lemma Z_spider_n1_apply_zero (n : Nat) (α : Phase) (i : Fin (2^n)) :
+private lemma Z_spider_n1_apply_zero (n : Nat) (α : AlgPhase) (i : Fin (2^n)) :
     Z_spiderMatrix n 1 α 0 i = if i.val = 0 then (1 : ℂ) else 0 := by
   simp [Z_spiderMatrix]
 
 /-- The `(s = 1)`-row of an `n → 1` Z-spider: `phase α` at the all-ones input,
     `0` elsewhere. -/
-private lemma Z_spider_n1_apply_one (n : Nat) (α : Phase) (i : Fin (2^n)) :
+private lemma Z_spider_n1_apply_one (n : Nat) (α : AlgPhase) (i : Fin (2^n)) :
     Z_spiderMatrix n 1 α 1 i = if i.val = 2^n - 1 then phaseToComplex α else 0 := by
   simp [Z_spiderMatrix]
 
 /-- The `(s = 0)`-column of a `1 → k` Z-spider: a `1` at the all-zeros output,
     `0` elsewhere. -/
-private lemma Z_spider_1k_apply_zero (k : Nat) (β : Phase) (j : Fin (2^k)) :
+private lemma Z_spider_1k_apply_zero (k : Nat) (β : AlgPhase) (j : Fin (2^k)) :
     Z_spiderMatrix 1 k β j 0 = if j.val = 0 then (1 : ℂ) else 0 := by
   simp [Z_spiderMatrix]
 
 /-- The `(s = 1)`-column of a `1 → k` Z-spider: `phase β` at the all-ones
     output, `0` elsewhere. -/
-private lemma Z_spider_1k_apply_one (k : Nat) (β : Phase) (j : Fin (2^k)) :
+private lemma Z_spider_1k_apply_one (k : Nat) (β : AlgPhase) (j : Fin (2^k)) :
     Z_spiderMatrix 1 k β j 1 = if j.val = 2^k - 1 then phaseToComplex β else 0 := by
   simp [Z_spiderMatrix]
 
@@ -33,7 +33,7 @@ private lemma Z_spider_1k_apply_one (k : Nat) (β : Phase) (j : Fin (2^k)) :
     Z-spider with phases summed.  Stated for the cleanest swap-free form;
     the general multi-leg fusion follows by stacking with identity wires
     (out of scope for this milestone). -/
-theorem Z_spiderFusion (n k : Nat) (α β : Phase) :
+theorem Z_spiderFusion (n k : Nat) (α β : AlgPhase) :
     (ZX.spider .Z n 1 α × ZX.spider .Z 1 k β) ≃ZX ZX.spider .Z n k (α + β) := by
   -- Ask Lean to restate ≃ZX into its definition:
   --   that the semantic matrixes are equal
@@ -72,7 +72,7 @@ theorem Z_spiderFusion (n k : Nat) (α β : Phase) :
 
 /-- Reverse of `Z_spiderFusion`: a single Z-spider with a summed phase is
     equivalent to two Z-spiders connected by a wire. -/
-theorem Z_spiderUnfusion (n k : Nat) (α β : Phase) :
+theorem Z_spiderUnfusion (n k : Nat) (α β : AlgPhase) :
     ZX.spider .Z n k (α + β) ≃ZX (ZX.spider .Z n 1 α × ZX.spider .Z 1 k β) :=
   (Z_spiderFusion n k α β).symm
 

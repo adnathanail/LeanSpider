@@ -4,25 +4,9 @@ namespace LeanSpider.Algebraic
 
 open Complex Matrix
 
-/-- Two phases denote the same complex number iff their fractions are equal
-    as integers (cross-multiplied). The numerator/denominator pair `⟨p, q⟩`
-    represents `p/q`, and `phaseToComplex` collapses fractions equal modulo
-    rational simplification. -/
-theorem congr_phase {a b : Phase}
-    (h : a.num * (b.den : Int) = b.num * (a.den : Int)) :
-    phaseToComplex a = phaseToComplex b := by
-  unfold phaseToComplex
-  congr 1
-  -- Change division equality to multiplication equality
-  field_simp
-  -- Swap order of multiplication arguments
-  rw [mul_comm (a.den : ℂ) (b.num : ℂ)]
-  -- Apply hypothesis h, dealing with type casting
-  exact_mod_cast h
-
 /-- Z-spider matrices are equal whenever their phases denote the same
     complex number. -/
-theorem Z_spiderMatrix_congr_phase {n m : Nat} {α β : Phase}
+theorem Z_spiderMatrix_congr_phase {n m : Nat} {α β : AlgPhase}
     (h : phaseToComplex α = phaseToComplex β) :
     Z_spiderMatrix n m α = Z_spiderMatrix n m β := by
   unfold Z_spiderMatrix
@@ -35,13 +19,20 @@ theorem Z_spiderMatrix_congr_phase {n m : Nat} {α β : Phase}
     For `c = .Z` this follows from `Z_spiderMatrix_congr_phase`. For `c = .X`,
     `ZX.sem` is currently the placeholder `0` so the lemma is trivial; it will
     need re-proving once X-spider semantics is implemented. -/
-theorem spider_phase_eq {c : SpiderColor} {n m : Nat} {α β : Phase}
+theorem spider_phase_eq {c : SpiderColor} {n m : Nat} {α β : AlgPhase}
     (h : phaseToComplex α = phaseToComplex β) :
     ZX.spider c n m α ≃ZX ZX.spider c n m β := by
   show ZX.sem _ = ZX.sem _
   cases c with
   | Z => simp [ZX.sem, Z_spiderMatrix_congr_phase h]
   | X => rfl
+
+/-- Convenience: `α = β` in `AlgPhase` is enough — no need to detour through
+    `phaseToComplex`. Useful when the phase identity closes by `abel`/`ring`. -/
+theorem spider_eq_of_phase_eq {c : SpiderColor} {n m : Nat} {α β : AlgPhase}
+    (h : α = β) :
+    ZX.spider c n m α ≃ZX ZX.spider c n m β := by
+  subst h; rfl
 
 /-- Compose respects `≃ZX` in both arguments.
 
@@ -62,16 +53,6 @@ theorem ZX.stack_congr {n m p q : Nat} {a a' : ZX n m} {b b' : ZX p q}
     (_ha : a ≃ZX a') (_hb : b ≃ZX b') : (a ⊗ b) ≃ZX (a' ⊗ b') := by
   show ZX.sem _ = ZX.sem _
   simp only [ZX.sem]
-
-/-- A Z- or X-spider with phase `α + (-α)` is `≃ZX` to the same spider with
-    the default zero phase: the two phases denote the same complex number
-    (`e^{iπ·0} = 1`), so `spider_phase_eq` applies. -/
-theorem ZX.spider_add_neg_self {c : SpiderColor} {n m : Nat} (α : Phase) :
-    ZX.spider c n m (α + (-α)) ≃ZX ZX.spider c n m :=
-  spider_phase_eq (congr_phase (by
-    show (Phase.add α (Phase.neg α)).num * _ = _
-    unfold Phase.add Phase.neg
-    simp))
 
 /-- Composition is associative up to `≃ZX`.
 
