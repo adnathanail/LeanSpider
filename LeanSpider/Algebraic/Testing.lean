@@ -83,22 +83,16 @@ theorem zxAlgFusion_parameterized3a (α : Phase) :
     zaf_pa3a α
       ≃ZX ZX.spider .Z 1 1 := by
   zx_alg_fusion 0 1
-  exact spider_phase_eq (congr_phase (by
-    show (Phase.add α (Phase.neg α)).num * _ = _
-    unfold Phase.add Phase.neg
-    simp))
+  zx_alg_phase_cancel 0
+  rfl
 
 def zaf_pa3b (α : Phase) : ZX 1 1 := zaf_pa3a α × ZX.spider .Z 1 1 ⟨1, 2⟩
 theorem zxAlgFusion_parameterized3b (α : Phase) :
     zaf_pa3b α
       ≃ZX (ZX.spider .Z 1 1 × ZX.spider .Z 1 1 ⟨1, 2⟩) := by
   zx_alg_fusion 0 1
-  exact ZX.compose_congr
-    (spider_phase_eq (congr_phase (by
-      show (Phase.add α (Phase.neg α)).num * _ = _
-      unfold Phase.add Phase.neg
-      simp)))
-    (ZX.equiv_refl _)
+  zx_alg_phase_cancel 0
+  rfl
 
 -- (2) Nested under a surrounding compose. IDs (DFS):
 --   s1=0 (outer left), s2=1 (target left), s3=2 (target right), s4=3 (outer right).

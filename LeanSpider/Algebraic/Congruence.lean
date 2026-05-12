@@ -63,6 +63,16 @@ theorem ZX.stack_congr {n m p q : Nat} {a a' : ZX n m} {b b' : ZX p q}
   show ZX.sem _ = ZX.sem _
   simp only [ZX.sem]
 
+/-- A Z- or X-spider with phase `α + (-α)` is `≃ZX` to the same spider with
+    the default zero phase: the two phases denote the same complex number
+    (`e^{iπ·0} = 1`), so `spider_phase_eq` applies. -/
+theorem ZX.spider_add_neg_self {c : SpiderColor} {n m : Nat} (α : Phase) :
+    ZX.spider c n m (α + (-α)) ≃ZX ZX.spider c n m :=
+  spider_phase_eq (congr_phase (by
+    show (Phase.add α (Phase.neg α)).num * _ = _
+    unfold Phase.add Phase.neg
+    simp))
+
 /-- Composition is associative up to `≃ZX`.
 
     Follows from `Matrix.mul_assoc`: with the right-to-left compose

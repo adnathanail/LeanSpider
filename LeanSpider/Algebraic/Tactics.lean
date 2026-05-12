@@ -312,4 +312,104 @@ elab tk:"zx_alg_fusion " idA:num idB:num : tactic => do
     let (lhs', rhs) ← parseAlgEquivGoal goalType
     showAlgDiagram tk "After spider fusion" lhs' (some rhs)
 
+/-- Walk a `ZX n m` expression like `buildFusionProof`, but at the spider
+    with node ID `id` rewrite its phase from `α + (-α)` to the default
+    zero phase using `ZX.spider_add_neg_self`. The phase must syntactically
+    match `HAdd.hAdd _ _ _ _ α (Neg.neg _ _ α)` — no semantic phase
+    simplification is attempted, mirroring `zx_alg_fusion`'s surface match.
+
+    Returns `(rewritten, proof, endOffset)`. -/
+partial def buildPhaseCancelProof (z : Expr) (id : Nat) (off : Nat) :
+    MetaM (Expr × Expr × Nat) := do
+  let z ← whnf z
+  let f := z.getAppFn
+  let name := f.constName?
+  match name with
+  | some ``ZX.empty =>
+      let proof ← mkAppM ``ZX.equiv_refl #[z]
+      return (z, proof, off)
+  | some ``ZX.wire =>
+      let proof ← mkAppM ``ZX.equiv_refl #[z]
+      return (z, proof, off + 1)
+  | some ``ZX.hadamard =>
+      let proof ← mkAppM ``ZX.equiv_refl #[z]
+      return (z, proof, off + 1)
+  | some ``ZX.spider =>
+      if off == id then
+        let args := z.getAppArgs
+        unless args.size == 4 do
+          throwError "ZX.spider: expected 4 args, got {args.size}"
+        let φ := args[3]!
+        -- Match `HAdd.hAdd _ _ _ _ α (Neg.neg _ _ α)` on the surface form
+        -- — do NOT whnf φ, that would expose Phase.add's internals.
+        let phaseFn := φ.getAppFn
+        let phaseArgs := φ.getAppArgs
+        unless phaseFn.constName? == some ``HAdd.hAdd && phaseArgs.size == 6 do
+          throwError "Node {id}'s phase is not of the form `α + (-α)` \
+                     (head: {phaseFn})."
+        let α := phaseArgs[4]!
+        let negTerm := phaseArgs[5]!
+        let negFn := negTerm.getAppFn
+        let negArgs := negTerm.getAppArgs
+        unless negFn.constName? == some ``Neg.neg && negArgs.size == 3 do
+          throwError "Node {id}'s phase is `α + β` but β is not `-_`."
+        let β := negArgs[2]!
+        unless ← isDefEq α β do
+          throwError "Node {id}'s phase is `α + (-β)` but α ≠ β."
+        let c := args[0]!
+        let nE := args[1]!
+        let mE := args[2]!
+        -- The lemma's RHS *is* the rewritten spider — pull it from the
+        -- proof's type so default-arg / implicit handling stays consistent.
+        let proof ← mkAppOptM ``ZX.spider_add_neg_self
+          #[some c, some nE, some mE, some α]
+        let proofTy ← inferType proof
+        let proofArgs := proofTy.getAppArgs
+        unless proofArgs.size == 4 do
+          throwError "spider_add_neg_self: unexpected equiv arity \
+                     ({proofArgs.size}, expected 4)"
+        let replaced := proofArgs[3]!
+        return (replaced, proof, off + 1)
+      else
+        let proof ← mkAppM ``ZX.equiv_refl #[z]
+        return (z, proof, off + 1)
+  | some ``ZX.stack =>
+      let args := z.getAppArgs
+      let a := args[4]!
+      let b := args[5]!
+      let (a', proofA, off1) ← buildPhaseCancelProof a id off
+      let (b', proofB, off2) ← buildPhaseCancelProof b id off1
+      let stacked ← mkAppM ``ZX.stack #[a', b']
+      let proof ← mkAppM ``ZX.stack_congr #[proofA, proofB]
+      return (stacked, proof, off2)
+  | some ``ZX.compose =>
+      let args := z.getAppArgs
+      let a := args[3]!
+      let b := args[4]!
+      let (a', proofA, off1) ← buildPhaseCancelProof a id off
+      let (b', proofB, off2) ← buildPhaseCancelProof b id off1
+      let composed ← mkAppM ``ZX.compose #[a', b']
+      let proof ← mkAppM ``ZX.compose_congr #[proofA, proofB]
+      return (composed, proof, off2)
+  | _ => throwError "Unrecognized ZX expression head: {name}"
+
+/-- Engine for `zx_alg_phase_cancel`, mirroring `applyZxAlgFusion`. -/
+def applyZxAlgPhaseCancel (id : Nat) : TacticM Unit := withMainContext do
+  let goal ← getMainGoal
+  let goalType ← goal.getType
+  let (lhs, rhs) ← parseAlgEquivGoal goalType
+  let (lhs', proof, _) ← buildPhaseCancelProof lhs id 0
+  let newGoalType ← mkAppM ``ZX.equiv #[lhs', rhs]
+  let newGoal ← mkFreshExprMVar newGoalType
+  let trans ← mkAppM ``ZX.equiv_trans #[proof, newGoal]
+  goal.assign trans
+  setGoals [newGoal.mvarId!]
+
+elab tk:"zx_alg_phase_cancel " id:num : tactic => do
+  applyZxAlgPhaseCancel id.getNat
+  withMainContext do
+    let goalType ← (← getMainGoal).getType
+    let (lhs', rhs) ← parseAlgEquivGoal goalType
+    showAlgDiagram tk "After phase cancellation" lhs' (some rhs)
+
 end LeanSpider.Algebraic
