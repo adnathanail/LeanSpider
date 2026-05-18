@@ -24,9 +24,15 @@ audit is `[propext, Classical.choice, Quot.sound]` only.
 - **`Z_spiderMatrix` is a *sum* of two indicators, not nested `if`s.** Required
   for the `n = m = 0` corner case where both indices collide at `0` (a 0-leg
   spider is the scalar `1 + e^{iφ}`, not `1`).
-- **`Phase.den : ℕ+`**, so `den = 0` is ruled out at the type level.
-  `phaseToComplex_add` and the spider-fusion theorems carry no `den ≠ 0`
-  hypothesis.
+- **`AlgPhase := ℚ`** (in `Phase.lean`). The full `AddCommGroup` structure
+  is inherited from Mathlib, so identities like `α + (-α) + α = α` close by
+  `abel` and any polynomial phase identity closes by `ring`/`norm_num`/
+  `field_simp`. Mod-2π semantic equality is *not* baked into the type — it
+  is recovered on demand via `phaseToComplex_add_two_mul_int` (see
+  "Mod-2π periodicity" below). Concrete literals are built with
+  `phaseLit p q := (p : ℚ) / (q : ℚ)`. Conversion to graph-side `Phase`
+  for rendering goes through `AlgPhase.toGraphPhase` (extracts `num`/`den`
+  from the ℚ representation).
 
 ## Current placeholder semantics (deliberate, not `sorry`)
 
@@ -142,19 +148,13 @@ pick two node IDs, apply a rule, get back a residual `≃ZX` goal.
   (`buildFusionProof` in `Tactics.lean`).
 - `zx_alg_fusion idA idB` (`Tactics.lean`): direct-compose only. Both
   spiders must be Z with arities `(_, 1)` and `(1, _)` and sit as the
-  immediate children of one `compose`.
-  - **Concrete phases** (`⟨num, den⟩` literals): the fused result is
-    gcd-reduced — e.g. `⟨1,4⟩+⟨1,4⟩` becomes `⟨1,2⟩`, not the raw
-    `⟨8,16⟩`. Reduction is `num/gcd, den/gcd` only (no mod-2π — that
-    wouldn't preserve `congr_phase`'s integer equation).
-    Implementation: `Z_spiderFusion_simp` combines `Z_spiderFusion`
-    with `spider_phase_eq (congr_phase _)`, and the tactic discharges
-    the integer congruence by `decide`.
-  - **Symbolic phases** (free variables, e.g. `α β : Phase`): the
-    tactic falls back to raw `Z_spiderFusion` and leaves the residual
-    as `spider .Z n k (α + β)`. The user can then chain
-    `spider_phase_eq` + `congr_phase` by hand if a specific
-    simplification is needed.
+  immediate children of one `compose`. The tactic always applies raw
+  `Z_spiderFusion` and leaves the residual phase as `α + β` (whether
+  the phases are concrete `phaseLit` literals or symbolic). Close the
+  residual with `spider_eq_of_phase_eq (by …)` where `…` is `abel`
+  /`ring`/`norm_num` depending on shape, or with `zx_mod_two` when the
+  residual is a mod-2π identity on concrete literals (see "Mod-2π
+  periodicity" below).
 
 ### Architecture (mirror of `applyRewrite`)
 
@@ -167,12 +167,12 @@ pick two node IDs, apply a rule, get back a residual `≃ZX` goal.
    each `compose a b` it walks `a` first to learn `offB := off + count a`,
    then either applies fusion (if `(offA, offB) = (idA, idB)`) or
    recurses into `b` and combines with `ZX.compose_congr`. For non-
-   target subtrees the proof piece is `ZX.equiv_refl`. At the leaf, both
-   spider phases are run through `tryEvalPhase` (`Meta.evalExpr`): if
-   both reduce to concrete `Phase` values, `Z_spiderFusion_simp` is
-   invoked with a gcd-reduced phase and a `mkDecideProof`-discharged
-   congruence hypothesis; otherwise raw `Z_spiderFusion` is used and
-   the summed phase stays as `α + β`.
+   target subtrees the proof piece is `ZX.equiv_refl`. At the leaf,
+   raw `Z_spiderFusion` is applied and the summed phase stays as `α + β`
+   — phase simplification is delegated entirely to the user's residual
+   tactic. `tryEvalAlgPhase` (in `Tactics.lean`) still exists for use by
+   the renderer's `phaseExprToLabel` walker but is not used by
+   `buildFusionProof`.
 3. `applyZxAlgFusion` combines the constructed proof with the residual
    via `ZX.equiv_trans` and leaves the user a `lhs' ≃ZX rhs` goal —
    usually closable with `rfl` if the user wrote `rhs` to match the
@@ -219,20 +219,60 @@ because `ZX n m` is index-dependent, but the `Html` application is).
 Render failures degrade to a warning so visualization can't block a
 proof.
 
-**Parameterized diagrams** (free-variable phases, e.g. `(α β : Phase)`)
+**Parameterized diagrams** (free-variable phases, e.g. `(α β : AlgPhase)`)
 also render: before `Meta.evalExpr`, `evalAlgHtml` walks the term twice —
 once via `collectPhaseLabels` to pretty-print any phase Exprs that
 contain free vars and pair them with the corresponding spider node IDs,
-once via `substitutePhaseFVars` to swap every `Phase` fvar in the
-locally-visible context for the placeholder `Phase.mk 0 1` so the term
-becomes evalable. Both label lists (LHS + RHS) flow as a `List
-(Nat × String)` argument to `ZX.toHtml` / `ZX.toHtmlPair`, end up as a
-top-level `"labels"` array of `[nodeId, name]` pairs in the JSON, get
-materialised as a `Map<number, string>` in `zxRender.ts`, and override
-the displayed phase text in `zxViewer.js`.
+once via `substitutePhaseFVars` to swap every `AlgPhase` fvar in the
+locally-visible context for the placeholder `(0 : AlgPhase)` (built by
+`algPhaseZeroExpr`) so the term becomes evalable. `phaseExprToLabel`
+prioritises *evaluation* over surface preservation: any closed
+sub-expression is evaluated to a concrete ℚ via `tryEvalAlgPhase` and
+formatted through `AlgPhase.toGraphPhase` + the graph-side
+`Phase.format` (which applies gcd reduction + mod-2π normalisation —
+that's why the display layer can hide non-equivalences; see "Mod-2π
+periodicity"). Only `HAdd`/`HSub`/`Neg` over fvar-containing
+sub-expressions are walked structurally. Both label lists (LHS + RHS)
+flow as a `List (Nat × String)` argument to `ZX.toHtml` /
+`ZX.toHtmlPair`, end up as a top-level `"labels"` array of
+`[nodeId, name]` pairs in the JSON, get materialised as a
+`Map<number, string>` in `zxRender.ts`, and override the displayed
+phase text in `zxViewer.js`.
+
+### Mod-2π periodicity (`zx_mod_two`)
+
+`AlgPhase = ℚ` is not a quotient — `phaseLit 1 2` and `phaseLit 9 2` are
+distinct ℚ values, so their spiders are not `≃ZX`-equivalent by `rfl`.
+The semantic equivalence holds (`exp(I·π·α) = exp(I·π·(α + 2k))` for
+integer `k`) and is provable without changing the type.
+
+Algebraic-side rendering displays the raw ℚ value (`9π/2`, not the
+mod-2π'd `π/2`) — `collectPhaseLabels` emits a label for every spider,
+formatted by `AlgPhase.format` which reads `num`/`den` straight from the
+ℚ representation (no `Phase.simplify` detour). The widget's existing
+label-override (`zxViewer.js:300-306`) ensures the label takes
+precedence over the JSON's mod-2π'd phase string. The graph-side
+`Phase.format` (with its `% (2 * den)` reduction in
+`LeanSpider/ZXDiagram.lean:24`) is still used for `ZXDiagram` rendering
+but is bypassed entirely for `ZX n m` diagrams.
+
+- **`phaseToComplex_add_two_mul_int`** (`Phase.lean`): the underlying
+  periodicity — `phaseToComplex (α + 2 * (k : ℚ)) = phaseToComplex α`,
+  for `k : ℤ`. Built on Mathlib's `Complex.exp_int_mul_two_pi_mul_I`.
+- **`ZX.spider_phase_mod_two`** (`Congruence.lean`): lifts the same
+  periodicity to spider equivalence via the existing `spider_phase_eq`.
+- **`zx_mod_two`** (`Tactics.lean`): closes
+  `ZX.spider c n m α ≃ZX ZX.spider c n m β` when both phases evaluate to
+  concrete ℚ values whose difference is `2k` for some integer `k`. The
+  tactic evaluates both via `tryEvalAlgPhase`, computes `k`, applies
+  `ZX.spider_phase_mod_two`, and discharges the residual `α + 2*k = β`
+  with `unfold phaseLit; push_cast; ring`. Fails fast if either phase is
+  symbolic — for those cases, apply the lemma manually.
 
 ### Out of scope (yet)
 
 - Multi-leg spider fusion (requires generalized `Z_spiderFusion`).
 - Fusion through intervening `wire`/`hadamard` chains.
 - X-spider variants (need real X semantics — currently `.sem = 0`).
+- Symbolic mod-2 cancellation (`α + 2 ≃ZX α` for parametric `α`) — the
+  lemma exists, but `zx_mod_two` only handles concrete shifts.

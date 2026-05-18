@@ -140,3 +140,10 @@ theorem zxAlgFusion_nested :
 #print axioms zxAlgFusion_topLevel
 #print axioms zxAlgFusion_parameterized
 #print axioms zxAlgFusion_nested
+
+-- Mod-2π periodicity: `phaseLit 9 2 = 9π/2 = π/2 + 2·(2π) = π/2` semantically,
+-- but as `ℚ` values 1/2 ≠ 9/2. The `zx_mod_two` tactic auto-finds the integer
+-- shift (here k = 2) and applies `ZX.spider_phase_mod_two`.
+theorem phaseModuloTwo :
+    ZX.spider .Z 1 1 (phaseLit 1 2)
+    ≃ZX ZX.spider .Z 1 1 (phaseLit 9 2) := by zx_mod_two

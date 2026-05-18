@@ -34,6 +34,15 @@ theorem spider_eq_of_phase_eq {c : SpiderColor} {n m : Nat} {α β : AlgPhase}
     ZX.spider c n m α ≃ZX ZX.spider c n m β := by
   subst h; rfl
 
+/-- Mod-2π periodicity at the spider level: a spider's phase can be shifted by
+    any integer multiple of `2` (i.e. by full turns) without changing its
+    `≃ZX`-equivalence class. The renderer normalises phases mod-2π for display,
+    so this lemma is what bridges the displayed form to the algebraic form. -/
+theorem ZX.spider_phase_mod_two {c : SpiderColor} {n m : Nat}
+    (α : AlgPhase) (k : ℤ) :
+    ZX.spider c n m α ≃ZX ZX.spider c n m (α + 2 * (k : ℚ)) :=
+  spider_phase_eq (phaseToComplex_add_two_mul_int α k).symm
+
 /-- Compose respects `≃ZX` in both arguments.
 
     Used by `Quotient.lift₂` when defining `ZXQ.compose`, and useful in its
