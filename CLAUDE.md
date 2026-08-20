@@ -41,6 +41,16 @@ The JS bundle is built by rollup and written to `.lake/build/js/`. zxcc is bundl
 
 `reflectDiagram`/`reflectNode`/`reflectPhase` mirror the `Node` and `Phase` definitions by hand and must be updated alongside them — a new constructor or field will otherwise reflect wrongly or fail to compile. They are `MetaM` rather than a `ToExpr` instance because an `ℕ+` denominator needs `mkNumeral` to synthesize its `OfNat` instance; that synthesis is cached per distinct denominator, since repeating it per phase measurably slows elaboration.
 
+## Goal display for diagram literals
+
+`LeanSpider/Delab.lean` delaborates reflected diagrams so the node list reads `[Node.input 0, _, Node.hadamard]` instead of being buried in `some`/`none`. Three things about it are deliberate:
+
+- It is registered on `ZXDiagram.mk`, not on `Option.some`. Delaborators dispatch on head symbol, so unwrapping `some` directly would hide it for every `Option` in every goal in the file.
+- An empty slot prints as `_` rather than being dropped. Node IDs are list indices, so removing empties would renumber every node after them, and those IDs are what get typed into `zx_sp 1 3`.
+- The placeholder is a hole and **not** `·`, which reads better but cannot be used: declaring `syntax "·" : term` collides with Lean's cdot parser and breaks `(· + 1)` in every file that imports this library. If you want a different glyph, pick one outside Lean's grammar.
+
+`delabNodeList` fails on anything not built from `cons`/`nil`, so a diagram over variables (`{ nodes := xs, edges := ys }`) falls back to the default display instead of rendering something misleading. Keep that guard.
+
 ## Widget architecture
 
 `zx_view_widget/src/zxDiagram.tsx` handles only the InfoView shell: the LHS/RHS side-by-side layout and its persisted toggle. For each panel it renders a `<zx-diagram>` element and assigns the Lean JSON to its `.diagram` property; zxcc lays the graph out and draws the interactive SVG. Nodes are draggable, H-boxes auto-position at the barycenter of their neighbours, and parallel edges are drawn as bezier arcs.

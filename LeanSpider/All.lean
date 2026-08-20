@@ -4,6 +4,7 @@ import LeanSpider.Utils
 import LeanSpider.ZXDiagram
 import LeanSpider.Axioms
 import LeanSpider.Visualize
+import LeanSpider.Delab
 import LeanSpider.Tactics
 import LeanSpider.Panel
 import LeanSpider.Rules.SpiderFusion
