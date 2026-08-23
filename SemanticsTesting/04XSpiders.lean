@@ -1,16 +1,22 @@
--- import SemanticsTesting.«03ZSpiders»
+import SemanticsTesting.Utils
 
--- open SpLean.Algebraic
+open SpLean.Algebraic
 
--- namespace SemanticsTesting
+/--
+  # Z-basis states (pqs eq 3.6)
+-/
 
--- /--
---   Pending: X spiders, `hadamard` and `compose` (pqs 3.1.5)
+-- ## 0 state
+-- (X0)- = √2|0⟩ = |0⟩
+abbrev zeroState : ZX 0 1 := .spider .X 0 1 ⟨0, 1⟩
+#zx zeroState
+theorem x_sem_zero_state (f : Wires 0) : zeroState.sem f = (![1, 0] : Fin 2 → ℂ) := by
+  ext g
+  rw [wiresVec1, ZX.sem, xSpiderSem, Phase.angle]
+  match h : g 0 with
+  | false => norm_num [h]
+  | true => norm_num [h]
 
---   Every goal below is currently *false*, because `ZX.sem` returns `0` on those
---   three branches. They are the pending obligations that fixing `sem` has to
---   discharge — leave the `sorry`s until then.
--- -/
 
 -- -- |0⟩ (up to √2): the phaseless X spider 0 → 1, i.e. the vector (√2, 0).
 -- abbrev zeroState : ZX 0 1 := .spider .X 0 1 ⟨0, 1⟩
