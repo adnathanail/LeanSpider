@@ -10,12 +10,35 @@ open SpLean.Algebraic
 -- (X0)- = √2|0⟩ = |0⟩
 abbrev zeroState : ZX 0 1 := .spider .X 0 1 ⟨0, 1⟩
 #zx zeroState
-theorem x_sem_zero_state (f : Wires 0) : zeroState.sem f = (![1, 0] : Fin 2 → ℂ) := by
+theorem x_sem_zero_state (f : Wires 0) : zeroState.sem f = (![rootTwo, 0] : Fin 2 → ℂ) := by
   ext g
   rw [wiresVec1, ZX.sem, xSpiderSem, Phase.angle]
-  match h : g 0 with
-  | false => norm_num [h]
-  | true => norm_num [h]
+  have h0 : (Finset.univ : Finset (Wires 0)) = {λ _ => false} := by
+    decide
+  rw [h0, Finset.sum_singleton]
+  have h1 : (Finset.univ : Finset (Wires 1)) = {λ _ => false, λ _ => true} := by
+    decide
+  have h_not_mem : (λ _ : Fin 1 => false) ∉ ({λ _ : Fin 1 => true} : Finset (Wires 1)) := by
+    decide
+  rw [h1, Finset.sum_insert h_not_mem, Finset.sum_singleton]
+  simp [hadSem, zSpiderSem, Complex.exp_zero, rootTwo]
+  have h_sqrt_add : ((Real.sqrt 2 : ℝ)⁻¹ : ℂ) + ((Real.sqrt 2 : ℝ)⁻¹ : ℂ) = (Real.sqrt 2 : ℂ) := by
+    have h_sq : (Real.sqrt 2 : ℂ) ^ 2 = (2 : ℂ) := by
+      norm_cast
+      exact Real.sq_sqrt (show 0 ≤ 2 from by norm_num)
+    have h_pos : (Real.sqrt 2 : ℂ) ≠ 0 := by
+      intro hzero
+      have : (Real.sqrt 2 : ℝ) = 0 := by exact_mod_cast hzero
+      have hpos' : Real.sqrt 2 > 0 := Real.sqrt_pos.mpr (by norm_num : 0 < (2 : ℝ))
+      linarith
+    field_simp [h_pos]
+    have h2 : (1 : ℂ) + 1 = (2 : ℂ) := by norm_num
+    rw [h2]
+    exact h_sq.symm
+  cases g 0 with
+  | false => norm_num [h_sqrt_add]
+  | true => norm_num
+
 
 
 -- -- |0⟩ (up to √2): the phaseless X spider 0 → 1, i.e. the vector (√2, 0).
