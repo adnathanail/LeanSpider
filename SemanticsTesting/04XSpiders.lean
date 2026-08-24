@@ -11,6 +11,14 @@ open SpLean.Algebraic
 abbrev zeroState : ZX 0 1 := .spider .X 0 1 ⟨0, 1⟩
 #zx zeroState
 theorem x_sem_zero_state_zero_ampl (f : Wires 0) : zeroState.sem f (fun _ => false) = rootTwo := by
+  unfold zeroState ZX.sem xSpiderSem zSpiderSem hadSem
+  simp [Phase.angle, Complex.exp_zero, rootTwo]
+  have h1 : (Finset.univ : Finset (Wires 1)) = {λ _ => false, λ _ => true} := by decide
+  rw [h1]
+  rw [Finset.sum_insert (by decide)]
+  field_simp
+  norm_cast
+  norm_num
 
 -- theorem x_sem_zero_state (f : Wires 0) : zeroState.sem f = (![rootTwo, 0] : Fin 2 → ℂ) := by
 --   ext g
