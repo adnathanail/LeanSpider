@@ -110,7 +110,7 @@ instance {n m : ℕ} :
 
 /-- `compose` respects `≈zx` (scalars multiply). -/
 theorem compose_congr {n m k : ℕ} {a a' : ZX n m} {b b' : ZX m k}
-    (ha : a ≈zx a') (hb : b ≈zx b') : (a × b) ≈zx (a' × b') := by
+    (ha : a ≈zx a') (hb : b ≈zx b') : (a ≫ b) ≈zx (a' ≫ b') := by
   obtain ⟨c₁, hc₁, h₁⟩ := ha
   obtain ⟨c₂, hc₂, h₂⟩ := hb
   refine ⟨c₁ * c₂, mul_ne_zero hc₁ hc₂, fun f h => ?_⟩
@@ -161,7 +161,7 @@ theorem sum_wires_one (F : Wires 1 → ℂ) :
 /-- Spider fusion (single connecting wire): two Z spiders joined by a wire
 merge, adding phases. Scalar-exact. -/
 theorem zSpider_fusion (n m : ℕ) (α β : Phase) :
-    (ZX.spider .Z n 1 α × ZX.spider .Z 1 m β) ≈zx ZX.spider .Z n m (α + β) := by
+    (ZX.spider .Z n 1 α ≫ ZX.spider .Z 1 m β) ≈zx ZX.spider .Z n m (α + β) := by
   refine ⟨1, one_ne_zero, fun f h => ?_⟩
   rw [one_mul]
   simp only [ZX.sem]
@@ -173,7 +173,7 @@ theorem zSpider_fusion (n m : ℕ) (α β : Phase) :
 merge, adding phases. The sum over the shared boundary collapses to its
 all-`false` and all-`true` assignments; every mixed assignment contributes `0`. -/
 theorem zSpider_fusion_full (n m k : ℕ) (α β : Phase) :
-    (ZX.spider .Z n (k + 1) α × ZX.spider .Z (k + 1) m β) ≈zx
+    (ZX.spider .Z n (k + 1) α ≫ ZX.spider .Z (k + 1) m β) ≈zx
       ZX.spider .Z n m (α + β) := by
   refine ⟨1, one_ne_zero, fun f h => ?_⟩
   rw [one_mul]
@@ -226,7 +226,7 @@ theorem zSpider_phase_cancel (n m : ℕ) (α : Phase) :
     Phase.angle_zero]
 
 /-- Two Hadamards cancel to a wire. Scalar-exact. -/
-theorem hadamard_hadamard : (ZX.hadamard × ZX.hadamard) ≈zx ZX.wire := by
+theorem hadamard_hadamard : (ZX.hadamard ≫ ZX.hadamard) ≈zx ZX.wire := by
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
   rw [one_mul]
   simp only [ZX.sem]
@@ -239,7 +239,7 @@ theorem hadamard_hadamard : (ZX.hadamard × ZX.hadamard) ≈zx ZX.wire := by
 
 /-- Sequential composition is associative on the nose (indices already agree). -/
 theorem compose_assoc {n m k l : ℕ} (a : ZX n m) (b : ZX m k) (c : ZX k l) :
-    ((a × b) × c) ≈zx (a × (b × c)) := by
+    ((a ≫ b) ≫ c) ≈zx (a ≫ (b ≫ c)) := by
   refine ⟨1, one_ne_zero, fun f h => ?_⟩
   rw [one_mul]
   simp only [ZX.sem, Finset.sum_mul, Finset.mul_sum]
@@ -264,10 +264,10 @@ theorem stack_assoc {n₁ m₁ n₂ m₂ n₃ m₃ : ℕ}
 /-- Chained fusions via `calc`, using the congruence lemma to rewrite in a
 subterm — the shape a future `zx_rw` tactic automates. -/
 example (n m : ℕ) (α β γ : Phase) :
-    ((ZX.spider .Z n 1 α × ZX.spider .Z 1 1 β) × ZX.spider .Z 1 m γ) ≈zx
+    ((ZX.spider .Z n 1 α ≫ ZX.spider .Z 1 1 β) ≫ ZX.spider .Z 1 m γ) ≈zx
       ZX.spider .Z n m (α + β + γ) :=
-  calc ((ZX.spider .Z n 1 α × ZX.spider .Z 1 1 β) × ZX.spider .Z 1 m γ)
-      ≈zx (ZX.spider .Z n 1 (α + β) × ZX.spider .Z 1 m γ) :=
+  calc ((ZX.spider .Z n 1 α ≫ ZX.spider .Z 1 1 β) ≫ ZX.spider .Z 1 m γ)
+      ≈zx (ZX.spider .Z n 1 (α + β) ≫ ZX.spider .Z 1 m γ) :=
         ZX.Equiv.compose_congr (zSpider_fusion n 1 α β) (ZX.Equiv.refl _)
     _ ≈zx ZX.spider .Z n m (α + β + γ) := zSpider_fusion n m (α + β) γ
 
