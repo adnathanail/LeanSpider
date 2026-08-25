@@ -74,15 +74,16 @@ def xSpiderSem (α : ℝ) {n m : ℕ} (f : Wires n) (g : Wires m) : ℂ :=
 `compose` sums over the shared internal boundary; `stack` splits the boundary
 assignment between the two halves. -/
 def ZX.sem : {n m : ℕ} → ZX n m → Wires n → Wires m → ℂ
-  | _, _, .empty, _, _ => 1
-  | _, _, .wire, f, g => if f 0 = g 0 then 1 else 0
+  | _, _, .empty, _, _ => 1                                  -- Empty diagram = 1
+  | _, _, .wire, f, g => if f 0 = g 0 then 1 else 0          -- Wire = identity matrix
   | _, _, .hadamard, f, g => hadSem (f 0) (g 0)
   | _, _, .spider .Z _ _ φ, f, g => zSpiderSem φ.angle f g
   | _, _, .spider .X _ _ φ, f, g => xSpiderSem φ.angle f g
+  | _, _, .compose a b, f, h => ∑ g, a.sem f g * b.sem g h   -- Composition = tensor contraction
   | _, _, .stack a b, f, g =>
+      -- Split up the responsibility for wire indexes across the two stacked diagrams
       a.sem (fun i => f (Fin.castAdd _ i)) (fun j => g (Fin.castAdd _ j)) *
         b.sem (fun i => f (Fin.natAdd _ i)) (fun j => g (Fin.natAdd _ j))
-  | _, _, .compose a b, f, h => ∑ g, a.sem f g * b.sem g h
 
 /-- Semantic equivalence of ZX terms: equal tensors up to a nonzero global
 scalar (VyZX's proportionality). -/
