@@ -45,10 +45,19 @@ a call for `claude`, one for `claude "I`, and so on. Three things stop that:
   newer invocation for the same call site arrives, or if Lean cancels the
   elaboration in the meantime. Typing straight through a `claude` line therefore
   spawns nothing at all.
-* **Cancellation.** While the CLI runs, the call polls `IO.checkCanceled` — the
-  same flag `Lean.Core.checkSystem` reads — and kills the process the moment
-  Lean loses interest in the elaboration that started it. Children are spawned
-  with `setsid`, so the kill takes the CLI's own subprocesses with it.
+* **Cancellation.** While the CLI runs, the call polls the elaboration's
+  `Core.Context.cancelTk?` — the token `Core.checkSystem` reads, which the file
+  worker sets when it gives up on a command — and kills the process the moment
+  Lean loses interest. This is the layer that covers deleting the `claude` call
+  outright, where no later invocation exists to supersede it. Note that this is
+  *not* `IO.checkCanceled`: document edits leave the task flag alone, so a
+  version polling that one keeps running after the line is gone.
+
+Two smaller guards under those. Children are spawned with `setsid`, so a kill
+takes the CLI's own subprocesses with it rather than orphaning them; and since
+none of the above can run if the file worker itself dies — a server restart, a
+crash — the CLI is started under a shell that watches the worker's pid and kills
+it when that goes.
 
 A kill surfaces as a nonzero exit code (137), so staleness is checked *before*
 the exit code is believed — both in the poll loop and once more after it — or a
@@ -59,10 +68,16 @@ server, so re-elaborating an unchanged goal is free (and skips the debounce,
 which is what makes an undo redisplay instantly). Restarting the server forgets
 everything.
 
-Each prompt opens with a `[splean-claude file:line:column]` tag, and the prompt
-is argv, so `ps -eo pid,etime,command | grep "[s]plean-claude"` lists exactly the
-CLI runs Lean started and where each one came from. Note that this puts the
-proof state in `ps` output, which is visible to other users on a shared machine.
+Each prompt opens with a `[splean-claude file:line:column]` tag, and reaches the
+CLI as argv, so
+
+    ps -eo pid,etime,command | grep "[s]plean-claude"
+
+lists exactly the CLI runs Lean started, one line each, and says which line of
+which file each came from. The wrapper shell and its watchdog do not match: the
+prompt reaches them through the environment, so only the CLI's own arguments
+carry the tag. Note that this does put the proof state in `ps` output, which is
+visible to other users on a shared machine.
 
 Elaboration *blocks* while Claude thinks; there is no timeout.
 -/
@@ -86,16 +101,66 @@ private abbrev claudeStdio : IO.Process.StdioConfig :=
 
 private abbrev ClaudeChild := IO.Process.Child claudeStdio
 
-/-- Start the CLI headlessly. `setsid` puts it in its own process group, so
-`Child.kill` takes the CLI's own subprocesses down with it rather than orphaning
-them. -/
-private def spawnClaude (prompt : String) : IO ClaudeChild :=
+/-- The CLI run, wrapped in a watchdog that outlives nothing.
+
+Killing the language server (or restarting the file worker) while a call is in
+flight would otherwise leave the CLI running with no one left to stop it — Lean
+runs no exit hook we could hang a kill on, and `setsid` has by then detached the
+process from any signal the editor sends. So the CLI is started under a shell
+that polls for `ppid`, the worker that spawned it, and kills the CLI when it
+goes, firmly (`TERM`, then `KILL`) because the CLI does not always go on `TERM`.
+
+The prompt is read from the environment rather than passed as an argument, so it
+lands in exactly one process's `ps` line — the CLI's — instead of being copied
+into the wrapper's and the watchdog subshell's as well. It cannot go on stdin,
+which would be tidier still: the CLI reads a piped stdin as *context* and still
+answers the `-p` argument, so a short argv tag pointing at stdin gets an answer
+about the tag ("I'll analyze the proof state from stdin") rather than about the
+goal. -/
+private def watchdogScript (ppid : UInt32) : String :=
+  s!"claude -p \"$SPLEAN_CLAUDE_PROMPT\" --output-format text --allowedTools Read,Grep,Glob &
+     kid=$!
+     ( while kill -0 {ppid} 2>/dev/null; do sleep 2; done
+       kill $kid 2>/dev/null; sleep 2; kill -KILL $kid 2>/dev/null ) &
+     watchdog=$!
+     wait $kid
+     status=$?
+     kill $watchdog 2>/dev/null
+     exit $status"
+
+/-- Start the CLI headlessly. `setsid` puts the shell, the CLI and the watchdog in
+one process group, which is what `killRun` then aims at. -/
+private def spawnClaude (site : String) (prompt : String) : IO ClaudeChild := do
   IO.Process.spawn {
-    cmd := "claude"
-    args := #["-p", prompt, "--output-format", "text", "--allowedTools", "Read,Grep,Glob"]
+    cmd := "sh"
+    args := #["-c", watchdogScript (← IO.Process.getPID)]
+    env := #[("SPLEAN_CLAUDE_PROMPT", some s!"[splean-claude {site}]\n\n{prompt}")]
     stdin := .null, stdout := .piped, stderr := .piped
     setsid := true
   }
+
+/-- Stop a run and everything it started.
+
+`Child.kill` alone is not enough: it signals the group, but the CLI does not
+reliably die on `TERM` — the wrapper and the watchdog go, and the CLI is left
+reparented to `init`, which is exactly the leak this whole file exists to avoid.
+So the group gets `TERM` and then, two seconds later, `KILL`. The escalation runs
+in a detached shell rather than here, so that killing a run never blocks the
+elaboration doing the killing.
+
+`setsid` at spawn is what makes the child's pid its process group id, so `-pid`
+names the shell, the CLI and the watchdog together. -/
+private def killRun (child : ClaudeChild) : IO Unit := do
+  let pgid := child.pid
+  try
+    discard <| IO.Process.spawn {
+      cmd := "sh"
+      args := #["-c", s!"kill -TERM -{pgid} 2>/dev/null; sleep 2; kill -KILL -{pgid} 2>/dev/null"]
+      stdin := .null, stdout := .null, stderr := .null
+      setsid := true
+    }
+  catch _ => pure ()
+  try child.kill catch _ => pure ()
 
 /-! ## Per-call-site bookkeeping -/
 
@@ -123,7 +188,7 @@ private def claimSite (site : String) : IO Nat := do
     ((gen, slot.running), runs.insert site { latest := gen, running := none })
   -- The killed run reaps its own child; it is still polling and will notice.
   if let some (_, child) := previous then
-    try child.kill catch _ => pure ()
+    killRun child
   return gen
 
 /-- Lean's cancellation flag for the elaboration we are running inside.
@@ -168,7 +233,7 @@ private def debounce (tk? : Option IO.CancelToken) (site : String) (gen : Nat) (
 report. -/
 private def runClaudeCLI (tk? : Option IO.CancelToken) (site : String) (gen : Nat)
     (prompt : String) : IO (Option String) := do
-  let child ← spawnClaude prompt
+  let child ← spawnClaude site prompt
   claudeRuns.modify fun runs =>
     let slot := runs.getD site {}
     -- Only register if we still own the site; otherwise the kill below is ours to do.
@@ -181,7 +246,7 @@ private def runClaudeCLI (tk? : Option IO.CancelToken) (site : String) (gen : Na
     -- Staleness is checked *before* the exit code, so that a process killed out
     -- from under us is reported as superseded rather than as a CLI failure.
     if ← superseded tk? site gen then
-      try child.kill catch _ => pure ()
+      killRun child
       discard <| child.wait
       releaseSite site gen
       return none
@@ -232,10 +297,12 @@ actually does; you have read-only access and must not try to edit anything.
 If nothing obviously applies, say so plainly and suggest the most promising
 next step rather than inventing a tactic that will not fire."
 
-/-- Assemble the prompt: the call-site tag (which doubles as the `ps` marker),
-the standing instructions, the user's message if they gave one, and the state. -/
+/-- Assemble the prompt: the standing instructions, where the call sits, the
+user's message if they gave one, and the proof state. It travels down the CLI's
+stdin, so nothing here has to be short or shell-safe. -/
 private def buildPrompt (site : String) (msg : Option String) : TacticM String := do
-  let mut prompt := s!"[splean-claude {site}]\n\n{claudeInstructions}"
+  let mut prompt := s!"Called at {site}.\n\n"
+  prompt := prompt ++ claudeInstructions
   if let some m := msg then
     prompt := prompt ++ s!"\n\nThe user says: {m}"
   return prompt ++ s!"\n\nProof state:\n\n{← ppProofState}"
