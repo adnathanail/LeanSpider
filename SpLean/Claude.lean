@@ -126,9 +126,20 @@ private def claimSite (site : String) : IO Nat := do
     try child.kill catch _ => pure ()
   return gen
 
+/-- Lean's cancellation flag for the elaboration we are running inside.
+
+This is the token `Core.checkSystem` reads, set by the file worker when it gives
+up on a command — including when the `claude` call is edited away, which is the
+one case no later invocation is around to supersede. It is *not* the same flag as
+`IO.checkCanceled`, which document edits leave untouched; we poll both, since the
+task flag is what a `Task.cancel` elsewhere would set. -/
+private def getCancelTk? : CoreM (Option IO.CancelToken) := return (← read).cancelTk?
+
 /-- Has this call gone stale — either Lean gave up on the elaboration, or a newer
 invocation from the same call site took over? -/
-private def superseded (site : String) (gen : Nat) : IO Bool := do
+private def superseded (tk? : Option IO.CancelToken) (site : String) (gen : Nat) : IO Bool := do
+  if let some tk := tk? then
+    if ← tk.isSet then return true
   if ← IO.checkCanceled then return true
   let runs ← claudeRuns.get
   return runs[site]?.map (·.latest) != some gen
@@ -143,18 +154,20 @@ private def releaseSite (site : String) (gen : Nat) : IO Unit :=
 
 /-- Wait out the debounce in slices, watching for the call going stale.
 Returns `true` if it did, in which case nothing should be spawned. -/
-private def debounce (site : String) (gen : Nat) (ms : Nat) : IO Bool := do
+private def debounce (tk? : Option IO.CancelToken) (site : String) (gen : Nat) (ms : Nat) :
+    IO Bool := do
   let mut waited := 0
   while waited < ms do
-    if ← superseded site gen then return true
+    if ← superseded tk? site gen then return true
     IO.sleep (min 50 (ms - waited)).toUInt32
     waited := waited + 50
-  superseded site gen
+  superseded tk? site gen
 
 /-- Run the CLI to completion, killing it if the call goes stale meanwhile.
 `none` means it did — the answer is no longer wanted, so there is nothing to
 report. -/
-private def runClaudeCLI (site : String) (gen : Nat) (prompt : String) : IO (Option String) := do
+private def runClaudeCLI (tk? : Option IO.CancelToken) (site : String) (gen : Nat)
+    (prompt : String) : IO (Option String) := do
   let child ← spawnClaude prompt
   claudeRuns.modify fun runs =>
     let slot := runs.getD site {}
@@ -167,7 +180,7 @@ private def runClaudeCLI (site : String) (gen : Nat) (prompt : String) : IO (Opt
   repeat
     -- Staleness is checked *before* the exit code, so that a process killed out
     -- from under us is reported as superseded rather than as a CLI failure.
-    if ← superseded site gen then
+    if ← superseded tk? site gen then
       try child.kill catch _ => pure ()
       discard <| child.wait
       releaseSite site gen
@@ -179,7 +192,7 @@ private def runClaudeCLI (site : String) (gen : Nat) (prompt : String) : IO (Opt
   releaseSite site gen
   -- A kill landing between the staleness check and `tryWait` surfaces here as a
   -- nonzero exit (SIGKILL, 137), so ask again before blaming the CLI for it.
-  if ← superseded site gen then return none
+  if ← superseded tk? site gen then return none
   if exitCode != 0 then
     throw <| IO.userError s!"`claude` exited with code {exitCode}:\n{← IO.ofExcept stderr.get}"
   return some (← IO.ofExcept stdout.get)
@@ -270,9 +283,10 @@ elab (name := claudeTactic) "claude" msg:(str)? : tactic => withMainContext do
   if let some cached := (← claudeCache.get)[prompt]? then
     report cached
     return
-  if ← debounce site gen (splean.claude.debounce.get (← getOptions)) then return
+  let tk? ← getCancelTk?
+  if ← debounce tk? site gen (splean.claude.debounce.get (← getOptions)) then return
   let response? ←
-    try runClaudeCLI site gen prompt
+    try runClaudeCLI tk? site gen prompt
     catch e => throwError "Could not run the `claude` CLI: {e.toMessageData}"
   let some response := response? | return
   claudeCache.modify (·.insert prompt response)
