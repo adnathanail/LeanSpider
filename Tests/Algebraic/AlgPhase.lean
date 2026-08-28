@@ -44,8 +44,16 @@ shapes have to be matched before the general `kπ`, or `π` prints as `1π` and
 /-- info: fun α => α + π/4 : AlgPhase → AlgPhase -/
 #guard_msgs in #check fun (α : _root_.AlgPhase) => α + π/4
 
+private def normalizationTests : TestSeq :=
+  group "normalization" $
+    test "pi ≠ 3 pi" (pi ≠ threePi) $
+    test "pi equiv 3 pi" (pi.equiv threePi)
+
 def tests : TestSeq :=
   group "AlgPhase" $
-    formatTests
+    formatTests ++
+    normalizationTests
+
+#lspec tests
 
 end Tests.Algebraic.AlgPhase
