@@ -1,4 +1,5 @@
 import SpLean.Algebraic.AlgPhase.Defs
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
 
 namespace AlgPhase
 
