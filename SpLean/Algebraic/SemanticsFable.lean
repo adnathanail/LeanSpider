@@ -24,28 +24,6 @@ scalar-exact (spider fusion, identity removal) are proved here with scalar `1`.
 
 noncomputable section
 
-/-- The angle in radians denoted by a `Phase`, i.e. `num/den · π`. -/
-def Phase.angle (p : Phase) : ℝ :=
-  (p.num : ℝ) / ((p.den : ℕ) : ℝ) * Real.pi
-
-theorem Phase.angle_add (p q : Phase) : (p + q).angle = p.angle + q.angle := by
-  have hp : ((p.den : ℕ) : ℝ) ≠ 0 := Nat.cast_ne_zero.mpr p.den.pos.ne'
-  have hq : ((q.den : ℕ) : ℝ) ≠ 0 := Nat.cast_ne_zero.mpr q.den.pos.ne'
-  show Phase.angle (Phase.add p q) = _
-  unfold Phase.angle Phase.add
-  push_cast [PNat.mul_coe]
-  rw [← add_mul, div_add_div _ _ hp hq]
-  ring
-
-theorem Phase.angle_neg (p : Phase) : (-p).angle = -p.angle := by
-  show Phase.angle (Phase.neg p) = _
-  unfold Phase.angle Phase.neg
-  push_cast
-  ring
-
-@[simp] theorem Phase.angle_zero : (⟨0, 1⟩ : Phase).angle = 0 := by
-  simp [Phase.angle]
-
 namespace SpLean.Algebraic
 
 open Complex (I)
@@ -161,19 +139,19 @@ theorem sum_wires_one (F : Wires 1 → ℂ) :
 
 /-- Spider fusion (single connecting wire): two Z spiders joined by a wire
 merge, adding phases. Scalar-exact. -/
-theorem zSpider_fusion (n m : ℕ) (α β : Phase) :
+theorem zSpider_fusion (n m : ℕ) (α β : AlgPhase) :
     (ZX.spider .Z n 1 α ≫ ZX.spider .Z 1 m β) ≈zx ZX.spider .Z n m (α + β) := by
   refine ⟨1, one_ne_zero, fun f h => ?_⟩
   rw [one_mul]
   simp only [ZX.sem]
   rw [sum_wires_one]
-  simp [zSpiderSem, Phase.angle_add, add_mul, Complex.exp_add, ite_and]
+  simp [zSpiderSem, add_mul, Complex.exp_add, ite_and]
   split_ifs <;> ring
 
 /-- Full spider fusion: two Z spiders joined by any positive number of wires
 merge, adding phases. The sum over the shared boundary collapses to its
 all-`false` and all-`true` assignments; every mixed assignment contributes `0`. -/
-theorem zSpider_fusion_full (n m k : ℕ) (α β : Phase) :
+theorem zSpider_fusion_full (n m k : ℕ) (α β : AlgPhase) :
     (ZX.spider .Z n (k + 1) α ≫ ZX.spider .Z (k + 1) m β) ≈zx
       ZX.spider .Z n m (α + β) := by
   refine ⟨1, one_ne_zero, fun f h => ?_⟩
@@ -199,32 +177,32 @@ theorem zSpider_fusion_full (n m k : ℕ) (α β : Phase) :
         have h2 : ¬ ∀ x, g x = true := fun H => hgt (funext H)
         simp [zSpiderSem, hgf, hgt, h1, h2]
   simp only [key, Finset.sum_add_distrib, Finset.sum_ite_eq', Finset.mem_univ, if_true]
-  simp [zSpiderSem, Phase.angle_add, add_mul, Complex.exp_add, ite_and]
+  simp [zSpiderSem, add_mul, Complex.exp_add, ite_and]
 
 /-- Identity: a bare wire is a phaseless Z spider. -/
-theorem wire_equiv_zSpider : ZX.wire ≈zx ZX.spider .Z 1 1 ⟨0, 1⟩ := by
+theorem wire_equiv_zSpider : ZX.wire ≈zx ZX.spider .Z 1 1 := by
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
   rw [one_mul]
-  simp only [ZX.sem, zSpiderSem, Fin.forall_fin_one, Phase.angle_zero]
+  simp only [ZX.sem, zSpiderSem, Fin.forall_fin_one]
   cases f 0 <;> cases g 0 <;> simp
 
 /-- Phases are angles: `2π` is the same as `0`. -/
 theorem zSpider_two_pi (n m : ℕ) :
-    ZX.spider .Z n m ⟨2, 1⟩ ≈zx ZX.spider .Z n m ⟨0, 1⟩ := by
+    ZX.spider .Z n m 2 ≈zx ZX.spider .Z n m := by
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
   rw [one_mul]
-  have h2 : ((⟨2, 1⟩ : Phase).angle : ℂ) * I = 2 * Real.pi * I := by
-    norm_num [Phase.angle]
-  simp only [ZX.sem, zSpiderSem, h2, Complex.exp_two_pi_mul_I, Phase.angle_zero,
-    Complex.ofReal_zero, zero_mul, Complex.exp_zero]
+  have h2 : ((2 : AlgPhase).angle : ℂ) * I = 2 * Real.pi * I := by
+    push_cast
+    norm_num
+  simp only [ZX.sem, zSpiderSem, h2]
+  norm_num
 
 /-- Opposite phases cancel: `α + (-α)` is the phaseless spider. -/
-theorem zSpider_phase_cancel (n m : ℕ) (α : Phase) :
-    ZX.spider .Z n m (α + -α) ≈zx ZX.spider .Z n m ⟨0, 1⟩ := by
+theorem zSpider_phase_cancel (n m : ℕ) (α : AlgPhase) :
+    ZX.spider .Z n m (α + -α) ≈zx ZX.spider .Z n m := by
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
   rw [one_mul]
-  simp only [ZX.sem, zSpiderSem, Phase.angle_add, Phase.angle_neg, add_neg_cancel,
-    Phase.angle_zero]
+  simp only [ZX.sem, zSpiderSem, add_neg_cancel]
 
 /-- Two Hadamards cancel to a wire. Scalar-exact. -/
 theorem hadamard_hadamard : (ZX.hadamard ≫ ZX.hadamard) ≈zx ZX.wire := by
@@ -264,7 +242,7 @@ theorem stack_assoc {n₁ m₁ n₂ m₂ n₃ m₃ : ℕ}
 
 /-- Chained fusions via `calc`, using the congruence lemma to rewrite in a
 subterm — the shape a future `zx_rw` tactic automates. -/
-example (n m : ℕ) (α β γ : Phase) :
+example (n m : ℕ) (α β γ : AlgPhase) :
     ((ZX.spider .Z n 1 α ≫ ZX.spider .Z 1 1 β) ≫ ZX.spider .Z 1 m γ) ≈zx
       ZX.spider .Z n m (α + β + γ) :=
   calc ((ZX.spider .Z n 1 α ≫ ZX.spider .Z 1 1 β) ≫ ZX.spider .Z 1 m γ)
