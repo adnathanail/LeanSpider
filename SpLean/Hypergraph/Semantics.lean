@@ -44,8 +44,8 @@ noncomputable def Label.tensor {Φ : Type} (expI : Φ → ℂ) :
   | .hadamard => fun v => hadTensor v
 
 /-- The bits an assignment puts on a box's legs. -/
-def legBits {w : ℕ} (a : Fin w → Bool) (l : List (Fin w)) : Bits l.length :=
-  fun i => a l[i]
+def Box.bits {Φ : Type} {w : ℕ} (b : Box Φ w) (a : Fin w → Bool) : Bits b.arity :=
+  fun i => a (b.legs i)
 
 /-- Denotation of a hypergraph.
 
@@ -56,6 +56,6 @@ noncomputable def Hyp.sem {Φ : Type} (expI : Φ → ℂ) {n m : ℕ} (H : Hyp �
   ∑ a : Fin H.wires → Bool,
     (if (∀ i, a (H.inputs i) = f i) ∧ (∀ j, a (H.outputs j) = g j) then 1 else 0) *
       (if ∀ p ∈ H.ids, a p.1 = a p.2 then 1 else 0) *
-      (H.boxes.map (fun b => Label.tensor expI b.1 (legBits a b.2))).prod
+      (H.boxes.map (fun b => Label.tensor expI b.label (b.bits a))).prod
 
 end SpLean.Hypergraph
