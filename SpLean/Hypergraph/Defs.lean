@@ -69,13 +69,28 @@ inductive Label (Φ : Type) where
   | hadamard
   deriving Repr
 
+/-- One generator: a label, how many legs it has, and which wire each leg is on.
+
+The leg count is stored rather than read off a `List` of legs, so that the leg
+tensor's arity is a plain `ℕ` field. With legs as a list its arity would be a
+`List.length`, and every lemma about a box's tensor would have to transport
+along `List.length_ofFn` — a dependent rewrite in the type index. This is the
+one thing the phase 0 spike changed about the encoding. -/
+structure Box (Φ : Type) (w : ℕ) where
+  /-- What kind of generator this is. -/
+  label : Label Φ
+  /-- How many legs it has. -/
+  arity : ℕ
+  /-- Which wire each leg is on. -/
+  legs : Fin arity → Fin w
+
 /-- A ZX diagram as a hypergraph, indexed by its arity so that the lowering
 theorem states without a cast. -/
 structure Hyp (Φ : Type) (n m : ℕ) where
   /-- Number of wires; vertex ids are `Fin wires`. -/
   wires : ℕ
-  /-- The generators: a label and the wires on its legs. -/
-  boxes : List (Label Φ × List (Fin wires))
+  /-- The generators. -/
+  boxes : List (Box Φ wires)
   /-- Wires that composition identified. -/
   ids : List (Fin wires × Fin wires)
   /-- Which wire each input port is. -/
