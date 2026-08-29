@@ -7,6 +7,8 @@
 import SpLean.Utils
 import SpLean.Widget
 import SpLean.Panel
+-- The hypergraph both representations lower into for equivalence checking.
+import SpLean.Hypergraph
 -- The two ZX representations.
 import SpLean.Axiomatic
 import SpLean.Algebraic
