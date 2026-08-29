@@ -40,6 +40,19 @@ variable {Φ : Type} {n m : ℕ}
 def Hyp.Rel (H : Hyp Φ n m) : Fin H.wires → Fin H.wires → Prop :=
   Relation.EqvGen fun u v => ∃ k, H.ids k = (u, v)
 
+/-! `Hyp.Rel` is a `def` wrapping `Relation.EqvGen`, so dot notation on a
+hypothesis cannot see the constructors through it. These three restate them. -/
+
+@[refl] theorem Hyp.Rel.refl {H : Hyp Φ n m} (u : Fin H.wires) : H.Rel u u :=
+  Relation.EqvGen.refl _
+
+theorem Hyp.Rel.symm {H : Hyp Φ n m} {u v : Fin H.wires} (h : H.Rel u v) : H.Rel v u :=
+  Relation.EqvGen.symm _ _ h
+
+theorem Hyp.Rel.trans {H : Hyp Φ n m} {u v w : Fin H.wires} (h₁ : H.Rel u v) (h₂ : H.Rel v w) :
+    H.Rel u w :=
+  Relation.EqvGen.trans _ _ _ h₁ h₂
+
 /-- A wire pair as recorded is related. -/
 theorem Hyp.rel_ids (H : Hyp Φ n m) (k : Fin H.idCount) : H.Rel (H.ids k).1 (H.ids k).2 :=
   Relation.EqvGen.rel _ _ ⟨k, rfl⟩
