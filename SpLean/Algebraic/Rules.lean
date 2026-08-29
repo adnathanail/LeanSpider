@@ -1,6 +1,8 @@
+import SpLean.Algebraic.Rules.Bialgebra
 import SpLean.Algebraic.Rules.ColourChange
 import SpLean.Algebraic.Rules.EulerDecomp
 import SpLean.Algebraic.Rules.HadamardHadamard
+import SpLean.Algebraic.Rules.Hopf
 import SpLean.Algebraic.Rules.IdentityRemoval
 import SpLean.Algebraic.Rules.PhaseNormalization
 import SpLean.Algebraic.Rules.PiCopy

@@ -189,6 +189,16 @@ theorem compose_empty {n : ℕ} (a : ZX n 0) : (a ≫ ZX.empty) ≈zx a := by
   simp only [ZX.sem, mul_one, one_mul]
   exact Fintype.sum_subsingleton _ g
 
+/-- Interchange: stacking and then composing is composing and then stacking.
+This is what lets a rewrite in one layer of a stack be carried out
+independently of the other, and it is the `⊗`/`≫` counterpart of
+`compose_assoc`. Unlike the unit and associativity laws it needs no cast —
+both sides land in `ZX (n + p) (k + r)`. -/
+theorem stack_interchange {n m k p q r : ℕ}
+    (a : ZX n m) (b : ZX m k) (c : ZX p q) (d : ZX q r) :
+    ((a ⊗ c) ≫ (b ⊗ d)) ≈zx ((a ≫ b) ⊗ (c ≫ d)) :=
+  stack_compose_interchange a b c d
+
  /-- Stacking the empty diagram on the left does nothing either
   needs the cast because `0 + n` does not reduce. -/
 theorem empty_stack {n m : ℕ} (a : ZX n m) :
