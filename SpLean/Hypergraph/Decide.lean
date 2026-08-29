@@ -115,4 +115,71 @@ def Iso.ofRepEq {H₁ H₂ : Hyp Φ n m}
   legPerm := legPerm
   map_legs i k := H₂.rel_of_rep_eq (hlegs i k)
 
+/-! ## Certificates as plain number tables
+
+`Iso.ofRepEq` wants a `legPerm : ∀ i, Fin (H₁.boxes i).arity ≃ Fin (H₂.boxes _).arity`,
+whose type depends on `i`. That is fine to write by hand — a `match` on the
+box index, with each branch at a concrete arity — but a tactic cannot easily
+*emit* one, which is what stands between this and an automatic
+`zx_iso`.
+
+So the whole certificate is restated as untyped `ℕ` tables, with the bounds and
+inverse laws as separate hypotheses quantified over `i` up front. Each is a
+closed statement about concrete hypergraphs, so each is `by decide`; and
+because they are proved once, outside the lambda, they can be applied at `i`
+*inside* it. That is what makes the dependent `legPerm` constructible from flat
+data. -/
+
+/-- A `Fin`-to-`Fin` function from a table of numbers. -/
+def tableFun {a b : ℕ} (f : ℕ → ℕ) (hf : ∀ i : Fin a, f i.val < b) : Fin a → Fin b :=
+  fun i => ⟨f i.val, hf i⟩
+
+/-- An `Equiv` between two `Fin`s from a pair of tables that are mutually
+inverse where it matters. -/
+def finEquivOfTable {a b : ℕ} (f g : ℕ → ℕ)
+    (hf : ∀ i : Fin a, f i.val < b) (hg : ∀ j : Fin b, g j.val < a)
+    (h₁ : ∀ i : Fin a, g (f i.val) = i.val)
+    (h₂ : ∀ j : Fin b, f (g j.val) = j.val) : Fin a ≃ Fin b where
+  toFun := tableFun f hf
+  invFun := tableFun g hg
+  left_inv i := Fin.ext (by simpa [tableFun] using h₁ i)
+  right_inv j := Fin.ext (by simpa [tableFun] using h₂ j)
+
+/-- `Iso.ofRepEq` with every piece of data given as a number table. This is the
+form a tactic can emit: the tables are list lookups, and every hypothesis is a
+closed decidable statement. -/
+def Iso.ofTables {H₁ H₂ : Hyp Φ n m}
+    (w wInv : ℕ → ℕ) (bp bpInv : ℕ → ℕ) (lp lpInv : ℕ → ℕ → ℕ)
+    (hw : ∀ v : Fin H₁.wires, w v.val < H₂.wires)
+    (hwInv : ∀ v : Fin H₂.wires, wInv v.val < H₁.wires)
+    (hbp : ∀ i : Fin H₁.boxCount, bp i.val < H₂.boxCount)
+    (hbpInv : ∀ i : Fin H₂.boxCount, bpInv i.val < H₁.boxCount)
+    (hbp₁ : ∀ i : Fin H₁.boxCount, bpInv (bp i.val) = i.val)
+    (hbp₂ : ∀ i : Fin H₂.boxCount, bp (bpInv i.val) = i.val)
+    (hlp : ∀ (i : Fin H₁.boxCount) (k : Fin (H₁.boxes i).arity),
+      lp i.val k.val < (H₂.boxes (tableFun bp hbp i)).arity)
+    (hlpInv : ∀ (i : Fin H₁.boxCount) (k : Fin (H₂.boxes (tableFun bp hbp i)).arity),
+      lpInv i.val k.val < (H₁.boxes i).arity)
+    (hlp₁ : ∀ (i : Fin H₁.boxCount) (k : Fin (H₁.boxes i).arity),
+      lpInv i.val (lp i.val k.val) = k.val)
+    (hlp₂ : ∀ (i : Fin H₁.boxCount) (k : Fin (H₂.boxes (tableFun bp hbp i)).arity),
+      lp i.val (lpInv i.val k.val) = k.val)
+    (hleft : ∀ v, H₁.rep (tableFun wInv hwInv (tableFun w hw v)) = H₁.rep v)
+    (hright : ∀ v, H₂.rep (tableFun w hw (tableFun wInv hwInv v)) = H₂.rep v)
+    (hids₁ : ∀ k, H₂.rep (tableFun w hw (H₁.ids k).1) = H₂.rep (tableFun w hw (H₁.ids k).2))
+    (hids₂ : ∀ k, H₁.rep (tableFun wInv hwInv (H₂.ids k).1)
+      = H₁.rep (tableFun wInv hwInv (H₂.ids k).2))
+    (hin : ∀ i, H₂.rep (tableFun w hw (H₁.inputs i)) = H₂.rep (H₂.inputs i))
+    (hout : ∀ j, H₂.rep (tableFun w hw (H₁.outputs j)) = H₂.rep (H₂.outputs j))
+    (hlabel : ∀ i, (H₁.boxes i).label = (H₂.boxes (tableFun bp hbp i)).label)
+    (hlegs : ∀ (i : Fin H₁.boxCount) (k : Fin (H₁.boxes i).arity),
+      H₂.rep (tableFun w hw ((H₁.boxes i).legs k))
+        = H₂.rep ((H₂.boxes (tableFun bp hbp i)).legs
+            (finEquivOfTable (lp i.val) (lpInv i.val) (hlp i) (hlpInv i) (hlp₁ i) (hlp₂ i) k))) :
+    Iso H₁ H₂ :=
+  Iso.ofRepEq (tableFun w hw) (tableFun wInv hwInv)
+    (finEquivOfTable bp bpInv hbp hbpInv hbp₁ hbp₂)
+    (fun i => finEquivOfTable (lp i.val) (lpInv i.val) (hlp i) (hlpInv i) (hlp₁ i) (hlp₂ i))
+    hleft hright hids₁ hids₂ hin hout hlabel hlegs
+
 end SpLean.Hypergraph

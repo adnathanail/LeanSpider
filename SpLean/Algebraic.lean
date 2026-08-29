@@ -9,3 +9,4 @@ import SpLean.Algebraic.Rules
 import SpLean.Algebraic.Tactics
 import SpLean.Algebraic.Gate
 import SpLean.Algebraic.ToHypergraph
+import SpLean.Algebraic.IsoTactic

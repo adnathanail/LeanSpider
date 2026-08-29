@@ -342,10 +342,33 @@ Note also what the route cannot reach at all: `Rules/Yank.lean`'s snakes are
 fact about what a phase-free two-legged Z spider denotes, not about the shape
 of the diagram.
 
-**Phase 4 — automation (explicitly out of scope for now).** Searching for the
-isomorphism rather than being handed it. A `MetaM` search emitting a
-certificate the kernel then checks keeps the trusted core small. Deliberately
-last: everything above is useful with the witness supplied by hand.
+**Phase 4 — automation. DONE.** `zx_iso` (`Algebraic/IsoTactic.lean`) closes
+`x ≈zx y` for closed terms with no isomorphism supplied: it lowers both sides,
+searches, and emits the certificate. `cnot_cnot_iso` is one tactic call resting
+on no `sorry`, and it rejects `Gate.CNOT ≈zx Gate.NOTC` and `Gate.T ≈zx Gate.S`
+rather than proving nonsense. How it is put together:
+
+- **The certificate is plain `ℕ` tables.** `Iso.ofRepEq` wants a
+  `legPerm : ∀ i, Fin (H₁.boxes i).arity ≃ Fin _`, whose type depends on `i` —
+  writable by hand as a `match`, but not something a tactic can easily emit.
+  `Iso.ofTables` takes untyped tables instead, with the bounds and inverse laws
+  as hypotheses quantified over `i` up front; being proved once, outside the
+  lambda, they can be applied at `i` inside it. That is what makes the
+  dependent `legPerm` constructible from flat data, and it is the step that
+  made the whole tactic possible.
+- **The search is ordinary computable Lean** (`Hypergraph/Search.lean`), not
+  meta code, so it can be `#eval`ed while being written. It works on wire
+  *classes*, matches boxes and legs by backtracking, and seeds itself with the
+  boundary — which is forced, so it prunes before the search starts.
+- **Nothing the search returns is trusted.** `Iso.ofTables` re-checks every
+  condition, so a wrong answer costs a failed tactic. The search could be
+  replaced wholesale without a soundness argument.
+- **One kernel wrinkle:** phases are rationals, and `decide` cannot evaluate
+  `ℚ` equality (`Rat`'s operations go through `Nat.gcd`). It never showed up on
+  CNOT, whose phases are all `0`. Matched boxes have syntactically equal
+  labels, so the label condition is discharged by `rfl` instead. If more
+  conditions ever grow phases in them, the fix is to state them over a
+  `ℕ × ℤ × ℕ` key rather than over `Label` itself.
 
 **Later, not part of this plan.** A normal form that absorbs fusion (connected
 same-colour spiders merge) would move fusion into the isomorphism check too.
