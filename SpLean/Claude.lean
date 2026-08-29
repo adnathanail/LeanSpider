@@ -45,13 +45,13 @@ a call for `claude`, one for `claude "I`, and so on. Three things stop that:
   newer invocation for the same call site arrives, or if Lean cancels the
   elaboration in the meantime. Typing straight through a `claude` line therefore
   spawns nothing at all.
-* **Cancellation.** While the CLI runs, the call polls the elaboration's
-  `Core.Context.cancelTk?` — the token `Core.checkSystem` reads, which the file
-  worker sets when it gives up on a command — and kills the process the moment
-  Lean loses interest. This is the layer that covers deleting the `claude` call
-  outright, where no later invocation exists to supersede it. Note that this is
-  *not* `IO.checkCanceled`: document edits leave the task flag alone, so a
-  version polling that one keeps running after the line is gone.
+* **Cancellation.** While the CLI runs, the call polls the cancellation token of
+  the background task it runs in, which Lean sets when it throws away the
+  snapshot the task hangs off — including when the `claude` call is edited away,
+  the one case no later invocation exists to supersede. The process dies the
+  moment Lean loses interest. Note that this is *not* `IO.checkCanceled`:
+  document edits leave the task flag alone, so a version polling only that one
+  keeps running after the line is gone.
 
 Two smaller guards under those. Children are spawned with `setsid`, so a kill
 takes the CLI's own subprocesses with it rather than orphaning them; and since
@@ -79,7 +79,25 @@ prompt reaches them through the environment, so only the CLI's own arguments
 carry the tag. Note that this does put the proof state in `ps` output, which is
 visible to other users on a shared machine.
 
-Elaboration *blocks* while Claude thinks; there is no timeout.
+## Not blocking the editor
+
+Waiting for the CLI on the elaboration thread would freeze the file: no later
+command elaborates, and the InfoView stops responding, for as long as Claude
+thinks. So everything after the prompt is built — the debounce, the CLI run, and
+the reporting of its answer — happens in a background task, registered with
+`Core.logSnapshotTask` and given its own `IO.CancelToken`. The tactic itself
+returns immediately (it has nothing to do to the goal), the rest of the file
+elaborates as usual, and the answer arrives in the InfoView whenever it arrives,
+as a diagnostic on the `claude` line; that line shows as still being processed
+until it does. There is no timeout.
+
+The suggestion is reported from the task rather than from the elaboration, so it
+arrives as the message widget only: clicking "Try this" in the InfoView inserts
+the tactics as ever, but the code action on the line — the editor lightbulb —
+is not offered, since a background task's info tree is not kept.
+
+A cached answer is still reported synchronously, so an undo redisplays it in the
+same elaboration rather than a task later.
 -/
 
 open Lean Elab Tactic Meta Meta.Tactic.TryThis
@@ -191,11 +209,12 @@ private def claimSite (site : String) : IO Nat := do
     killRun child
   return gen
 
-/-- Lean's cancellation flag for the elaboration we are running inside.
+/-- The cancellation flag of the background task the call runs in.
 
-This is the token `Core.checkSystem` reads, set by the file worker when it gives
-up on a command — including when the `claude` call is edited away, which is the
-one case no later invocation is around to supersede. It is *not* the same flag as
+`Core.wrapAsync` installs the token we hand `logSnapshotTask` as the context's
+`cancelTk?`, and Lean sets it when it discards the snapshot the task hangs off —
+including when the `claude` call is edited away, which is the one case no later
+invocation is around to supersede. It is *not* the same flag as
 `IO.checkCanceled`, which document edits leave untouched; we poll both, since the
 task flag is what a `Task.cancel` elsewhere would set. -/
 private def getCancelTk? : CoreM (Option IO.CancelToken) := return (← read).cancelTk?
@@ -324,12 +343,15 @@ private def splitResponse (response : String) : Option String × String :=
     else (some code, trim (trim pre ++ "\n\n" ++ trim (String.intercalate "```" rest)))
   | _ => (none, trim response)
 
-/-- Offer the tactic block as a "Try this" suggestion and log the prose under it. -/
-private def report (response : String) : TacticM Unit := do
+/-- Offer the tactic block as a "Try this" suggestion and log the prose under it.
+
+`ref` is passed rather than read, because this also runs from the background
+task, whose messages have to land back on the `claude` line. -/
+private def report (ref : Syntax) (response : String) : CoreM Unit := do
   let (code?, prose) := splitResponse response
   if let some code := code? then
-    addSuggestion (← getRef) (code : SuggestionText) (header := "Claude suggests: ")
-  unless prose.isEmpty do logInfo prose
+    addSuggestion ref (code : SuggestionText) (header := "Claude suggests: ")
+  unless prose.isEmpty do logInfoAt ref prose
 
 /-! ## The tactic -/
 
@@ -340,24 +362,36 @@ private def report (response : String) : TacticM Unit := do
 
 Logs only; the goal is left exactly as it was. The call is debounced by
 `splean.claude.debounce` milliseconds and superseded by any later call from the
-same line, so typing does not start a pile of CLI processes. -/
+same line, so typing does not start a pile of CLI processes. Waiting for the
+answer happens in a background task, so elaboration is not held up by it. -/
 elab (name := claudeTactic) "claude" msg:(str)? : tactic => withMainContext do
+  let ref ← getRef
   let site ← callSite
   let prompt ← buildPrompt site (msg.map (·.getString))
   -- Claim first even when the answer turns out to be cached: an in-flight run
   -- from an earlier version of this line is stale either way, and wants killing.
   let gen ← claimSite site
   if let some cached := (← claudeCache.get)[prompt]? then
-    report cached
+    report ref cached
     return
-  let tk? ← getCancelTk?
-  if ← debounce tk? site gen (splean.claude.debounce.get (← getOptions)) then return
-  let response? ←
-    try runClaudeCLI tk? site gen prompt
-    catch e => throwError "Could not run the `claude` CLI: {e.toMessageData}"
-  let some response := response? | return
-  claudeCache.modify (·.insert prompt response)
-  report response
+  let debounceMs := splean.claude.debounce.get (← getOptions)
+  -- Everything from here on waits on the CLI, so it runs off the elaboration
+  -- thread. The token is how Lean tells the task its answer is no longer wanted.
+  let cancelTk ← IO.CancelToken.new
+  let ask ← Term.wrapAsyncAsSnapshot (cancelTk? := some cancelTk) (desc := "SpLean.claude")
+    fun (_ : Unit) => do
+      let tk? ← getCancelTk?
+      if ← debounce tk? site gen debounceMs then return
+      let response? ←
+        try runClaudeCLI tk? site gen prompt
+        catch e => throwError "Could not run the `claude` CLI: {e.toMessageData}"
+      let some response := response? | return
+      claudeCache.modify (·.insert prompt response)
+      report ref response
+  -- `.dedicated`: the task spends its life asleep, and must not sit on one of
+  -- the pool's threads while it does.
+  let task ← BaseIO.asTask (ask ()) Task.Priority.dedicated
+  Core.logSnapshotTask { stx? := ref, cancelTk? := cancelTk, task }
 
 -- `claude` deliberately leaves the goal untouched, so the unused-tactic linter
 -- would flag every use. The `!` carries the exemption into importing files.
