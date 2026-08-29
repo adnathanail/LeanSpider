@@ -43,4 +43,10 @@ abbrev ZX.cup : ZX 0 2 := .spider .Z 0 2
 /-- The cap: a phase-free Z spider with two inputs and no outputs. -/
 abbrev ZX.cap : ZX 2 0 := .spider .Z 2 0
 
+/-- Cup with X spider -/
+abbrev ZX.cupX : ZX 0 2 := .spider .X 0 2
+
+/-- Cap with X spider -/
+abbrev ZX.capX : ZX 2 0 := .spider .X 2 0
+
 end SpLean.Algebraic
