@@ -55,7 +55,60 @@ noncomputable def Hyp.sem {Φ : Type} (expI : Φ → ℂ) {n m : ℕ} (H : Hyp �
     (f : Bits n) (g : Bits m) : ℂ :=
   ∑ a : Fin H.wires → Bool,
     (if (∀ i, a (H.inputs i) = f i) ∧ (∀ j, a (H.outputs j) = g j) then 1 else 0) *
-      (if ∀ p ∈ H.ids, a p.1 = a p.2 then 1 else 0) *
-      (H.boxes.map (fun b => Label.tensor expI b.label (b.bits a))).prod
+      (if ∀ k, a (H.ids k).1 = a (H.ids k).2 then 1 else 0) *
+      ∏ b, Label.tensor expI (H.boxes b).label ((H.boxes b).bits a)
+
+/-! ## Reindexing legs
+
+A box's legs are indexed by `Fin b.arity`, but nothing about a diagram fixes
+that indexing: an isomorphism is free to match a box's legs to another's in any
+order. These say the tensors do not notice, which is what licenses that freedom
+and, in the end, the spider symmetry the term calculus cannot express.
+
+Everything is stated across *two* arities related by an `Equiv` rather than as
+invariance under `Equiv.Perm`, because that is the shape `Iso` produces: it
+matches `Fin b₁.arity` with `Fin b₂.arity` without either being canonical. -/
+
+/-- Two leg assignments matched by a reindexing agree on "every leg is `b`". -/
+theorem forall_bits_congr {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂) {v₁ : Bits k₁} {v₂ : Bits k₂}
+    (h : ∀ i, v₁ i = v₂ (σ i)) (b : Bool) : (∀ i, v₁ i = b) ↔ (∀ j, v₂ j = b) := by
+  constructor
+  · intro hv j
+    rw [← σ.apply_symm_apply j, ← h]
+    exact hv _
+  · intro hv i
+    rw [h i]
+    exact hv _
+
+theorem zTensor_congr {Φ : Type} (expI : Φ → ℂ) (φ : Φ) {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂)
+    {v₁ : Bits k₁} {v₂ : Bits k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
+    zTensor expI φ v₁ = zTensor expI φ v₂ := by
+  simp only [zTensor, forall_bits_congr σ h]
+
+theorem hadTensor_congr {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂)
+    {v₁ : Bits k₁} {v₂ : Bits k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
+    hadTensor v₁ = hadTensor v₂ := by
+  simp only [hadTensor, forall_bits_congr σ h]
+
+theorem xTensor_congr {Φ : Type} (expI : Φ → ℂ) (φ : Φ) {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂)
+    {v₁ : Bits k₁} {v₂ : Bits k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
+    xTensor expI φ v₁ = xTensor expI φ v₂ := by
+  refine Fintype.sum_equiv (Equiv.arrowCongr σ (Equiv.refl Bool)) _ _ fun v' => ?_
+  have hv' : ∀ i, v' i = (Equiv.arrowCongr σ (Equiv.refl Bool) v') (σ i) := by
+    intro i; simp [Equiv.arrowCongr]
+  rw [zTensor_congr expI φ σ hv']
+  congr 1
+  refine Fintype.prod_equiv σ _ _ fun i => ?_
+  rw [h i, hv' i]
+
+theorem Label.tensor_congr {Φ : Type} (expI : Φ → ℂ) (L : Label Φ) {k₁ k₂ : ℕ}
+    (σ : Fin k₁ ≃ Fin k₂) {v₁ : Bits k₁} {v₂ : Bits k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
+    Label.tensor expI L v₁ = Label.tensor expI L v₂ := by
+  cases L with
+  | spider c φ =>
+      cases c with
+      | Z => exact zTensor_congr expI φ σ h
+      | X => exact xTensor_congr expI φ σ h
+  | hadamard => exact hadTensor_congr σ h
 
 end SpLean.Hypergraph

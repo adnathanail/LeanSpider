@@ -71,11 +71,12 @@ inductive Label (Φ : Type) where
 
 /-- One generator: a label, how many legs it has, and which wire each leg is on.
 
-The leg count is stored rather than read off a `List` of legs, so that the leg
-tensor's arity is a plain `ℕ` field. With legs as a list its arity would be a
-`List.length`, and every lemma about a box's tensor would have to transport
-along `List.length_ofFn` — a dependent rewrite in the type index. This is the
-one thing the phase 0 spike changed about the encoding. -/
+The leg count is a field rather than the length of a list of legs, so that the
+leg tensor's arity is a plain `ℕ`. With legs as a list its arity would be a
+`List.length` and every lemma about a box's tensor would have to transport
+along `List.length_ofFn` — a dependent rewrite in a type index. The phase 0
+spike changed this, and phase 1 made the same change to `boxes` and `ids`
+below for the same reason: nothing here is a `List`. -/
 structure Box (Φ : Type) (w : ℕ) where
   /-- What kind of generator this is. -/
   label : Label Φ
@@ -89,10 +90,14 @@ theorem states without a cast. -/
 structure Hyp (Φ : Type) (n m : ℕ) where
   /-- Number of wires; vertex ids are `Fin wires`. -/
   wires : ℕ
+  /-- Number of generators. -/
+  boxCount : ℕ
   /-- The generators. -/
-  boxes : List (Box Φ wires)
-  /-- Wires that composition identified. -/
-  ids : List (Fin wires × Fin wires)
+  boxes : Fin boxCount → Box Φ wires
+  /-- Number of wire pairs composition has identified. -/
+  idCount : ℕ
+  /-- The identified pairs. -/
+  ids : Fin idCount → Fin wires × Fin wires
   /-- Which wire each input port is. -/
   inputs : Fin n → Fin wires
   /-- Which wire each output port is. -/
