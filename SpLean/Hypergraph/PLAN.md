@@ -188,10 +188,39 @@ different one. But if the parameter turns into a tax, importing
 
 **Phase 0 — spike the encoding.** `Defs.lean` + `Semantics.lean`, and prove
 `(toHyp ZX.wire).sem = ZX.wire.sem`, the same for one spider, and for
-`wire ≫ wire`. Settle the three open encoding questions (`Fin` vs ℕ ids, leg
-lists up to permutation, how well-formedness is carried). Acceptance: those
-three lemmas go through without fighting the definitions. If the vertex merge
-in `compose` already hurts here, fix it now, not later.
+`wire ≫ wire`.
+
+The decision this hangs on is **how the vertex merge is represented**. Saying
+"identify `a`'s output vertex `i` with `b`'s input vertex `i`" is three
+different pieces of Lean, and the choice reaches all the way to phase 3:
+
+- *`Fin w` + compaction* — merge and renumber to a normal form. Concrete and
+  decidable; `Fin` arithmetic with subtraction is miserable.
+- *`Fin w` + identification deltas* — do not renumber. Keep both vertices and
+  let `sem` carry a `[a v = a v']` factor per identified pair, which exactly
+  cancels the spurious factor of `2` a now-dead vertex would contribute.
+  Everything stays computable; the cost is that `Hyp` is not in normal form, so
+  `Iso` has to work up to the identifications (or normalise once at the top).
+- *Bundled `V : Type` + a real quotient* — cleanest to prove with, and `decide`
+  in phase 3 gets awkward, since the vertex type may be a quotient.
+
+**The trap either way:** if merging leaves vertices that nothing mentions and
+the sum still ranges over them, `sem` gains a factor of `2` per dead vertex and
+the lowering theorem stops holding on the nose. Whichever representation is
+picked has to answer for that, and the `wire ≫ wire` test is what catches it —
+it is the smallest term where a vertex is merged at all.
+
+Two invariants of anything `toHyp` produces, worth stating in `Defs.lean`
+because the merge relies on the second:
+
+- every vertex has degree exactly 2, counting boundary ports as ends;
+- the input vertices are pairwise distinct, and likewise the outputs. (A wire
+  has two ends, and no term can make both of them inputs.) So the merge is a
+  bijection between two disjoint `m`-element sets, not something messier.
+
+Also settle here: `Fin` vs ℕ vertex ids, leg lists up to permutation, and how
+well-formedness is carried. Acceptance: the three lemmas go through without
+fighting the definitions. If the vertex merge already hurts, change it now.
 
 **Phase 1 — isomorphism invariance.** `Iso.lean`: the boundary-fixing
 isomorphism, and `H₁ ≅ H₂ → H₁.sem = H₂.sem`, by reindexing the vertex-sum and
