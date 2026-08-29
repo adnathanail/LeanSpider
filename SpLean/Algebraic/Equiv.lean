@@ -42,6 +42,18 @@ namespace ZX.Equiv
 
 instance {n m : ℕ} : Trans (α := ZX n m) ZX.Equiv ZX.Equiv ZX.Equiv := ⟨ZX.Equiv.trans⟩
 
+/-- Equal denotations give equivalent diagrams: the `c = 1` case.
+
+This is the way out when a diagram identity is not an instance of any rewrite
+rule. Two decompositions of the *same graph* need not be related by the rules
+at all — `Gate.CNOT` and `Gate.CNOT'` (`SemanticsTesting/09Rules.lean`) are the
+same three-legged Z spider joined to the same three-legged X spider, but one
+composes Z-then-X and the other X-then-Z, and getting between them means
+bending the connecting wire rather than rewriting either spider. Computing both
+sides is the short way, and `≈zx` is what the answer has to be stated in. -/
+theorem of_sem_eq {n m : ℕ} {a b : ZX n m} (h : a.sem = b.sem) : a ≈zx b :=
+  ⟨1, one_ne_zero, fun f g => by rw [one_mul, h]⟩
+
 /-- A spider's denotation depends on its phase only through `AlgPhase.expI`, so
 phases equal *as angles* give equivalent spiders even when they differ as
 rationals: `ZX.spider .Z 1 1 (2π)` and `ZX.spider .Z 1 1 0` are not the same
