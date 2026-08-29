@@ -81,6 +81,48 @@ def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
         inputs := fun i => Fin.castAdd B.wires (A.inputs i),
         outputs := fun j => Fin.natAdd A.wires (B.outputs j) }
 
+/-! ## Splitting an assignment
+
+`stack` and `compose` both build their wires as `Fin (A.wires + B.wires)`, so
+every proof about them has to take an assignment apart into the two halves and
+put it back. These are generic facts about `Fin.addCases`, kept here because
+this is the only file that needs them. -/
+
+/-- A property of every `Fin (n + p)` is one of each half. -/
+private theorem forall_fin_add {n p : ℕ} (P : Fin (n + p) → Prop) :
+    (∀ i, P i) ↔ (∀ i : Fin n, P (Fin.castAdd p i)) ∧ (∀ j : Fin p, P (Fin.natAdd n j)) := by
+  constructor
+  · intro h
+    exact ⟨fun i => h _, fun j => h _⟩
+  · rintro ⟨h₁, h₂⟩ i
+    induction i using Fin.addCases
+    · exact h₁ _
+    · exact h₂ _
+
+/-- A `0`/`1` indicator of a conjunction splits into a product. Both `stack`
+and `compose` need this to factor a summand into its two halves. -/
+private theorem ite_and_mul {P Q : Prop} [Decidable P] [Decidable Q] :
+    (if P ∧ Q then (1 : ℂ) else 0) = (if P then 1 else 0) * (if Q then 1 else 0) := by
+  by_cases hP : P <;> by_cases hQ : Q <;> simp [hP, hQ]
+
+/-- An assignment to `Fin (w₁ + w₂)` is a pair of assignments. -/
+private def addCasesEquiv (w₁ w₂ : ℕ) :
+    ((Fin w₁ → Bool) × (Fin w₂ → Bool)) ≃ (Fin (w₁ + w₂) → Bool) where
+  toFun p := Fin.addCases p.1 p.2
+  invFun a := (fun i => a (Fin.castAdd w₂ i), fun i => a (Fin.natAdd w₁ i))
+  left_inv p := by ext i <;> simp
+  right_inv a := by
+    funext i
+    induction i using Fin.addCases <;> simp
+
+/-- A sum over assignments to `Fin (w₁ + w₂)` is a double sum over the halves. -/
+private theorem sum_addCases {M : Type*} [AddCommMonoid M] {w₁ w₂ : ℕ}
+    (F : (Fin (w₁ + w₂) → Bool) → M) :
+    ∑ a : Fin (w₁ + w₂) → Bool, F a
+      = ∑ a₁ : Fin w₁ → Bool, ∑ a₂ : Fin w₂ → Bool, F (Fin.addCases a₁ a₂) := by
+  rw [← (addCasesEquiv w₁ w₂).sum_comp F, Fintype.sum_prod_type]
+  rfl
+
 /-! ## Phase 0 targets
 
 Three instances of `sem_toHyp`, chosen to exercise each part of the encoding
@@ -107,14 +149,39 @@ private theorem addCases_forall_eq {n m : ℕ} (f : Wires n) (g : Wires m) (b : 
   · rintro ⟨h₁, h₂⟩ i
     induction i using Fin.addCases <;> simp [h₁, h₂]
 
-theorem sem_toHyp_zSpider (n m : ℕ) (φ : AlgPhase) (f : Wires n) (g : Wires m) :
-    ((ZX.spider .Z n m φ).toHyp).sem AlgPhase.expI f g = (ZX.spider .Z n m φ).sem f g := by
-  simp only [ZX.toHyp, Hyp.sem, ZX.sem, zSpiderSem, Hyp.Sat, IsEmpty.forall_iff,
-    implies_true, if_true, mul_one]
+/-- A hypergraph's Z tensor on a merged boundary is the algebraic one on the
+split boundary. -/
+private theorem zTensor_addCases (φ : AlgPhase) {n m : ℕ} (f : Wires n) (g : Wires m) :
+    zTensor AlgPhase.expI φ (Fin.addCases f g) = zSpiderSem φ f g := by
+  simp only [zTensor, zSpiderSem, addCases_forall_eq]
+
+/-- The two-leg Hadamard tensor is one entry of the Hadamard matrix. -/
+private theorem hadTensor_pair (a b : Bool) : hadTensor ![a, b] = hadSem a b := by
+  cases a <;> cases b <;> simp [hadTensor, hadSem] <;> decide +kernel
+
+/-- Likewise for X, which both sides define by conjugating Z with Hadamards —
+so this is that definition on either side of the lowering, and the work is
+splitting the conjugating product and the summed-over boundary in two. -/
+private theorem xTensor_addCases (φ : AlgPhase) {n m : ℕ} (f : Wires n) (g : Wires m) :
+    xTensor AlgPhase.expI φ (Fin.addCases f g) = xSpiderSem φ f g := by
+  rw [xTensor, sum_addCases]
+  refine Finset.sum_congr rfl fun f' _ => Finset.sum_congr rfl fun g' _ => ?_
+  rw [zTensor_addCases, Fin.prod_univ_add]
+  simp only [Fin.addCases_left, Fin.addCases_right, hadTensor_pair]
+  have hswap : ∀ j, hadSem (g j) (g' j) = hadSem (g' j) (g j) := fun j => by
+    simp only [hadSem, Bool.and_comm]
+  simp only [hswap]
+  ring
+
+theorem sem_toHyp_spider (c : AlgSpColor) (n m : ℕ) (φ : AlgPhase) (f : Wires n) (g : Wires m) :
+    ((ZX.spider c n m φ).toHyp).sem AlgPhase.expI f g = (ZX.spider c n m φ).sem f g := by
+  simp only [ZX.toHyp, Hyp.sem, Hyp.Sat, IsEmpty.forall_iff, if_true, mul_one]
   rw [Finset.sum_eq_single (Fin.addCases f g)]
-  · simp only [AlgSpColor.toHypColour, Label.tensor, Box.bits, zTensor, id_eq,
-      Fin.addCases_left, Fin.addCases_right, implies_true, and_self, if_true, one_mul,
-      Fin.prod_univ_one, addCases_forall_eq]
+  · simp only [Label.tensor, Box.bits, id_eq, Fin.addCases_left, Fin.addCases_right,
+      implies_true, and_self, if_true, one_mul, Fin.prod_univ_one]
+    cases c with
+    | Z => exact zTensor_addCases φ f g
+    | X => exact xTensor_addCases φ f g
   · intro a _ hne
     have : ¬ ((∀ i, a (Fin.castAdd m i) = f i) ∧ (∀ j, a (Fin.natAdd n j) = g j)) := by
       rintro ⟨h₁, h₂⟩
