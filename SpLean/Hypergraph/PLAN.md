@@ -256,15 +256,43 @@ phase 1 needs them:
   replacement for `Relation.EqvGen`, which is a `Prop` and cannot be decided
   as it stands.
 
-**Phase 2 — the lowering theorem.** `Algebraic/ToHypergraph.lean`: `toHyp` by
-structural recursion, then `∀ a : ZX n m, (toHyp a).sem = a.sem` by induction.
-`empty`/`wire`/`hadamard`/`spider` are immediate; `stack` is a disjoint union
-with the boundary split; `compose` is the vertex merge, and the sum over the
-shared boundary in `ZX.sem` becomes the sum over the merged vertices.
-Acceptance: the theorem, with `compose` the only long proof.
+**Phase 2 — the lowering theorem. DONE.** `sem_toHyp` is proved for all six
+constructors, with no `sorry`, and `ZX.Equiv.of_hyp_iso` — *isomorphic
+hypergraphs give equivalent diagrams* — falls out in three lines from it and
+`Iso.sem_eq`. What it took:
 
-**Phase 3 — the bridge, and cash it in.**
-`zx_iso_of : toHyp a ≅ toHyp b → a ≈zx b`, one line from phases 1 and 2. Then:
+- **`compose` was the long case, and came out shorter than feared.** The
+  identifications composition records are exactly what `ZX.sem`'s `∑ g` ranges
+  over: for fixed assignments to the two halves there is at most one `g`
+  matching both, and it exists precisely when the identified wires agree. So
+  the proof is `Finset.sum_mul_sum`, two `Finset.sum_comm`s to get `g`
+  innermost, and `Finset.sum_eq_single` to collapse it.
+- **`stack` factors**, via `sum_addCases` for the assignments,
+  `forall_fin_add` for the boundary and identification conditions,
+  `prod_appendBoxes` for the boxes, and `ite_and_mul` to split each indicator
+  of a conjunction into a product so `ring` can finish.
+- **Dependent rewriting was the recurring obstacle.** `Box.bits b x` has type
+  `Bits b.arity`, so `simp` will not rewrite `b` underneath it — the motive is
+  not type correct. The fix is to move the whole `Label.tensor _ b.label
+  (b.bits _)` unit at once (`tensor_congr_box`), which is well typed however
+  `b` is rewritten. Relatedly, `(Fin.addCases ..).label` does not even
+  elaborate when written by hand, so the juxtaposition of two halves' boxes and
+  identifications is named (`appendBoxes`, `appendIds`) with `_left`/`_right`
+  simp lemmas rather than left as a bare `Fin.addCases`.
+- **The X spider needed no new idea**: both sides define X by conjugating Z
+  with Hadamards, so `xTensor_addCases` is that definition on either side of
+  the lowering, and the work is splitting the conjugating product and the
+  summed-over boundary in two.
+
+**Phase 3 — cash it in.** The bridge itself is done —
+`ZX.Equiv.of_hyp_iso : Iso x.toHyp y.toHyp → x ≈zx y` landed with phase 2. What
+is left is making it usable:
+
+- **`Hyp.Rel` is `Relation.EqvGen`, a `Prop`**, so nothing about an isomorphism
+  can currently be `decide`d. A computable transitive closure over `ids`
+  (union-find on `Fin wires`), proved to agree with `Rel`, is the first task of
+  this phase and probably its bulk.
+- Then:
 
 - *Concrete goals*: supply the isomorphism as an explicit certificate and
   discharge its conditions by `decide`. First target: `cnot_cnot_equiv` by
