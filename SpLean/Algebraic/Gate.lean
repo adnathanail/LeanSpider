@@ -13,4 +13,16 @@ abbrev Z : ZX 1 1 := .spider .Z 1 1 π
 
 abbrev X : ZX 1 1 := .spider .X 1 1 π
 
+abbrev CNOT : ZX 2 2 := (.spider .Z 1 2 ⊗ .wire) ≫ (.wire ⊗ .spider .X 2 1)
+abbrev CNOT' : ZX 2 2 := (.wire ⊗ .spider .X 1 2) ≫ (.spider .Z 2 1 ⊗ .wire)
+abbrev NOTC : ZX 2 2 := (.spider .X 1 2 ⊗ .wire) ≫ (.wire ⊗ .spider .Z 2 1)
+
+-- The middle layer is ascribed because `≫`'s expected arity (`ZX 3 _`) reaches
+-- the `⊗` chain before its components do, and `?n + ?p =?= 3` is solved the
+-- wrong way round.
+abbrev CX : ZX 2 2 :=
+  (.spider .Z 1 2 ⊗ .wire) ≫
+  (.wire ⊗ .hadamard ⊗ .wire : ZX 3 3) ≫
+  (.wire ⊗ .spider .Z 2 1)
+
 end SpLean.Algebraic.Gate

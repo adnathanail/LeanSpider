@@ -1,4 +1,6 @@
 import SemanticsTesting.Utils
+-- for `cnot_sem_agnostic`, which `cnot_cnot_equiv` below lifts to `≈zx`
+import SemanticsTesting.«07Stack»
 
 open SpLean.Algebraic
 
@@ -138,3 +140,20 @@ example :
   repeat zx_rw [← stack_assoc]
   -- Drop the `ZX.empty` that `nStackState 0` left at the bottom of the stack.
   zx_rw [empty_stack']
+
+/-- The two CNOT decompositions agree — and **not** by rewriting.
+
+`stack_interchange` cannot fire here, and no amount of fixing its arguments
+will change that: interchange needs both layers to split the middle boundary at
+the same place, and these do not. The Z-first form cuts its three middle wires
+`2 | 1` (the spider's two outputs, then the wire passing) and the X-first form
+cuts them `1 | 2`, because the wire joining the two spiders crosses the split.
+
+What separates the two forms is the *direction* the joining wire is composed
+in, and turning one into the other means bending it — the snake equations of
+`SpLean/Algebraic/Rules/Yank.lean`, on top of `stack_assoc` and the arity casts
+it drags along. Until those exist, the short way is to compute: `cnot_sem_agnostic` (`07Stack.lean`) already shows the
+two denotations are equal on the nose, and `of_sem_eq` lifts that to `≈zx`. -/
+theorem cnot_cnot_equiv :
+    Gate.CNOT ≈zx Gate.CNOT' :=
+  ZX.Equiv.of_sem_eq cnot_sem_agnostic
