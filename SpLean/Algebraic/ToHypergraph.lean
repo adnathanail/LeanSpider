@@ -32,6 +32,80 @@ private def embedBox {Φ : Type} {w w' : ℕ} (e : Fin w → Fin w') (b : Box Φ
 private def embedId {w w' : ℕ} (e : Fin w → Fin w') (p : Fin w × Fin w) : Fin w' × Fin w' :=
   (e p.1, e p.2)
 
+/-! Both `stack` and `compose` put the two halves' boxes and identifications
+side by side, each embedded into the combined wires. These name that, with
+their own simp lemmas: a bare `Fin.addCases` is awkward to rewrite under a
+projection (`(Fin.addCases ..).label` does not even elaborate when written by
+hand), whereas a named function with `_left`/`_right` equations rewrites
+predictably. -/
+
+private def appendBoxes {Φ : Type} {w₁ w₂ b₁ b₂ : ℕ}
+    (A : Fin b₁ → Box Φ w₁) (B : Fin b₂ → Box Φ w₂) : Fin (b₁ + b₂) → Box Φ (w₁ + w₂) :=
+  Fin.addCases (fun i => embedBox (Fin.castAdd w₂) (A i))
+               (fun i => embedBox (Fin.natAdd w₁) (B i))
+
+@[simp] private theorem appendBoxes_left {Φ : Type} {w₁ w₂ b₁ b₂ : ℕ}
+    (A : Fin b₁ → Box Φ w₁) (B : Fin b₂ → Box Φ w₂) (i : Fin b₁) :
+    appendBoxes A B (Fin.castAdd b₂ i) = embedBox (Fin.castAdd w₂) (A i) := by
+  simp [appendBoxes]
+
+@[simp] private theorem appendBoxes_right {Φ : Type} {w₁ w₂ b₁ b₂ : ℕ}
+    (A : Fin b₁ → Box Φ w₁) (B : Fin b₂ → Box Φ w₂) (i : Fin b₂) :
+    appendBoxes A B (Fin.natAdd b₁ i) = embedBox (Fin.natAdd w₁) (B i) := by
+  simp [appendBoxes]
+
+/-! A box's bits have type `Bits b.arity`, so rewriting the box underneath
+`Box.bits` is a dependent rewrite and `simp` will not do it. These move the
+whole `Label.tensor _ b.label (b.bits _)` unit instead, which is well typed
+however `b` is rewritten. -/
+
+private theorem bits_embedBox {Φ : Type} {w w' : ℕ} (e : Fin w → Fin w') (b : Box Φ w)
+    (x : Fin w' → Bool) : (embedBox e b).bits x = b.bits (x ∘ e) := rfl
+
+private theorem tensor_congr_box {Φ : Type} (expI : Φ → ℂ) {w : ℕ} {b b' : Box Φ w}
+    (h : b = b') (x : Fin w → Bool) :
+    Label.tensor expI b.label (b.bits x) = Label.tensor expI b'.label (b'.bits x) := by
+  subst h; rfl
+
+/-- The box product of a juxtaposition splits into the two halves'. -/
+private theorem prod_appendBoxes {Φ : Type} (expI : Φ → ℂ) {w₁ w₂ b₁ b₂ : ℕ}
+    (A : Fin b₁ → Box Φ w₁) (B : Fin b₂ → Box Φ w₂)
+    (x₁ : Fin w₁ → Bool) (x₂ : Fin w₂ → Bool) :
+    (∏ i : Fin (b₁ + b₂), Label.tensor expI (appendBoxes A B i).label
+        ((appendBoxes A B i).bits (Fin.addCases x₁ x₂)))
+      = (∏ i, Label.tensor expI (A i).label ((A i).bits x₁))
+        * ∏ i, Label.tensor expI (B i).label ((B i).bits x₂) := by
+  have hl : (Fin.addCases x₁ x₂ : Fin (w₁ + w₂) → Bool) ∘ Fin.castAdd w₂ = x₁ :=
+    funext fun k => by simp
+  have hr : (Fin.addCases x₁ x₂ : Fin (w₁ + w₂) → Bool) ∘ Fin.natAdd w₁ = x₂ :=
+    funext fun k => by simp
+  rw [Fin.prod_univ_add]
+  congr 1
+  · refine Finset.prod_congr rfl fun i _ => ?_
+    refine (tensor_congr_box expI (appendBoxes_left A B i) _).trans ?_
+    rw [bits_embedBox, hl]
+    rfl
+  · refine Finset.prod_congr rfl fun i _ => ?_
+    refine (tensor_congr_box expI (appendBoxes_right A B i) _).trans ?_
+    rw [bits_embedBox, hr]
+    rfl
+
+private def appendIds {w₁ w₂ k₁ k₂ : ℕ}
+    (A : Fin k₁ → Fin w₁ × Fin w₁) (B : Fin k₂ → Fin w₂ × Fin w₂) :
+    Fin (k₁ + k₂) → Fin (w₁ + w₂) × Fin (w₁ + w₂) :=
+  Fin.addCases (fun i => embedId (Fin.castAdd w₂) (A i))
+               (fun i => embedId (Fin.natAdd w₁) (B i))
+
+@[simp] private theorem appendIds_left {w₁ w₂ k₁ k₂ : ℕ}
+    (A : Fin k₁ → Fin w₁ × Fin w₁) (B : Fin k₂ → Fin w₂ × Fin w₂) (i : Fin k₁) :
+    appendIds A B (Fin.castAdd k₂ i) = embedId (Fin.castAdd w₂) (A i) := by
+  simp [appendIds]
+
+@[simp] private theorem appendIds_right {w₁ w₂ k₁ k₂ : ℕ}
+    (A : Fin k₁ → Fin w₁ × Fin w₁) (B : Fin k₂ → Fin w₂ × Fin w₂) (i : Fin k₂) :
+    appendIds A B (Fin.natAdd k₁ i) = embedId (Fin.natAdd w₁) (B i) := by
+  simp [appendIds]
+
 /-- The hypergraph of an algebraic term. -/
 def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
   | _, _, .empty =>
@@ -56,11 +130,9 @@ def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
       let B := b.toHyp
       { wires := A.wires + B.wires,
         boxCount := A.boxCount + B.boxCount,
-        boxes := Fin.addCases (fun i => embedBox (Fin.castAdd B.wires) (A.boxes i))
-                              (fun i => embedBox (Fin.natAdd A.wires) (B.boxes i)),
+        boxes := appendBoxes A.boxes B.boxes,
         idCount := A.idCount + B.idCount,
-        ids := Fin.addCases (fun i => embedId (Fin.castAdd B.wires) (A.ids i))
-                            (fun i => embedId (Fin.natAdd A.wires) (B.ids i)),
+        ids := appendIds A.ids B.ids,
         inputs := Fin.addCases (fun i => Fin.castAdd B.wires (A.inputs i))
                                (fun i => Fin.natAdd A.wires (B.inputs i)),
         outputs := Fin.addCases (fun j => Fin.castAdd B.wires (A.outputs j))
@@ -70,12 +142,9 @@ def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
       let B := b.toHyp
       { wires := A.wires + B.wires,
         boxCount := A.boxCount + B.boxCount,
-        boxes := Fin.addCases (fun i => embedBox (Fin.castAdd B.wires) (A.boxes i))
-                              (fun i => embedBox (Fin.natAdd A.wires) (B.boxes i)),
+        boxes := appendBoxes A.boxes B.boxes,
         idCount := A.idCount + B.idCount + m,
-        ids := Fin.addCases
-                 (Fin.addCases (fun i => embedId (Fin.castAdd B.wires) (A.ids i))
-                               (fun i => embedId (Fin.natAdd A.wires) (B.ids i)))
+        ids := Fin.addCases (appendIds A.ids B.ids)
                  (fun i : Fin m =>
                     (Fin.castAdd B.wires (A.outputs i), Fin.natAdd A.wires (B.inputs i))),
         inputs := fun i => Fin.castAdd B.wires (A.inputs i),
@@ -195,5 +264,27 @@ theorem sem_toHyp_wire_compose (f g : Wires 1) :
     Fin.forall_fin_one, Fin.addCases, embedId]
   rw [sum_wires2, sum_wires1]
   cases hf : f 0 <;> cases hg : g 0 <;> simp [zeroAmpl, oneAmpl]
+
+/-! ## Stack
+
+The two halves share no wires, so the sum over assignments factors into a sum
+over each — which is `sum_addCases` — and every other part of the summand
+factors with it: the boundary conditions by `forall_fin_add`, the
+identifications likewise, and the box product by `Fin.prod_univ_add`. -/
+
+theorem sem_toHyp_stack {n m p q : ℕ} (a : ZX n m) (b : ZX p q)
+    (ihA : ∀ f g, (a.toHyp).sem AlgPhase.expI f g = a.sem f g)
+    (ihB : ∀ f g, (b.toHyp).sem AlgPhase.expI f g = b.sem f g)
+    (f : Wires (n + p)) (g : Wires (m + q)) :
+    ((a ⊗ b).toHyp).sem AlgPhase.expI f g = (a ⊗ b).sem f g := by
+  rw [ZX.sem, ← ihA, ← ihB]
+  simp only [Hyp.sem]
+  rw [ZX.toHyp, sum_addCases, Finset.sum_mul_sum]
+  refine Finset.sum_congr rfl fun xA _ => Finset.sum_congr rfl fun xB _ => ?_
+  rw [prod_appendBoxes]
+  simp only [appendIds_left, appendIds_right, Fin.addCases_left, Fin.addCases_right, embedId,
+    Hyp.Sat, forall_fin_add]
+  simp only [and_and_and_comm, ite_and_mul]
+  ring
 
 end SpLean.Algebraic
