@@ -101,6 +101,12 @@ is convenience:
   a certificate is *accepted* when representatives agree, so only this
   direction could make the check unsound. Incompleteness would at worst cost a
   certificate that fails to check.
+- **`rep` threads a table through a `foldl`, and must keep doing so.** Written
+  as a recursion on a function it needs the previous level at three places (the
+  test and both branches), which costs `3 ^ idCount` to evaluate — invisible on
+  CNOT's three identifications, and a ten-minute hang on a diagram with twenty.
+  That was a real regression, found by the first `zx_iso` on
+  `SemanticsTesting/11Ex37.lean`.
 - **The search is untrusted.** `Iso.ofTables` re-checks every condition, so a
   wrong answer costs a failed tactic, never a bad proof. It could be replaced
   wholesale without a soundness argument.
@@ -135,6 +141,16 @@ is convenience:
   when it is a variable.**
 - **Open terms.** `zx_iso` evaluates both sides, so a diagram parameterised by
   a phase has no hypergraph to compute. It checks and says so.
+
+The tactic raises `maxRecDepth` itself before elaborating the certificate: the
+`decide`s evaluate both hypergraphs, and past a couple of spiders that goes
+deeper than the default.
+
+`SemanticsTesting/11Ex37.lean` is the larger worked example — a diagram
+rearranged until its π phases sit on the output wires, alternating `zx_iso` for
+the seven rebracketings with `zx_rw` for the nine rules. It is the best
+illustration of what this module buys: the structural steps, which used to
+dominate a derivation, are one tactic call each.
 
 ## Not done
 

@@ -58,6 +58,17 @@ The two representations rewrite by completely different mechanisms: `≈z` is de
 
 `reflectDiagram`/`reflectNode`/`reflectPhase` mirror the `Node` and `Phase` definitions by hand and must be updated alongside them — a new constructor or field will otherwise reflect wrongly or fail to compile. They are `MetaM` rather than a `ToExpr` instance because an `ℕ+` denominator needs `mkNumeral` to synthesize its `OfNat` instance; that synthesis is cached per distinct denominator, since repeating it per phase measurably slows elaboration.
 
+### Structural steps (`zx_iso`)
+
+`zx_iso` (`SpLean/Algebraic/IsoTactic.lean`) closes `x ≈zx y` for *closed*
+terms whose hypergraphs are isomorphic — that is, whenever the two terms
+describe the same diagram and differ only in how it is bracketed. It searches
+for the isomorphism and emits it as a certificate the kernel checks, so nothing
+has to be written by hand. It says nothing about rules that change the diagram:
+fusion, colour change and the rest remain `zx_rw` steps. See
+`SpLean/Hypergraph/CLAUDE.md`, and `SemanticsTesting/11Ex37.lean` for a
+derivation that alternates the two.
+
 ### Algebraic (`≈zx`)
 
 `zx_rw` in `SpLean/Algebraic/Tactics.lean` is `rw` for `≈zx` rules — `zx_rw [spider_fusion_Z_one_wire]`, `zx_rw [← spider_fusion_Z_one_wire]` to unfuse. It is a thin macro over Mathlib's `grw`, which generalises `rw` to any relation that is reflexive, transitive and has congruence lemmas; `≈zx` supplies all three (`ZX.Equiv.refl` is `@[refl]`, and `compose_congr`/`stack_congr` are tagged `@[gcongr]` in `Tactics.lean` rather than at their definitions, to keep the `grw` import out of `Equiv.lean`). The `@[gcongr]` tags are what let a rule fire *inside* a larger diagram rather than only at the top.
