@@ -1,4 +1,7 @@
 import SpLean.Algebraic
+import SpLean.Panel
+
+show_panel_widgets [local SpLean.ZXPanel]
 
 open SpLean.Algebraic SpLean.Hypergraph
 
