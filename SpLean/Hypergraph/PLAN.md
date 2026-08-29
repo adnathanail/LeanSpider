@@ -221,11 +221,40 @@ phase 1 needs them:
   two ends, and no term can make both of them inputs.) So the merge is a
   bijection between two disjoint `m`-element sets, not something messier.
 
-**Phase 1 — isomorphism invariance.** `Iso.lean`: the boundary-fixing
-isomorphism, and `H₁ ≅ H₂ → H₁.sem = H₂.sem`, by reindexing the vertex-sum and
-the hyperedge-product along the two bijections (`Equiv.sum_comp`,
-`Finset.prod_bij`). Independent of phase 2 — can be done in parallel.
-Acceptance: the theorem, plus the `swap`-shaped negative test.
+**Phase 1 — isomorphism invariance. DONE.** `Iso.lean` has `Hyp.Rel`, `Iso`,
+`Iso.sem_eq`, and the negative test, all with no `sorry`. What it settled:
+
+- **`Iso` had to be up to `Hyp.Rel`, not a plain bijection**, and this is not a
+  nicety: in `toHyp Gate.CNOT` the Z spider's input leg *is* the boundary input
+  wire, while in `toHyp Gate.CNOT'` the boundary input is a separate wire
+  identified with that leg. No bijection matches those two, and they are
+  obviously the same diagram. Stating everything up to `Rel` also lets an
+  isomorphism relate hypergraphs with different wire counts, which is needed
+  the moment one side is composed with a bare `wire`.
+- **The proof is one `Fintype.sum_equiv`.** `Hyp.sem_eq_sum_sat` restricts the
+  sum to assignments respecting the identifications (the `ids` indicator only
+  ever kills terms), and on those the two wire maps *are* mutually inverse, so
+  they give an `Equiv` (`Iso.assignEquiv`). Boundary indicators then agree
+  because the boundary is fixed, and box products agree box by box via
+  `Label.tensor_congr`.
+- **Leg lists compare up to permutation**, as anticipated: `Iso.legPerm` gives
+  an `Equiv (Fin b₁.arity) (Fin b₂.arity)` per box, and the tensors do not
+  notice — that is `zTensor_congr`/`xTensor_congr`/`hadTensor_congr` in
+  `Semantics.lean`, stated across two arities rather than as invariance under
+  `Equiv.Perm` because that is the shape `Iso` produces. This is where the
+  spider symmetry that the term calculus cannot express actually comes from.
+- **`boxes` and `ids` became `Fin`-indexed too**, for the reason phase 0 made
+  `Box.arity` a field: a `List` puts `List.length` in a type index and every
+  lemma then needs a dependent rewrite. Nothing in `Hypergraph/` is a `List`.
+- **The negative test has teeth.** `swapHyp` and `parallelHyp` are written by
+  hand (`ZX` has no crossing to lower) and `sem_swap_ne_sem_parallel` shows
+  their denotations differ, so `not_nonempty_iso_swap_parallel` follows from
+  `Iso.sem_eq`. If a future weakening of `Iso` admits an isomorphism between
+  them, the file stops compiling.
+- **Still open:** well-formedness is still not stated — phase 1 turned out not
+  to need it. It is phase 3's `decide` that will care, along with a computable
+  replacement for `Relation.EqvGen`, which is a `Prop` and cannot be decided
+  as it stands.
 
 **Phase 2 — the lowering theorem.** `Algebraic/ToHypergraph.lean`: `toHyp` by
 structural recursion, then `∀ a : ZX n m, (toHyp a).sem = a.sem` by induction.
