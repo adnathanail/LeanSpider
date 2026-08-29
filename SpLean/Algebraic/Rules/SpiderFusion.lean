@@ -5,6 +5,7 @@ import SpLean.Algebraic.Rules.ColourChange
 import SpLean.Algebraic.Tactics
 import SpLean.Algebraic.Rules.Structural
 import SpLean.Algebraic.Rules.HadamardHadamard
+import SpLean.Algebraic.Cast
 
 namespace SpLean.Algebraic
 
@@ -83,5 +84,15 @@ theorem spider_fusion_X (n m k : ℕ) (α β : AlgPhase) :
   grw [← compose_assoc (ZX.spider AlgSpColor.Z n (k + 1) α)]
   zx_rw [spider_fusion_Z]
   zx_rw [← colour_change_X_Z]
+
+/-- Z spider fusion with `p` spectator wires passing alongside the `k + 1`
+connecting ones. The mirror image — spectators on the other side — is the same
+statement with the two stacks swapped. -/
+theorem zSpider_fusion_spectator (n m k p q : ℕ) (α β : AlgPhase) :
+    ((ZX.spider .Z n (m + (k + 1)) α ⊗ ZX.nWire p)
+        ≫ ZX.cast (Nat.add_assoc m (k + 1) p).symm rfl
+            (ZX.nWire m ⊗ ZX.spider .Z (k + 1 + p) q β))
+      ≈zx ZX.spider .Z (n + p) (m + q) (α + β) := by
+  sorry
 
 end SpLean.Algebraic
