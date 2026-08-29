@@ -77,7 +77,11 @@ elab "zx_iso" : tactic => do
         -- `rfl` settles each one without deciding anything.
         (by first | decide | (intro i; fin_cases i <;> rfl))
         (by decide)))
-  let e ← elabTermEnsuringType stx ty
+  -- The `decide`s evaluate the two hypergraphs, and on anything past a couple
+  -- of spiders that goes deeper than the default recursion limit. Raise it
+  -- here rather than making every call site do it.
+  let e ← withOptions (fun o => o.set `maxRecDepth (100000 : Nat)) do
+    elabTermEnsuringType stx ty
   goal.assign e
 
 end SpLean.Algebraic
