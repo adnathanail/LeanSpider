@@ -71,10 +71,18 @@ set_option pp.deepTerms.threshold 2
 
 ## Development
 
+### MathLib cache
+
+To prevent building MathLib from scratch:
+
+```sh
+lake exe cache get
+```
+
 ### Prek
 
 [Install prek](https://github.com/j178/prek) and run
-```
+```sh
 prek --install
 ```
 

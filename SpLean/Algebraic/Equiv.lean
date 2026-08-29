@@ -42,6 +42,11 @@ namespace ZX.Equiv
 
 instance {n m : ℕ} : Trans (α := ZX n m) ZX.Equiv ZX.Equiv ZX.Equiv := ⟨ZX.Equiv.trans⟩
 
+/-- Equal denotations give equivalent diagrams (`c = 1`).
+Escape hatch for when a diagram identity is not an instance of any rewrite rule. -/
+theorem of_sem_eq {n m : ℕ} {a b : ZX n m} (h : a.sem = b.sem) : a ≈zx b :=
+  ⟨1, one_ne_zero, fun f g => by rw [one_mul, h]⟩
+
 /-- A spider's denotation depends on its phase only through `AlgPhase.expI`, so
 phases equal *as angles* give equivalent spiders even when they differ as
 rationals: `ZX.spider .Z 1 1 (2π)` and `ZX.spider .Z 1 1 0` are not the same

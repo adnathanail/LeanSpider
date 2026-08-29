@@ -1,4 +1,5 @@
 import SemanticsTesting.Utils
+import SemanticsTesting.«07Stack»
 
 open SpLean.Algebraic
 
@@ -138,3 +139,10 @@ example :
   repeat zx_rw [← stack_assoc]
   -- Drop the `ZX.empty` that `nStackState 0` left at the bottom of the stack.
   zx_rw [empty_stack']
+
+/--
+Prove that the two different layouts of CNOT are ZX equivalent, because their
+  semantics are equal -/
+theorem cnot_cnot_equiv :
+    Gate.CNOT ≈zx Gate.CNOT' :=
+  ZX.Equiv.of_sem_eq cnot_sem_agnostic
