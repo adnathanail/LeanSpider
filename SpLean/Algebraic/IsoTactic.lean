@@ -53,7 +53,7 @@ elab "zx_iso" : tactic => do
   -- variables rather than as anything a reader could act on.
   for e in [x, y] do
     if e.hasFVar || e.hasMVar then
-      throwError "zx_iso: needs closed diagrams, but{indentExpr e}\n        mentions a variable. A diagram parameterised by a phase has no         hypergraph to compute; prove it by rewriting instead."
+      throwError "zx_iso: needs closed diagrams, but{indentExpr e}\nmentions a variable. A diagram parameterised by a phase has no hypergraph to compute; prove it by rewriting instead."
   let dx ← hypDataOfExpr x
   let dy ← hypDataOfExpr y
   let some t := Search.findTables dx dy
