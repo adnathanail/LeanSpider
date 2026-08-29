@@ -47,6 +47,13 @@ elab "zx_iso" : tactic => do
   let ty ← instantiateMVars (← goal.getType)
   let some (_, _, x, y) := ty.app4? ``ZX.Equiv
     | throwError "zx_iso: goal is not of the form `x ≈zx y`, but{indentExpr ty}"
+  -- Both sides are *evaluated* to hypergraphs, so both have to be closed. A
+  -- diagram with a variable phase in it has no hypergraph to compute, and
+  -- without this check the failure surfaces as a kernel error about free
+  -- variables rather than as anything a reader could act on.
+  for e in [x, y] do
+    if e.hasFVar || e.hasMVar then
+      throwError "zx_iso: needs closed diagrams, but{indentExpr e}\n        mentions a variable. A diagram parameterised by a phase has no         hypergraph to compute; prove it by rewriting instead."
   let dx ← hypDataOfExpr x
   let dy ← hypDataOfExpr y
   let some t := Search.findTables dx dy

@@ -137,60 +137,6 @@ theorem Iso.sem_eq (expI : Φ → ℂ) {H₁ H₂ : Hyp Φ n m} (I : Iso H₁ H�
   rw [I.map_label i]
   exact Label.tensor_congr expI _ (I.legPerm i) fun k => I.apply_eq a.2 (I.map_legs i k)
 
-/-- An isomorphism between hypergraphs that are the *same data, re-bracketed*:
-wires, boxes and identifications correspond one for one, with nothing genuinely
-identified. This is the shape the structural laws take — `stack_empty`,
-`stack_interchange` and friends move blocks of wires around without merging
-any — and it asks for equalities rather than `Hyp.Rel`s, which is what makes
-them provable for *arbitrary* diagrams rather than checkable for concrete ones.
-
-`map_rel` comes from `hids`: an identification of `H₁` is carried to an
-identification of `H₂`, so it is in particular a related pair, and the general
-statement follows by induction on the derivation. -/
-def Iso.ofStrict {H₁ H₂ : Hyp Φ n m}
-    (e : Fin H₁.wires ≃ Fin H₂.wires)
-    (boxPerm : Fin H₁.boxCount ≃ Fin H₂.boxCount)
-    (legPerm : ∀ i, Fin (H₁.boxes i).arity ≃ Fin (H₂.boxes (boxPerm i)).arity)
-    (idPerm : Fin H₁.idCount ≃ Fin H₂.idCount)
-    (hids : ∀ k, (e (H₁.ids k).1, e (H₁.ids k).2) = H₂.ids (idPerm k))
-    (hin : ∀ i, e (H₁.inputs i) = H₂.inputs i)
-    (hout : ∀ j, e (H₁.outputs j) = H₂.outputs j)
-    (hlabel : ∀ i, (H₁.boxes i).label = (H₂.boxes (boxPerm i)).label)
-    (hlegs : ∀ i k, e ((H₁.boxes i).legs k) = (H₂.boxes (boxPerm i)).legs (legPerm i k)) :
-    Iso H₁ H₂ where
-  wire := e
-  wireInv := e.symm
-  left_inv v := by rw [e.symm_apply_apply]
-  right_inv v := by rw [e.apply_symm_apply]
-  map_rel u v h := by
-    induction h with
-    | rel x y hxy =>
-        obtain ⟨k, hk⟩ := hxy
-        refine Relation.EqvGen.rel _ _ ⟨idPerm k, ?_⟩
-        rw [← hids k, hk]
-    | refl x => rfl
-    | symm x y _ ih => exact ih.symm
-    | trans x y z _ _ ih₁ ih₂ => exact ih₁.trans ih₂
-  map_rel_inv u v h := by
-    induction h with
-    | rel x y hxy =>
-        obtain ⟨k, hk⟩ := hxy
-        refine Relation.EqvGen.rel _ _ ⟨idPerm.symm k, ?_⟩
-        have h := hids (idPerm.symm k)
-        rw [Equiv.apply_symm_apply, hk] at h
-        have h1 : e (H₁.ids (idPerm.symm k)).1 = x := congrArg Prod.fst h
-        have h2 : e (H₁.ids (idPerm.symm k)).2 = y := congrArg Prod.snd h
-        rw [← h1, ← h2, Equiv.symm_apply_apply, Equiv.symm_apply_apply]
-    | refl x => rfl
-    | symm x y _ ih => exact ih.symm
-    | trans x y z _ _ ih₁ ih₂ => exact ih₁.trans ih₂
-  map_inputs i := by rw [hin i]
-  map_outputs j := by rw [hout j]
-  boxPerm := boxPerm
-  map_label := hlabel
-  legPerm := legPerm
-  map_legs i k := by rw [hlegs i k]
-
 /-! ## The standing test
 
 `Iso` fixes the boundary pointwise. Drop that and a crossing becomes

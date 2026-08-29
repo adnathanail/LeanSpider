@@ -199,9 +199,10 @@ Phase by phase:
 5. **Tidy.** `nWire`/`wire` identities clear the padding, and one last
    `stack_assoc_symm` brings the two cap layers into the same bracketing.
 
-This rests on four stubs — `bend_output`, `bend_output_above`,
-`stack_interchange` and `compose_nWire` — so it does not make
-`cnot_cnot_equiv` any more proved than the computation above already does.
+This rests on two stubs — `bend_output` and `bend_output_above` — so it does
+not make `cnot_cnot_equiv` any more proved than the computation above already
+does. (`stack_interchange` and the `nWire` identities it also uses started out
+stubbed and are now proved.)
 What it shows is that the rule set composes into a derivation, and it is a
 regression test for `zx_rw`: if a rule statement or the tactic changes shape,
 this breaks. -/
