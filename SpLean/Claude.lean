@@ -98,9 +98,27 @@ is not offered, since a background task's info tree is not kept.
 
 A cached answer is still reported synchronously, so an undo redisplays it in the
 same elaboration rather than a task later.
+
+## Saying that it is running
+
+A background call also means the `claude` line has nothing on it until the answer
+lands, which reads exactly like a tactic that did nothing. So the elaboration
+logs one more message: a widget that polls `claudeStatus` for its own call site
+and redraws itself, since live output cannot otherwise reach a line Lean has
+finished elaborating. It shows a spinner, the elapsed time, and the last few
+things Claude said it was doing; when the run ends it collapses to a single line
+with the turn count and the cost, and a run the server has since forgotten (a
+newer call took the site, or the server restarted) renders as nothing at all.
+
+Feeding it means asking the CLI for `--output-format stream-json` rather than
+`text`: stdout is then one JSON event per line — each tool call, each thing
+Claude says — with the answer in the last event, instead of the answer in one go
+at the end. Events are parsed for display only, so an unrecognised or unparsable
+line is skipped rather than raised; if the terminating `result` event never
+arrives, the concatenated assistant text stands in for the answer.
 -/
 
-open Lean Elab Tactic Meta Meta.Tactic.TryThis
+open Lean Server Elab Tactic Meta Meta.Tactic.TryThis
 
 register_option splean.claude.debounce : Nat := {
   defValue := 800
@@ -136,7 +154,8 @@ answers the `-p` argument, so a short argv tag pointing at stdin gets an answer
 about the tag ("I'll analyze the proof state from stdin") rather than about the
 goal. -/
 private def watchdogScript (ppid : UInt32) : String :=
-  s!"claude -p \"$SPLEAN_CLAUDE_PROMPT\" --output-format text --allowedTools Read,Grep,Glob &
+  s!"claude -p \"$SPLEAN_CLAUDE_PROMPT\" --output-format stream-json --verbose \
+       --allowedTools Read,Grep,Glob &
      kid=$!
      ( while kill -0 {ppid} 2>/dev/null; do sleep 2; done
        kill $kid 2>/dev/null; sleep 2; kill -KILL $kid 2>/dev/null ) &
@@ -182,12 +201,32 @@ private def killRun (child : ClaudeChild) : IO Unit := do
 
 /-! ## Per-call-site bookkeeping -/
 
+/-- What a call has done so far, as the progress widget shows it.
+
+Deliberately all strings and already formatted: the widget draws what it is
+handed and knows nothing about the CLI's output format. -/
+private structure ClaudeProgress where
+  /-- `waiting` during the debounce, `running` once the CLI is up, then `done` or
+  `failed`. The widget stops polling on the last two. -/
+  phase : String := "waiting"
+  /-- The last few things Claude said it was doing, oldest first. -/
+  activity : Array String := #[]
+  /-- `IO.monoMsNow` when the call site was claimed. -/
+  startedMs : Nat := 0
+  /-- `IO.monoMsNow` when the run ended, if it has; until then the clock runs. -/
+  finishedMs : Option Nat := none
+  /-- Turns and cost, once the CLI reports them. -/
+  summary : String := ""
+  deriving Inhabited
+
 /-- What one call site (`file:line:column`) currently has going on. -/
 private structure ClaudeSlot where
   /-- Highest generation claimed here; anything older is superseded. -/
   latest : Nat := 0
   /-- The CLI process in flight, with the generation that spawned it. -/
   running : Option (Nat × ClaudeChild) := none
+  /-- What the widget on this line is showing; reset whenever the site is claimed. -/
+  progress : ClaudeProgress := {}
 
 /-- Live state per call site. A `Ref` rather than an environment extension because
 it has to be shared across the elaborations of *different* versions of the file —
@@ -200,10 +239,12 @@ initialize claudeCache : IO.Ref (Std.HashMap String String) ← IO.mkRef ∅
 /-- Take ownership of a call site: bump its generation and kill whatever the
 previous owner left running. Returns the new generation. -/
 private def claimSite (site : String) : IO Nat := do
+  let now ← IO.monoMsNow
   let (gen, previous) ← claudeRuns.modifyGet fun runs =>
     let slot := runs.getD site {}
     let gen := slot.latest + 1
-    ((gen, slot.running), runs.insert site { latest := gen, running := none })
+    ((gen, slot.running),
+      runs.insert site { latest := gen, running := none, progress := { startedMs := now } })
   -- The killed run reaps its own child; it is still polling and will notice.
   if let some (_, child) := previous then
     killRun child
@@ -236,6 +277,31 @@ private def releaseSite (site : String) (gen : Nat) : IO Unit :=
       if g == gen then runs.insert site { slot with running := none } else runs
     | _ => runs
 
+/-- Record something about the call in flight, unless a newer generation has taken
+the site over — in which case the widget showing it is gone too. -/
+private def setProgress (site : String) (gen : Nat) (f : ClaudeProgress → ClaudeProgress) :
+    IO Unit :=
+  claudeRuns.modify fun runs =>
+    match runs[site]? with
+    | some slot =>
+      if slot.latest == gen then runs.insert site { slot with progress := f slot.progress } else runs
+    | none => runs
+
+/-- How many activity lines the widget keeps. Enough to see what Claude has been
+reading, few enough that the message does not grow without bound. -/
+private def maxActivity : Nat := 6
+
+/-- Add a line to the activity list, dropping the oldest once it is full. -/
+private def noteActivity (site : String) (gen : Nat) (line : String) : IO Unit :=
+  setProgress site gen fun p =>
+    let a := p.activity.push line
+    { p with activity := if a.size ≤ maxActivity then a else a.extract (a.size - maxActivity) a.size }
+
+/-- Stop the widget's clock and its polling. -/
+private def finishProgress (site : String) (gen : Nat) (phase : String) : IO Unit := do
+  let now ← IO.monoMsNow
+  setProgress site gen fun p => { p with phase, finishedMs := now }
+
 /-- Wait out the debounce in slices, watching for the call going stale.
 Returns `true` if it did, in which case nothing should be spawned. -/
 private def debounce (tk? : Option IO.CancelToken) (site : String) (gen : Nat) (ms : Nat) :
@@ -247,9 +313,106 @@ private def debounce (tk? : Option IO.CancelToken) (site : String) (gen : Nat) (
     waited := waited + 50
   superseded tk? site gen
 
-/-- Run the CLI to completion, killing it if the call goes stale meanwhile.
-`none` means it did — the answer is no longer wanted, so there is nothing to
-report. -/
+/-! ## Reading the CLI's event stream -/
+
+private def trim (s : String) : String := s.trimAscii.toString
+
+/-- A string field of a JSON object, or `none` if it is absent or not a string.
+Every event field is read this way: the stream is parsed for display, so a shape
+that has moved on should cost an activity line, not the answer. -/
+private def jsonStr? (j : Json) (key : String) : Option String :=
+  (j.getObjVal? key >>= (·.getStr?)).toOption
+
+/-- A numeric field of a JSON object, as a `Nat`. -/
+private def jsonNat? (j : Json) (key : String) : Option Nat :=
+  (j.getObjVal? key >>= (·.getNum?)).toOption.map (·.toFloat.toUInt64.toNat)
+
+/-- Text as it fits on one line of a proof: the first line, truncated. -/
+private def oneLine (s : String) (width : Nat := 80) : String :=
+  let s := trim ((s.splitOn "\n").headD s)
+  if s.length ≤ width then s else (s.take width).toString ++ "…"
+
+/-- A path as it is worth showing: the last two components, so that an absolute
+`…/SpLean/Algebraic/Rules/EulerDecomp.lean` reads as `Rules/EulerDecomp.lean`
+rather than pushing everything else off the line. -/
+private def abbrevPath (path : String) : String :=
+  let parts := path.splitOn "/"
+  if parts.length ≤ 2 then path
+  else String.intercalate "/" (parts.drop (parts.length - 2))
+
+/-- One content block of an assistant message as a line of activity: what Claude
+said, or which tool it reached for and on what. -/
+private def blockActivity (b : Json) : Option String :=
+  match jsonStr? b "type" with
+  | some "text" =>
+    let t := oneLine ((jsonStr? b "text").getD "")
+    if t.isEmpty then none else some t
+  | some "tool_use" =>
+    let name := (jsonStr? b "name").getD "tool"
+    let input := (b.getObjVal? "input").toOption.getD Json.null
+    match ["file_path", "pattern", "path"].findSome? (jsonStr? input) with
+    | some arg => some (oneLine s!"{name} {abbrevPath arg}")
+    | none => some name
+  | _ => none
+
+/-- What an event is worth showing, if anything. The stream also carries hook,
+rate-limit and tool-result events, which say nothing a proof line wants. -/
+private def eventActivity (j : Json) : Option String := do
+  guard (jsonStr? j "type" == some "assistant")
+  let content ← (j.getObjVal? "message" >>= (·.getObjVal? "content") >>= (·.getArr?)).toOption
+  let lines := content.filterMap blockActivity
+  guard !lines.isEmpty
+  return String.intercalate " · " lines.toList
+
+/-- The assistant's own words in an event, untruncated: the answer to fall back on
+if the run's `result` event never arrives. -/
+private def assistantText (j : Json) : Array String :=
+  match (j.getObjVal? "message" >>= (·.getObjVal? "content") >>= (·.getArr?)).toOption with
+  | some blocks =>
+    blocks.filterMap fun b => if jsonStr? b "type" == some "text" then jsonStr? b "text" else none
+  | none => #[]
+
+/-- The run's `total_cost_usd`, to the cent. -/
+private def formatUsd (j : Json) : Option String := do
+  let n ← (j.getObjVal? "total_cost_usd" >>= (·.getNum?)).toOption
+  let cents := (n.toFloat * 100.0 + 0.5).toUInt64.toNat
+  let pad := if cents % 100 < 10 then "0" else ""
+  return s!"${cents / 100}.{pad}{cents % 100}"
+
+/-- What the stream is read *for*, as opposed to what it shows on the way. -/
+private structure ClaudeOutput where
+  /-- The `result` event's answer, once it arrives. -/
+  answer : Option String := none
+  /-- Every assistant text block, in case no `result` event ever does. -/
+  text : Array String := #[]
+  /-- Turns and cost, for the widget's finished line. -/
+  summary : String := ""
+  deriving Inhabited
+
+/-- Read stdout to EOF, one `stream-json` event per line, folding each into the
+call's progress as it goes; the last event carries the answer.
+
+Lines that do not parse, or that carry a type this does not know, are skipped —
+they are only ever wanted for display, and EOF here means the CLI has exited or
+been killed. -/
+private def readEvents (h : IO.FS.Handle) (site : String) (gen : Nat)
+    (out : IO.Ref ClaudeOutput) : IO Unit := do
+  repeat
+    let line ← h.getLine
+    if line.isEmpty then break
+    let .ok j := Json.parse line | continue
+    if jsonStr? j "type" == some "result" then
+      let summary := String.intercalate " · " <|
+        ((jsonNat? j "num_turns").map (s!"{·} turns")).toList ++ (formatUsd j).toList
+      out.modify fun o => { o with answer := jsonStr? j "result", summary }
+    else
+      if let some act := eventActivity j then noteActivity site gen act
+      let said := assistantText j
+      unless said.isEmpty do out.modify fun o => { o with text := o.text ++ said }
+
+/-- Run the CLI to completion, folding its event stream into the call's progress
+as it goes and killing it if the call goes stale meanwhile. `none` means it did —
+the answer is no longer wanted, so there is nothing to report. -/
 private def runClaudeCLI (tk? : Option IO.CancelToken) (site : String) (gen : Nat)
     (prompt : String) : IO (Option String) := do
   let child ← spawnClaude site prompt
@@ -257,8 +420,12 @@ private def runClaudeCLI (tk? : Option IO.CancelToken) (site : String) (gen : Na
     let slot := runs.getD site {}
     -- Only register if we still own the site; otherwise the kill below is ours to do.
     if slot.latest == gen then runs.insert site { slot with running := some (gen, child) } else runs
+  setProgress site gen ({ · with phase := "running" })
   -- Drain both pipes concurrently: a full pipe would block the child forever.
-  let stdout ← IO.asTask child.stdout.readToEnd Task.Priority.dedicated
+  -- stdout goes a line at a time rather than to the end, because each line is an
+  -- event the widget wants *while* the CLI is still running.
+  let out ← IO.mkRef {}
+  let stdout ← IO.asTask (readEvents child.stdout site gen out) Task.Priority.dedicated
   let stderr ← IO.asTask child.stderr.readToEnd Task.Priority.dedicated
   let mut exitCode := 0
   repeat
@@ -278,8 +445,20 @@ private def runClaudeCLI (tk? : Option IO.CancelToken) (site : String) (gen : Na
   -- nonzero exit (SIGKILL, 137), so ask again before blaming the CLI for it.
   if ← superseded tk? site gen then return none
   if exitCode != 0 then
+    finishProgress site gen "failed"
     throw <| IO.userError s!"`claude` exited with code {exitCode}:\n{← IO.ofExcept stderr.get}"
-  return some (← IO.ofExcept stdout.get)
+  -- Raise what the reader itself choked on, rather than reporting an empty answer.
+  IO.ofExcept stdout.get
+  let o ← out.get
+  -- No `result` event is not on its own a failure: everything Claude said is
+  -- still there, and is a better answer than an error about the stream's shape.
+  let fallback := if o.text.isEmpty then none else some (String.intercalate "\n" o.text.toList)
+  let some response := o.answer <|> fallback
+    | finishProgress site gen "failed"
+      throw <| IO.userError "`claude` produced no answer."
+  setProgress site gen fun p => { p with summary := o.summary }
+  finishProgress site gen "done"
+  return some response
 
 /-! ## The prompt -/
 
@@ -328,8 +507,6 @@ private def buildPrompt (site : String) (msg : Option String) : TacticM String :
 
 /-! ## Reporting the answer -/
 
-private def trim (s : String) : String := s.trimAscii.toString
-
 /-- Split an answer into its first fenced code block and the prose around it.
 
 The text between the opening fence and the first newline is the fence's info
@@ -353,6 +530,132 @@ private def report (ref : Syntax) (response : String) : CoreM Unit := do
     addSuggestion ref (code : SuggestionText) (header := "Claude suggests: ")
   unless prose.isEmpty do logInfoAt ref prose
 
+/-! ## Saying that it is running -/
+
+/-- What the progress widget is handed on each poll. Everything is preformatted:
+the widget draws strings and a spinner, and makes no decisions of its own. -/
+structure ClaudeStatus where
+  /-- `waiting`, `running`, `done`, `failed`, or `gone` for a call this server no
+  longer has — a restart, or a newer call taking the site over. -/
+  phase : String
+  /-- How long the call has been going, already rounded for display. -/
+  elapsed : String
+  /-- The last few things Claude said it was doing, oldest first. -/
+  activity : Array String := #[]
+  /-- Turns and cost, once the run has finished. -/
+  summary : String := ""
+  deriving ToJson, FromJson, Inhabited
+
+/-- Which run the widget is asking about. -/
+structure ClaudeStatusParams where
+  /-- `file:line:column` of the `claude` token whose run this is. -/
+  site : String
+  /-- Which run at that site. A later one makes this widget's run `gone`. -/
+  gen : Nat
+  deriving ToJson, FromJson
+
+/-- Milliseconds as the widget shows them: one decimal, which is enough to see
+that something is moving without the digits flickering. -/
+private def formatSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}s"
+
+private def goneStatus : ClaudeStatus := { phase := "gone", elapsed := "" }
+
+/-- The live state of one call, for the widget on its line. -/
+@[server_rpc_method]
+def claudeStatus (p : ClaudeStatusParams) : RequestM (RequestTask ClaudeStatus) :=
+  RequestM.asTask do
+    let runs ← claudeRuns.get
+    let some slot := runs[p.site]? | return goneStatus
+    if slot.latest != p.gen then return goneStatus
+    let now ← IO.monoMsNow
+    let pr := slot.progress
+    return {
+      phase := pr.phase
+      elapsed := formatSecs ((pr.finishedMs.getD now) - pr.startedMs)
+      activity := pr.activity
+      summary := pr.summary
+    }
+
+/-- The spinner-and-activity line the `claude` tactic leaves on its own line.
+
+A message widget rather than anything the tactic prints, because everything it
+shows arrives after the elaboration that logged it: the component polls
+`SpLean.claudeStatus` for the call site in its props and redraws itself, which is
+the only way live output reaches a line Lean has finished elaborating. It stops
+polling the moment the run reaches a terminal phase, and renders nothing at all
+for a run the server has forgotten. -/
+@[widget_module]
+def claudeProgressWidget : Widget.Module where
+  javascript := "
+import * as React from 'react'
+import { RpcContext } from '@leanprover/infoview'
+
+const e = React.createElement
+const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const running = s => s.phase === 'waiting' || s.phase === 'running'
+
+export default function (props) {
+  const rs = React.useContext(RpcContext)
+  const [st, setSt] = React.useState(null)
+  const [tick, setTick] = React.useState(0)
+
+  // Poll until the run stops; a failed call just stops showing anything.
+  React.useEffect(() => {
+    let live = true
+    let timer = null
+    const poll = () => {
+      rs.call('SpLean.claudeStatus', { site: props.site, gen: props.gen })
+        .then(s => {
+          if (!live) return
+          setSt(s)
+          if (running(s)) timer = setTimeout(poll, 400)
+        })
+        .catch(() => { if (live) setSt(null) })
+    }
+    poll()
+    return () => { live = false; if (timer) clearTimeout(timer) }
+  }, [props.site, props.gen])
+
+  // The spinner turns between polls, so the line never looks frozen.
+  React.useEffect(() => {
+    if (!st || !running(st)) return
+    const id = setInterval(() => setTick(t => t + 1), 100)
+    return () => clearInterval(id)
+  }, [st === null, st && st.phase])
+
+  if (!st || st.phase === 'gone') return null
+
+  const icon = running(st) ? FRAMES[tick % FRAMES.length] : st.phase === 'failed' ? '✗' : '✓'
+  const head =
+    st.phase === 'waiting' ? 'Claude queued' :
+    st.phase === 'running' ? 'Claude is thinking' :
+    st.phase === 'failed' ? 'Claude failed' : 'Claude answered'
+  const parts = [icon + ' ' + head, st.elapsed]
+  if (st.summary) parts.push(st.summary)
+
+  const rows = st.activity.map((a, i) => e('div', {
+    key: i,
+    style: {
+      opacity: i === st.activity.length - 1 ? 0.95 : 0.55,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, a))
+
+  return e('div', { className: 'font-code' },
+    e('div', null, parts.join(' · ')),
+    running(st) && rows.length > 0 ? e('div', { style: { paddingLeft: '2ch' } }, rows) : null)
+}"
+
+/-- The message the tactic logs on its own line while a call is in flight. -/
+private def progressMessage (site : String) (gen : Nat) : MessageData :=
+  .ofWidget
+    { id := ``claudeProgressWidget
+      javascriptHash := claudeProgressWidget.javascriptHash.1
+      props := return json% { site: $site, gen: $gen } }
+    "Claude is thinking…"
+
 /-! ## The tactic -/
 
 /-- Ask the Claude Code CLI what to do with the current proof state.
@@ -375,6 +678,9 @@ elab (name := claudeTactic) "claude" msg:(str)? : tactic => withMainContext do
     report ref cached
     return
   let debounceMs := splean.claude.debounce.get (← getOptions)
+  -- Nothing else will appear on this line until the answer does, which reads
+  -- exactly like a tactic that did nothing. This widget is what says otherwise.
+  logInfoAt ref (progressMessage site gen)
   -- Everything from here on waits on the CLI, so it runs off the elaboration
   -- thread. The token is how Lean tells the task its answer is no longer wanted.
   let cancelTk ← IO.CancelToken.new
@@ -384,7 +690,9 @@ elab (name := claudeTactic) "claude" msg:(str)? : tactic => withMainContext do
       if ← debounce tk? site gen debounceMs then return
       let response? ←
         try runClaudeCLI tk? site gen prompt
-        catch e => throwError "Could not run the `claude` CLI: {e.toMessageData}"
+        catch e =>
+          finishProgress site gen "failed"
+          throwError "Could not run the `claude` CLI: {e.toMessageData}"
       let some response := response? | return
       claudeCache.modify (·.insert prompt response)
       report ref response
