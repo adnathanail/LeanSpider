@@ -19,6 +19,7 @@
 - Read the hypergraphs paper again (with the help of AI)
 
 - double push out rewriting
+- hypergraph rewriting: plan written up in `SpLean/Hypergraph/PLAN.md`
 
 Things to prove:
 - local complementation always terminates
