@@ -284,25 +284,35 @@ hypergraphs give equivalent diagrams* — falls out in three lines from it and
   the lowering, and the work is splitting the conjugating product and the
   summed-over boundary in two.
 
-**Phase 3 — cash it in.** The bridge itself is done —
-`ZX.Equiv.of_hyp_iso : Iso x.toHyp y.toHyp → x ≈zx y` landed with phase 2. What
-is left is making it usable:
+**Phase 3 — cash it in. HALF DONE.** The certificate route works end to end:
+`cnot_cnot_iso` in `SemanticsTesting/10Hypergraph.lean` proves
+`Gate.CNOT ≈zx Gate.CNOT'` by exhibiting an isomorphism whose every side
+condition is `decide`, and it depends on **no** `sorry` — unlike
+`cnot_cnot_rewrite`, which rests on four stubbed rules. What it took:
 
-- **`Hyp.Rel` is `Relation.EqvGen`, a `Prop`**, so nothing about an isomorphism
-  can currently be `decide`d. A computable transitive closure over `ids`
-  (union-find on `Fin wires`), proved to agree with `Rel`, is the first task of
-  this phase and probably its bulk.
-- Then:
+- **`Hyp.Rel` is a `Prop`, so it is replaced by a computable representative
+  map.** `Hyp.rep` (`Decide.lean`) is one pass of quick-find over `ids`, and
+  what is proved about it is `H.Rel u (H.rep u)`, hence
+  `rep u = rep v → H.Rel u v`. The converse is deliberately *not* proved: a
+  certificate is accepted when the representatives agree, so only this
+  direction can make the check unsound. Completeness would only ever cost a
+  certificate that fails to check.
+- **`Iso.ofRepEq`** takes the four pieces of data and restates every `Rel`
+  condition as an equality of representatives, all decidable. The two
+  `map_rel` fields are the ones worth noting: it is enough to check that each
+  *recorded identification* is sent to a related pair, since `Rel` is generated
+  by those, and the general statement follows by induction on the derivation.
+- **`decide` copes** at this size (8 wires, 2 boxes) without special pleading.
 
-- *Concrete goals*: supply the isomorphism as an explicit certificate and
-  discharge its conditions by `decide`. First target: `cnot_cnot_equiv` by
-  certificate, replacing the twelve-line derivation — keep both, since the
-  derivation is a regression test for `zx_rw`.
-- *General laws*: `stack_interchange` and friends quantify over arbitrary
-  `a b c d`, so `decide` has nothing to compute on; each needs its isomorphism
-  *constructed* generically. More work, but it is the real prize — it would
-  discharge the four stubs in `Rules/Structural.lean` and the eight in
-  `Rules/Yank.lean` from one mechanism instead of twelve semantic proofs.
+What is left of this phase is the more valuable half: the **general laws**.
+`stack_interchange` and friends quantify over arbitrary `a b c d`, so `decide`
+has nothing to compute on and `ofRepEq` does not apply — each needs its
+isomorphism *constructed*, with the `Rel` conditions proved rather than
+checked. `compose_assoc` is the one to try first: the two hypergraphs differ
+only in how their wire counts are bracketed, so the wire map is a `Fin.cast`
+along `Nat.add_assoc` and nothing else moves. Doing this would discharge the
+four stubs in `Rules/Structural.lean` and the eight in `Rules/Yank.lean` from
+one mechanism.
 
 **Phase 4 — automation (explicitly out of scope for now).** Searching for the
 isomorphism rather than being handed it. A `MetaM` search emitting a
