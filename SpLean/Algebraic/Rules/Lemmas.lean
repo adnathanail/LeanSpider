@@ -97,6 +97,49 @@ lemma sum_bool_endpoints₂ {n m : ℕ} {M : Type*} [AddCommMonoid M]
   simp only [all_wires_false, all_wires_true, ite_and, Finset.sum_add_distrib]
   simp
 
+/-! ### Splitting a boundary in two
+
+`stack` and `compose` build their boundaries as `Fin (n + p)`, so proofs about
+them take an assignment apart into two halves and put it back. These are
+generic facts about `Fin.addCases`, used both by the rules in `Rules/` and by
+the hypergraph lowering in `Algebraic/ToHypergraph.lean`. -/
+
+/-- A property of every `Fin (n + p)` is one of each half. -/
+theorem forall_fin_add {n p : ℕ} (P : Fin (n + p) → Prop) :
+    (∀ i, P i) ↔ (∀ i : Fin n, P (Fin.castAdd p i)) ∧ (∀ j : Fin p, P (Fin.natAdd n j)) := by
+  constructor
+  · intro h
+    exact ⟨fun i => h _, fun j => h _⟩
+  · rintro ⟨h₁, h₂⟩ i
+    induction i using Fin.addCases
+    · exact h₁ _
+    · exact h₂ _
+
+/-- A `0`/`1` indicator of a conjunction splits into a product. Both `stack`
+and `compose` need this to factor a summand into its two halves. -/
+theorem ite_and_mul {P Q : Prop} [Decidable P] [Decidable Q] :
+    (if P ∧ Q then (1 : ℂ) else 0) = (if P then 1 else 0) * (if Q then 1 else 0) := by
+  by_cases hP : P <;> by_cases hQ : Q <;> simp [hP, hQ]
+
+/-- An assignment to `Fin (w₁ + w₂)` is a pair of assignments. -/
+def addCasesEquiv (w₁ w₂ : ℕ) :
+    ((Fin w₁ → Bool) × (Fin w₂ → Bool)) ≃ (Fin (w₁ + w₂) → Bool) where
+  toFun p := Fin.addCases p.1 p.2
+  invFun a := (fun i => a (Fin.castAdd w₂ i), fun i => a (Fin.natAdd w₁ i))
+  left_inv p := by ext i <;> simp
+  right_inv a := by
+    funext i
+    induction i using Fin.addCases <;> simp
+
+/-- A sum over assignments to `Fin (w₁ + w₂)` is a double sum over the halves. -/
+theorem sum_addCases {M : Type*} [AddCommMonoid M] {w₁ w₂ : ℕ}
+    (F : (Fin (w₁ + w₂) → Bool) → M) :
+    ∑ a : Fin (w₁ + w₂) → Bool, F a
+      = ∑ a₁ : Fin w₁ → Bool, ∑ a₂ : Fin w₂ → Bool, F (Fin.addCases a₁ a₂) := by
+  rw [← (addCasesEquiv w₁ w₂).sum_comp F, Fintype.sum_prod_type]
+  rfl
+
+
 /-! ### `√2` arithmetic -/
 
 lemma inv_root_two_add_self : (√2)⁻¹ + (√2)⁻¹ = √2 := by
