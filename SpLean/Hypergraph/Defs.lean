@@ -67,7 +67,7 @@ here. -/
 inductive Label (Φ : Type) where
   | spider (c : Colour) (φ : Φ)
   | hadamard
-  deriving Repr
+  deriving Repr, DecidableEq
 
 /-- One generator: a label, how many legs it has, and which wire each leg is on.
 
