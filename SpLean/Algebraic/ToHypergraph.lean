@@ -151,48 +151,6 @@ def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
         inputs := fun i => Fin.castAdd B.wires (A.inputs i),
         outputs := fun j => Fin.natAdd A.wires (B.outputs j) }
 
-/-! ## Splitting an assignment
-
-`stack` and `compose` both build their wires as `Fin (A.wires + B.wires)`, so
-every proof about them has to take an assignment apart into the two halves and
-put it back. These are generic facts about `Fin.addCases`, kept here because
-this is the only file that needs them. -/
-
-/-- A property of every `Fin (n + p)` is one of each half. -/
-private theorem forall_fin_add {n p : ℕ} (P : Fin (n + p) → Prop) :
-    (∀ i, P i) ↔ (∀ i : Fin n, P (Fin.castAdd p i)) ∧ (∀ j : Fin p, P (Fin.natAdd n j)) := by
-  constructor
-  · intro h
-    exact ⟨fun i => h _, fun j => h _⟩
-  · rintro ⟨h₁, h₂⟩ i
-    induction i using Fin.addCases
-    · exact h₁ _
-    · exact h₂ _
-
-/-- A `0`/`1` indicator of a conjunction splits into a product. Both `stack`
-and `compose` need this to factor a summand into its two halves. -/
-private theorem ite_and_mul {P Q : Prop} [Decidable P] [Decidable Q] :
-    (if P ∧ Q then (1 : ℂ) else 0) = (if P then 1 else 0) * (if Q then 1 else 0) := by
-  by_cases hP : P <;> by_cases hQ : Q <;> simp [hP, hQ]
-
-/-- An assignment to `Fin (w₁ + w₂)` is a pair of assignments. -/
-private def addCasesEquiv (w₁ w₂ : ℕ) :
-    ((Fin w₁ → Bool) × (Fin w₂ → Bool)) ≃ (Fin (w₁ + w₂) → Bool) where
-  toFun p := Fin.addCases p.1 p.2
-  invFun a := (fun i => a (Fin.castAdd w₂ i), fun i => a (Fin.natAdd w₁ i))
-  left_inv p := by ext i <;> simp
-  right_inv a := by
-    funext i
-    induction i using Fin.addCases <;> simp
-
-/-- A sum over assignments to `Fin (w₁ + w₂)` is a double sum over the halves. -/
-private theorem sum_addCases {M : Type*} [AddCommMonoid M] {w₁ w₂ : ℕ}
-    (F : (Fin (w₁ + w₂) → Bool) → M) :
-    ∑ a : Fin (w₁ + w₂) → Bool, F a
-      = ∑ a₁ : Fin w₁ → Bool, ∑ a₂ : Fin w₂ → Bool, F (Fin.addCases a₁ a₂) := by
-  rw [← (addCasesEquiv w₁ w₂).sum_comp F, Fintype.sum_prod_type]
-  rfl
-
 /-! ## Phase 0 targets
 
 Three instances of `sem_toHyp`, chosen to exercise each part of the encoding
