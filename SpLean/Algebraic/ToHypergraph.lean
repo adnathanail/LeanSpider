@@ -1,5 +1,6 @@
 import SpLean.Algebraic.Semantics
 import SpLean.Algebraic.Rules.Lemmas
+import SpLean.Algebraic.Equiv
 import SpLean.Hypergraph
 
 /-!
@@ -286,5 +287,93 @@ theorem sem_toHyp_stack {n m p q : ℕ} (a : ZX n m) (b : ZX p q)
     Hyp.Sat, forall_fin_add]
   simp only [and_and_and_comm, ite_and_mul]
   ring
+
+/-! ## Compose
+
+The interesting case. The two halves' wires are put side by side as in `stack`,
+but composition also records, for each of the `m` wires they meet at, that
+`a`'s output wire and `b`'s input wire are the same. Those `m` identifications
+are exactly what `ZX.sem`'s `∑ g` ranges over: given assignments to each half,
+there is at most one `g` matching both, and it exists precisely when the
+identified wires agree. -/
+
+theorem sem_toHyp_compose {n m k : ℕ} (a : ZX n m) (b : ZX m k)
+    (ihA : ∀ f g, (a.toHyp).sem AlgPhase.expI f g = a.sem f g)
+    (ihB : ∀ f g, (b.toHyp).sem AlgPhase.expI f g = b.sem f g)
+    (f : Wires n) (h : Wires k) :
+    ((a ≫ b).toHyp).sem AlgPhase.expI f h = (a ≫ b).sem f h := by
+  rw [ZX.sem]
+  simp only [← ihA, ← ihB, Hyp.sem]
+  rw [ZX.toHyp, sum_addCases]
+  simp only [prod_appendBoxes, appendIds_left, appendIds_right, Fin.addCases_left,
+    Fin.addCases_right, embedId, Hyp.Sat, forall_fin_add]
+  simp only [Finset.sum_mul_sum]
+  conv_rhs => rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun xA _ => ?_
+  conv_rhs => rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun xB _ => ?_
+  -- For fixed assignments to the two halves, the sum over the shared boundary
+  -- has one surviving term: `g` is forced to be `a`'s outputs, and it agrees
+  -- with `b`'s inputs exactly when the identified wires do.
+  rw [Finset.sum_eq_single (fun j => xA (a.toHyp.outputs j))]
+  · have hmatch : (∀ j, xA (a.toHyp.outputs j) = xB (b.toHyp.inputs j))
+        ↔ ∀ i, xB (b.toHyp.inputs i) = xA (a.toHyp.outputs i) :=
+      ⟨fun hh i => (hh i).symm, fun hh i => (hh i).symm⟩
+    simp only [hmatch, implies_true, and_true, true_and, ite_and_mul]
+    ring
+  · intro g _ hg
+    have hP : ¬ ∀ j, xA (a.toHyp.outputs j) = g j := fun hh => hg (funext fun j => (hh j).symm)
+    rw [if_neg (fun hc => hP hc.2)]
+    ring
+  · simp
+
+/-! ## The remaining leaves, and the theorem -/
+
+theorem sem_toHyp_empty (f g : Wires 0) :
+    ((ZX.empty).toHyp).sem AlgPhase.expI f g = ZX.empty.sem f g := by
+  simp [ZX.toHyp, Hyp.sem, ZX.sem, Hyp.Sat]
+
+theorem sem_toHyp_hadamard (f g : Wires 1) :
+    ((ZX.hadamard).toHyp).sem AlgPhase.expI f g = ZX.hadamard.sem f g := by
+  simp only [ZX.toHyp, Hyp.sem, ZX.sem, Hyp.Sat, IsEmpty.forall_iff, if_true, mul_one,
+    Fin.forall_fin_one, Fin.prod_univ_one]
+  rw [Finset.sum_eq_single ![f 0, g 0]]
+  · simp only [Label.tensor, Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons,
+      and_self, if_true, one_mul]
+    exact hadTensor_pair _ _
+  · intro x _ hne
+    have : ¬ (x 0 = f 0 ∧ x 1 = g 0) := by
+      rintro ⟨h₀, h₁⟩
+      refine hne (funext fun i => ?_)
+      fin_cases i <;> simp [h₀, h₁]
+    simp [this]
+  · simp
+
+/-- **The lowering preserves the denotation.**
+
+With `Hypergraph.Iso.sem_eq`, this is what makes a hypergraph isomorphism a
+proof of `≈zx`: see `ZX.Equiv.of_hyp_iso` below. -/
+theorem sem_toHyp : ∀ {n m : ℕ} (d : ZX n m) (f : Wires n) (g : Wires m),
+    (d.toHyp).sem AlgPhase.expI f g = d.sem f g
+  | _, _, .empty, f, g => sem_toHyp_empty f g
+  | _, _, .wire, f, g => sem_toHyp_wire f g
+  | _, _, .hadamard, f, g => sem_toHyp_hadamard f g
+  | _, _, .spider c n m φ, f, g => sem_toHyp_spider c n m φ f g
+  | _, _, .stack x y, f, g =>
+      sem_toHyp_stack x y (fun _ _ => sem_toHyp x _ _) (fun _ _ => sem_toHyp y _ _) f g
+  | _, _, .compose x y, f, g =>
+      sem_toHyp_compose x y (fun _ _ => sem_toHyp x _ _) (fun _ _ => sem_toHyp y _ _) f g
+
+/-- **Isomorphic hypergraphs give equivalent diagrams.**
+
+The payoff: an equivalence that is only about how a term is bracketed — which
+is every rule in `Rules/Structural.lean` and `Rules/Yank.lean` — can be settled
+by exhibiting a bijection rather than by a derivation. The scalar is `1`, since
+an isomorphism gives equality on the nose. -/
+theorem ZX.Equiv.of_hyp_iso {n m : ℕ} {x y : ZX n m}
+    (I : Hypergraph.Iso x.toHyp y.toHyp) : x ≈zx y :=
+  ZX.Equiv.of_sem_eq (funext fun f => funext fun g => by
+    rw [← sem_toHyp x f g, ← sem_toHyp y f g]
+    exact I.sem_eq AlgPhase.expI f g)
 
 end SpLean.Algebraic
