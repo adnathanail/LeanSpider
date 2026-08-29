@@ -304,15 +304,43 @@ condition is `decide`, and it depends on **no** `sorry` — unlike
   by those, and the general statement follows by induction on the derivation.
 - **`decide` copes** at this size (8 wires, 2 boxes) without special pleading.
 
-What is left of this phase is the more valuable half: the **general laws**.
-`stack_interchange` and friends quantify over arbitrary `a b c d`, so `decide`
-has nothing to compute on and `ofRepEq` does not apply — each needs its
-isomorphism *constructed*, with the `Rel` conditions proved rather than
-checked. `compose_assoc` is the one to try first: the two hypergraphs differ
-only in how their wire counts are bracketed, so the wire map is a `Fin.cast`
-along `Nat.add_assoc` and nothing else moves. Doing this would discharge the
-four stubs in `Rules/Structural.lean` and the eight in `Rules/Yank.lean` from
-one mechanism.
+### The general laws: what actually worked
+
+The plan here was to *construct* isomorphisms for the laws quantified over
+arbitrary diagrams, since `decide` has nothing to compute on. `Iso.ofStrict`
+(`Iso.lean`) exists for that — it asks for equalities rather than `Hyp.Rel`s,
+which is the shape a law that only re-brackets takes.
+
+**But for the laws actually on the list, proving them from `ZX.sem` directly
+turned out to be far cheaper, and that is how they were done.** `stack_empty`
+is four lines semantically (`Fin.castAdd 0 i` is `i` on the nose, so the two
+boundaries are definitionally the same function) against roughly fifty via an
+isomorphism, which needs `+ 0` lemmas for `appendBoxes` and `appendIds` before
+it can even state the leg permutation. `stack_interchange` is worse: its
+isomorphism is a block permutation of `Fin ((wA+wC)+(wB+wD))` onto
+`Fin ((wA+wB)+(wC+wD))`, and every condition then has to be chased through
+several composed `Equiv`s — where the semantics just factors, because
+`sum_addCases` splits the shared boundary and each row's two layers are already
+adjacent.
+
+So all four stubs in `Rules/Structural.lean` are now proved semantically, and
+so are the four snakes in `Rules/Yank.lean`. The shared machinery
+(`sum_addCases`, `forall_fin_add`, `ite_and_mul`, `addCasesEquiv`) moved from
+`ToHypergraph.lean` into `Rules/Lemmas.lean`, since both sides want it.
+
+**The lesson, for when the next law comes up:** the hypergraph route wins where
+the *diagram* is fixed and the question is whether two terms describe it —
+`cnot_cnot_iso` is that, and it is exactly the case a derivation handles
+badly. It loses where the diagram is a variable, because then there is nothing
+to `decide` and the isomorphism has to be built by hand out of `Fin`
+arithmetic that the semantics never has to mention. `Iso.ofStrict` is kept for
+the rewriting work, where the graphs are again concrete.
+
+Note also what the route cannot reach at all: `Rules/Yank.lean`'s snakes are
+*not* structural. `(cup ⊗ wire) ≫ (wire ⊗ cap)` has two spider boxes and
+`wire` has none, so the two hypergraphs are not isomorphic — the equality is a
+fact about what a phase-free two-legged Z spider denotes, not about the shape
+of the diagram.
 
 **Phase 4 — automation (explicitly out of scope for now).** Searching for the
 isomorphism rather than being handed it. A `MetaM` search emitting a
