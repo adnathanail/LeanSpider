@@ -26,36 +26,41 @@ def AlgSpColor.toHypColour : AlgSpColor → Hypergraph.Colour
   | .Z => .Z
   | .X => .X
 
-private def embedBoxes {Φ : Type} {w w' : ℕ} (e : Fin w → Fin w')
-    (bs : List (Box Φ w)) : List (Box Φ w') :=
-  bs.map fun b => { b with legs := e ∘ b.legs }
+private def embedBox {Φ : Type} {w w' : ℕ} (e : Fin w → Fin w') (b : Box Φ w) : Box Φ w' :=
+  { b with legs := e ∘ b.legs }
 
-private def embedIds {w w' : ℕ} (e : Fin w → Fin w')
-    (is : List (Fin w × Fin w)) : List (Fin w' × Fin w') :=
-  is.map fun p => (e p.1, e p.2)
+private def embedId {w w' : ℕ} (e : Fin w → Fin w') (p : Fin w × Fin w) : Fin w' × Fin w' :=
+  (e p.1, e p.2)
 
 /-- The hypergraph of an algebraic term. -/
 def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
   | _, _, .empty =>
-      { wires := 0, boxes := [], ids := [], inputs := Fin.elim0, outputs := Fin.elim0 }
+      { wires := 0, boxCount := 0, boxes := Fin.elim0, idCount := 0, ids := Fin.elim0,
+        inputs := Fin.elim0, outputs := Fin.elim0 }
   | _, _, .wire =>
-      { wires := 1, boxes := [], ids := [], inputs := fun _ => 0, outputs := fun _ => 0 }
+      { wires := 1, boxCount := 0, boxes := Fin.elim0, idCount := 0, ids := Fin.elim0,
+        inputs := fun _ => 0, outputs := fun _ => 0 }
   | _, _, .hadamard =>
-      { wires := 2, boxes := [{ label := .hadamard, arity := 2, legs := id }], ids := [],
+      { wires := 2,
+        boxCount := 1, boxes := fun _ => { label := .hadamard, arity := 2, legs := id },
+        idCount := 0, ids := Fin.elim0,
         inputs := fun _ => 0, outputs := fun _ => 1 }
   | n, m, .spider c _ _ φ =>
       { wires := n + m,
-        boxes := [{ label := .spider c.toHypColour φ, arity := n + m, legs := id }],
-        ids := [],
+        boxCount := 1,
+        boxes := fun _ => { label := .spider c.toHypColour φ, arity := n + m, legs := id },
+        idCount := 0, ids := Fin.elim0,
         inputs := Fin.castAdd m, outputs := Fin.natAdd n }
   | _, _, .stack a b =>
       let A := a.toHyp
       let B := b.toHyp
       { wires := A.wires + B.wires,
-        boxes := embedBoxes (Fin.castAdd B.wires) A.boxes
-                  ++ embedBoxes (Fin.natAdd A.wires) B.boxes,
-        ids := embedIds (Fin.castAdd B.wires) A.ids
-                ++ embedIds (Fin.natAdd A.wires) B.ids,
+        boxCount := A.boxCount + B.boxCount,
+        boxes := Fin.addCases (fun i => embedBox (Fin.castAdd B.wires) (A.boxes i))
+                              (fun i => embedBox (Fin.natAdd A.wires) (B.boxes i)),
+        idCount := A.idCount + B.idCount,
+        ids := Fin.addCases (fun i => embedId (Fin.castAdd B.wires) (A.ids i))
+                            (fun i => embedId (Fin.natAdd A.wires) (B.ids i)),
         inputs := Fin.addCases (fun i => Fin.castAdd B.wires (A.inputs i))
                                (fun i => Fin.natAdd A.wires (B.inputs i)),
         outputs := Fin.addCases (fun j => Fin.castAdd B.wires (A.outputs j))
@@ -64,12 +69,15 @@ def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
       let A := a.toHyp
       let B := b.toHyp
       { wires := A.wires + B.wires,
-        boxes := embedBoxes (Fin.castAdd B.wires) A.boxes
-                  ++ embedBoxes (Fin.natAdd A.wires) B.boxes,
-        ids := embedIds (Fin.castAdd B.wires) A.ids
-                ++ embedIds (Fin.natAdd A.wires) B.ids
-                ++ List.ofFn (fun i : Fin m =>
-                     (Fin.castAdd B.wires (A.outputs i), Fin.natAdd A.wires (B.inputs i))),
+        boxCount := A.boxCount + B.boxCount,
+        boxes := Fin.addCases (fun i => embedBox (Fin.castAdd B.wires) (A.boxes i))
+                              (fun i => embedBox (Fin.natAdd A.wires) (B.boxes i)),
+        idCount := A.idCount + B.idCount + m,
+        ids := Fin.addCases
+                 (Fin.addCases (fun i => embedId (Fin.castAdd B.wires) (A.ids i))
+                               (fun i => embedId (Fin.natAdd A.wires) (B.ids i)))
+                 (fun i : Fin m =>
+                    (Fin.castAdd B.wires (A.outputs i), Fin.natAdd A.wires (B.inputs i))),
         inputs := fun i => Fin.castAdd B.wires (A.inputs i),
         outputs := fun j => Fin.natAdd A.wires (B.outputs j) }
 
@@ -107,7 +115,7 @@ theorem sem_toHyp_zSpider (n m : ℕ) (φ : AlgPhase) (f : Wires n) (g : Wires m
   rw [Finset.sum_eq_single (Fin.addCases f g)]
   · simp only [AlgSpColor.toHypColour, Label.tensor, Box.bits, zTensor, id_eq,
       Fin.addCases_left, Fin.addCases_right, implies_true, and_self, if_true, one_mul,
-      addCases_forall_eq]
+      Fin.prod_univ_one, addCases_forall_eq]
   · intro a _ hne
     have : ¬ ((∀ i, a (Fin.castAdd m i) = f i) ∧ (∀ j, a (Fin.natAdd n j) = g j)) := by
       rintro ⟨h₁, h₂⟩
@@ -117,9 +125,8 @@ theorem sem_toHyp_zSpider (n m : ℕ) (φ : AlgPhase) (f : Wires n) (g : Wires m
 
 theorem sem_toHyp_wire_compose (f g : Wires 1) :
     ((ZX.wire ≫ ZX.wire).toHyp).sem AlgPhase.expI f g = (ZX.wire ≫ ZX.wire).sem f g := by
-  simp only [ZX.toHyp, Hyp.sem, ZX.sem, embedBoxes, embedIds, List.map_nil, List.nil_append,
-    List.prod_nil, mul_one, List.ofFn_succ, List.ofFn_zero,
-    List.mem_cons, List.not_mem_nil, or_false, forall_eq, Fin.forall_fin_one]
+  simp only [ZX.toHyp, Hyp.sem, ZX.sem, Finset.univ_eq_empty, Finset.prod_empty, mul_one,
+    Fin.forall_fin_one, Fin.addCases, embedId]
   rw [sum_wires2, sum_wires1]
   cases hf : f 0 <;> cases hg : g 0 <;> simp [zeroAmpl, oneAmpl]
 
