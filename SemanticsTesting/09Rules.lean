@@ -163,38 +163,91 @@ def ex37c : ZX 3 2 := Gate.NOTC ⊗ .spider .X 1 0
 def ex37d : ZX 2 2 := (.wire ⊗ .hadamard) ≫ Gate.CX
 def ex37 : ZX 2 2 := ((ex37a ≫ ex37b) ≫ ex37c) ≫ ex37d
 
-/-- The π phase meets the X effect and is absorbed by it.
+/-! ### Two local facts
 
-The π sits on the third qubit of `ex37b` and the X effect on the third qubit of
-`ex37c`, so they are composed — but the term does not say so anywhere. `ex37b`
-cuts its three rows `1 | 1 | 1` and `ex37c` cuts them `2 | 1`, so the two
-spiders are buried on opposite sides of a `≫` that brackets them apart. The
-first step re-cuts both layers `2 | 1`, which puts `X 1 1 π ≫ X 1 0` together
-as a subterm; the second fuses them.
+Both are spider fusion where the spider being absorbed meets only *one* leg of
+its partner, with the other legs passing by. The general form of that is
+`zSpider_fusion_spectator`, still a `sorry`; at these concrete arities the
+semantics settles them directly. -/
 
-Both steps rest on proved facts — `Iso.sem_eq`/`sem_toHyp` for the first and
-`xSpider_fusion` for the second — so this carries no `sorry`. -/
-theorem ex37_absorb_pi : ex37 ≈zx
-    (ex37a ≫ (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC) ⊗ ZX.spider .X 1 0 π)) ≫ ex37d := by
+/-- A Z state fuses into one input of a Z spider, leaving an identity spider. -/
+theorem zState_fusion :
+    ((ZX.wire ⊗ ZX.spider .Z 0 1) ≫ ZX.spider .Z 2 1) ≈zx ZX.spider .Z 1 1 := by
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, zSpiderSem, AlgPhase.expI_zero]
+  rw [sum_wires2]
+  cases hf : f 0 <;> cases hg : g 0 <;> simp [hf, hg]
+
+/-- An X effect fuses into one output of an X spider, taking its phase with it. -/
+theorem xEffect_fusion :
+    (ZX.spider .X 1 2 ≫ (ZX.wire ⊗ ZX.spider .X 1 0 π)) ≈zx ZX.spider .X 1 1 π := by
+  have hsq : ((Real.sqrt 2 : ℝ) : ℂ) ^ 2 = 2 := by
+    norm_cast
+    exact Real.sq_sqrt (by norm_num)
+  have hsq4 : ((Real.sqrt 2 : ℝ) : ℂ) ^ 4 = 4 := by
+    rw [show (4 : ℕ) = 2 * 2 from rfl, pow_mul, hsq]
+    norm_num
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, xSpiderSem, zSpiderSem, hadSem, sum_wires1, sum_wires2]
+  cases hf : f 0 <;> cases hg : g 0 <;>
+    simp [hf, hg, sum_wires1, zeroAmpl, oneAmpl] <;> ring_nf <;> norm_num [hsq, hsq4]
+
+/-- The whole first layer collapses: the `Z` state fuses into the `NOTC`'s `Z`
+spider, which is then a phase-free two-legged spider — a wire. -/
+theorem ex37a_simp : ex37a ≈zx (ZX.wire ⊗ ZX.spider .X 1 2) := by
+  calc ex37a
+      ≈zx ZX.wire ⊗ (ZX.spider .X 1 2
+            ≫ (ZX.wire ⊗ ((ZX.wire ⊗ ZX.spider .Z 0 1) ≫ ZX.spider .Z 2 1))) := by zx_iso
+    _ ≈zx ZX.wire ⊗ (ZX.spider .X 1 2 ≫ (ZX.wire ⊗ ZX.spider .Z 1 1)) := by
+        zx_rw [zState_fusion]
+    _ ≈zx ZX.wire ⊗ (ZX.spider .X 1 2 ≫ (ZX.wire ⊗ ZX.wire)) := by
+        zx_rw [identity_removal_Z]
+    _ ≈zx ZX.wire ⊗ ZX.spider .X 1 2 := by zx_iso
+
+/-- **The rearrangement.** The π starts buried in the middle of the diagram, on
+the third qubit of `ex37b`, and ends up as a single `X(π)` on the input wire —
+with the entire first layer (a `Z` state and a `NOTC`, three spiders) gone.
+
+Every step is one of two kinds. The `zx_iso` steps are *rebracketings*: the
+term is rewritten into one describing the same diagram, which is where all the
+work went in `cnot_cnot_rewrite` and is now free. The `zx_rw` steps are the
+three that actually change the diagram — one fusion each.
+
+The rebracketings are doing more than re-associating. The second one re-cuts
+`ex37b` and `ex37c` (which split their rows `1|1|1` and `2|1`) so that the π
+spider and the X effect become adjacent, and the fourth pulls a Hadamard out
+from between a spider and its effect. Both are things `stack_interchange`
+cannot do, because the wires cross the cut.
+
+No `sorry`: the two local fusions above are proved, and `zx_iso` rests on
+`Iso.sem_eq` and `sem_toHyp`. -/
+theorem ex37_pi_to_input :
+    ex37 ≈zx ((ZX.wire ⊗ (ZX.spider .X 1 1 π ≫ ZX.hadamard)) ≫ Gate.NOTC) ≫ ex37d := by
   calc ex37
-      ≈zx (ex37a ≫ (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC)
-            ⊗ (ZX.spider .X 1 1 π ≫ ZX.spider .X 1 0))) ≫ ex37d := by
-        unfold ex37 ex37a ex37b ex37c ex37d
+      ≈zx (((ZX.wire ⊗ ZX.spider .X 1 2) ≫ ex37b) ≫ ex37c) ≫ ex37d := by
+        unfold ex37
+        zx_rw [ex37a_simp]
+    -- Re-cut so the π spider meets the X effect.
+    _ ≈zx ((ZX.wire ⊗ (ZX.spider .X 1 2
+            ≫ (ZX.hadamard ⊗ (ZX.spider .X 1 1 π ≫ ZX.spider .X 1 0)))) ≫ Gate.NOTC) ≫ ex37d := by
+        unfold ex37b ex37c
         zx_iso
-    _ ≈zx (ex37a ≫ (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC)
-            ⊗ ZX.spider .X 1 0 π)) ≫ ex37d := by
-        zx_rw [xSpider_fusion]
+    _ ≈zx ((ZX.wire ⊗ (ZX.spider .X 1 2 ≫ (ZX.hadamard ⊗ ZX.spider .X 1 0 π)))
+            ≫ Gate.NOTC) ≫ ex37d := by zx_rw [xSpider_fusion]
+    -- Pull the Hadamard out from between the spider and its effect.
+    _ ≈zx ((ZX.wire ⊗ ((ZX.spider .X 1 2 ≫ (ZX.wire ⊗ ZX.spider .X 1 0 π)) ≫ ZX.hadamard))
+            ≫ Gate.NOTC) ≫ ex37d := by zx_iso
+    _ ≈zx ((ZX.wire ⊗ (ZX.spider .X 1 1 π ≫ ZX.hadamard)) ≫ Gate.NOTC) ≫ ex37d := by
+        zx_rw [xEffect_fusion]
 
-/-! ### Where it stops, and why
+/-! ### Where it stops
 
-The next move would be the `Z 0 1` state inside `ex37a` fusing into the `Z 2 1`
-of that `Gate.NOTC`. `zx_iso` can rebracket the term to put them adjacent, but
-the state feeds *one* of that spider's two inputs, with the other passing by —
-which is `zSpider_fusion_spectator`, still a `sorry` in
-`SpLean/Algebraic/Rules/SpiderFusion.lean`.
-
-So the chain is limited by which rules are proved, not by the machinery: every
-structural step along the way is now free. -/
+The π is now on the input wire. Pushing it through to the *output* would go:
+colour change past the Hadamard (`colour_change_X_one`), fuse into the second
+`NOTC`'s Z spider, then π-copy it through the `CX` (`pi_copy_Z`) — all three
+still `sorry`. The structural steps between them would again be `zx_iso`. -/
 
 /-- The two CNOT decompositions agree.
 
