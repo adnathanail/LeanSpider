@@ -12,3 +12,4 @@ import SpLean.Algebraic.Rules.StateCopy
 import SpLean.Algebraic.Rules.StrongComplementarity
 import SpLean.Algebraic.Rules.Structural
 import SpLean.Algebraic.Rules.Swap
+import SpLean.Algebraic.Rules.Yank
