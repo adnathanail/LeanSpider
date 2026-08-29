@@ -1,0 +1,118 @@
+import SpLean.Hypergraph.Iso
+
+/-!
+# Checking an isomorphism
+
+`Iso`'s conditions are stated with `Hyp.Rel`, which is `Relation.EqvGen` — a
+`Prop`, and nothing `decide` can touch. This file gives a computable stand-in
+so that, for a *concrete* pair of hypergraphs, an isomorphism can be supplied
+as a certificate whose side conditions are discharged by `decide`.
+
+## Soundness only
+
+`Hyp.rep` is one pass of quick-find over the recorded identifications: for each
+pair in turn, every wire currently pointing at the first one is repointed at
+the second. What is proved about it is `Hyp.rel_rep : H.Rel u (H.rep u)`, and
+hence `rep u = rep v → H.Rel u v`.
+
+The converse is deliberately not proved. It is true — one pass of quick-find
+does compute the full closure, because each merge relabels an entire class —
+but nothing needs it: a certificate is *accepted* when the `rep`s agree, so
+only this direction can make `Iso.ofRepEq` unsound. If the check is ever too
+weak in practice, that is a completeness bug to fix then, not a soundness one.
+-/
+
+namespace SpLean.Hypergraph
+
+variable {Φ : Type} {n m : ℕ}
+
+/-- Quick-find over the first `k` identifications: having processed the pairs
+below `k`, send every wire that shares a representative with the `k`th pair's
+left end to the representative of its right end. -/
+def Hyp.repAux (H : Hyp Φ n m) : ℕ → Fin H.wires → Fin H.wires
+  | 0, x => x
+  | k + 1, x =>
+      if h : k < H.idCount then
+        (if H.repAux k x = H.repAux k (H.ids ⟨k, h⟩).1
+          then H.repAux k (H.ids ⟨k, h⟩).2
+          else H.repAux k x)
+      else H.repAux k x
+
+/-- A representative for each wire, respecting the identifications. -/
+def Hyp.rep (H : Hyp Φ n m) : Fin H.wires → Fin H.wires := H.repAux H.idCount
+
+theorem Hyp.rel_repAux (H : Hyp Φ n m) : ∀ (k : ℕ) (u : Fin H.wires), H.Rel u (H.repAux k u) := by
+  intro k
+  induction k with
+  | zero => intro u; rfl
+  | succ k ih =>
+      intro u
+      rw [Hyp.repAux]
+      split_ifs with hk hcond
+      · refine (ih u).trans ?_
+        rw [hcond]
+        exact ((ih _).symm).trans ((H.rel_ids ⟨k, hk⟩).trans (ih _))
+      · exact ih u
+      · exact ih u
+
+theorem Hyp.rel_rep (H : Hyp Φ n m) (u : Fin H.wires) : H.Rel u (H.rep u) :=
+  H.rel_repAux _ u
+
+/-- The check that stands in for `Hyp.Rel`. -/
+theorem Hyp.rel_of_rep_eq (H : Hyp Φ n m) {u v : Fin H.wires} (h : H.rep u = H.rep v) :
+    H.Rel u v :=
+  (H.rel_rep u).trans (h ▸ (H.rel_rep v).symm)
+
+/-- Build an `Iso` from data plus conditions that are all decidable, so each
+can be discharged by `decide` for concrete hypergraphs.
+
+Every `Hyp.Rel` in `Iso` becomes an equality of representatives. The two
+`map_rel` fields are the interesting ones: it is enough to check that each
+*recorded identification* is sent to a related pair, since `Rel` is generated
+by those — the general statement then follows by induction on the derivation. -/
+def Iso.ofRepEq {H₁ H₂ : Hyp Φ n m}
+    (wire : Fin H₁.wires → Fin H₂.wires) (wireInv : Fin H₂.wires → Fin H₁.wires)
+    (boxPerm : Fin H₁.boxCount ≃ Fin H₂.boxCount)
+    (legPerm : ∀ i, Fin (H₁.boxes i).arity ≃ Fin (H₂.boxes (boxPerm i)).arity)
+    (hleft : ∀ v, H₁.rep (wireInv (wire v)) = H₁.rep v)
+    (hright : ∀ v, H₂.rep (wire (wireInv v)) = H₂.rep v)
+    (hids₁ : ∀ k, H₂.rep (wire (H₁.ids k).1) = H₂.rep (wire (H₁.ids k).2))
+    (hids₂ : ∀ k, H₁.rep (wireInv (H₂.ids k).1) = H₁.rep (wireInv (H₂.ids k).2))
+    (hin : ∀ i, H₂.rep (wire (H₁.inputs i)) = H₂.rep (H₂.inputs i))
+    (hout : ∀ j, H₂.rep (wire (H₁.outputs j)) = H₂.rep (H₂.outputs j))
+    (hlabel : ∀ i, (H₁.boxes i).label = (H₂.boxes (boxPerm i)).label)
+    (hlegs : ∀ i k, H₂.rep (wire ((H₁.boxes i).legs k))
+      = H₂.rep ((H₂.boxes (boxPerm i)).legs (legPerm i k))) :
+    Iso H₁ H₂ where
+  wire := wire
+  wireInv := wireInv
+  left_inv v := H₁.rel_of_rep_eq (hleft v)
+  right_inv v := H₂.rel_of_rep_eq (hright v)
+  map_rel u v h := by
+    induction h with
+    | rel x y hxy =>
+        obtain ⟨k, hk⟩ := hxy
+        have := hids₁ k
+        rw [hk] at this
+        exact H₂.rel_of_rep_eq this
+    | refl x => exact Relation.EqvGen.refl _
+    | symm x y _ ih => exact ih.symm
+    | trans x y z _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+  map_rel_inv u v h := by
+    induction h with
+    | rel x y hxy =>
+        obtain ⟨k, hk⟩ := hxy
+        have := hids₂ k
+        rw [hk] at this
+        exact H₁.rel_of_rep_eq this
+    | refl x => exact Relation.EqvGen.refl _
+    | symm x y _ ih => exact ih.symm
+    | trans x y z _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+  map_inputs i := H₂.rel_of_rep_eq (hin i)
+  map_outputs j := H₂.rel_of_rep_eq (hout j)
+  boxPerm := boxPerm
+  map_label := hlabel
+  legPerm := legPerm
+  map_legs i k := H₂.rel_of_rep_eq (hlegs i k)
+
+end SpLean.Hypergraph
