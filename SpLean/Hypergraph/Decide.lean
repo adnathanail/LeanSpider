@@ -1,4 +1,5 @@
 import SpLean.Hypergraph.Iso
+import Mathlib.Data.List.GetD
 
 /-!
 # Checking an isomorphism
@@ -26,37 +27,54 @@ namespace SpLean.Hypergraph
 
 variable {Φ : Type} {n m : ℕ}
 
-/-- Quick-find over the first `k` identifications: having processed the pairs
-below `k`, send every wire that shares a representative with the `k`th pair's
-left end to the representative of its right end. -/
-def Hyp.repAux (H : Hyp Φ n m) : ℕ → Fin H.wires → Fin H.wires
-  | 0, x => x
-  | k + 1, x =>
-      if h : k < H.idCount then
-        (if H.repAux k x = H.repAux k (H.ids ⟨k, h⟩).1
-          then H.repAux k (H.ids ⟨k, h⟩).2
-          else H.repAux k x)
-      else H.repAux k x
+/-- The representative table: fold over the identifications, each step
+repointing every wire that currently shares a representative with the pair's
+left end at the representative of its right end.
+
+Threading the table through a `foldl` — rather than recursing on a function
+`Fin wires → Fin wires` — is what keeps this affordable. The recursive form
+needs the previous level at three places (the test and both branches), so
+evaluating it costs `3 ^ idCount`; that is invisible on a diagram with three
+identifications and hangs the kernel on one with twenty. -/
+def Hyp.repList (H : Hyp Φ n m) : List (Fin H.wires) :=
+  (List.finRange H.idCount).foldl
+    (fun t k =>
+      let a := t.getD (H.ids k).1.val (H.ids k).1
+      let b := t.getD (H.ids k).2.val (H.ids k).2
+      t.map fun r => if r = a then b else r)
+    (List.finRange H.wires)
 
 /-- A representative for each wire, respecting the identifications. -/
-def Hyp.rep (H : Hyp Φ n m) : Fin H.wires → Fin H.wires := H.repAux H.idCount
+def Hyp.rep (H : Hyp Φ n m) (x : Fin H.wires) : Fin H.wires := H.repList.getD x.val x
 
-theorem Hyp.rel_repAux (H : Hyp Φ n m) : ∀ (k : ℕ) (u : Fin H.wires), H.Rel u (H.repAux k u) := by
-  intro k
-  induction k with
-  | zero => intro u; rfl
-  | succ k ih =>
-      intro u
-      rw [Hyp.repAux]
-      split_ifs with hk hcond
-      · refine (ih u).trans ?_
-        rw [hcond]
-        exact ((ih _).symm).trans ((H.rel_ids ⟨k, hk⟩).trans (ih _))
-      · exact ih u
-      · exact ih u
+/-- The table stays as long as there are wires, and every entry is related to
+its own index. Both halves are needed together: the length is what lets a
+lookup commute with the `List.map` each step performs. -/
+theorem Hyp.repList_spec (H : Hyp Φ n m) :
+    H.repList.length = H.wires ∧ ∀ x : Fin H.wires, H.Rel x (H.repList.getD x.val x) := by
+  unfold Hyp.repList
+  refine List.foldlRecOn
+    (motive := fun t : List (Fin H.wires) =>
+      t.length = H.wires ∧ ∀ x : Fin H.wires, H.Rel x (t.getD x.val x))
+    _ _ ?_ ?_
+  · refine ⟨by simp, fun x => ?_⟩
+    rw [List.getD_eq_getElem _ _ (by simp [x.isLt])]
+    simp only [List.getElem_finRange]
+    rfl
+  · rintro t ⟨hlen, ih⟩ k -
+    refine ⟨by simpa using hlen, fun x => ?_⟩
+    have hx : x.val < t.length := by rw [hlen]; exact x.isLt
+    rw [List.getD_eq_getElem _ _ (by simpa using hx), List.getElem_map,
+      ← List.getD_eq_getElem _ _ hx]
+    by_cases h : t.getD x.val x = t.getD (H.ids k).1.val (H.ids k).1
+    · rw [if_pos h]
+      exact ((ih x).trans (h ▸ (ih (H.ids k).1).symm)).trans
+        ((H.rel_ids k).trans (ih (H.ids k).2))
+    · rw [if_neg h]
+      exact ih x
 
 theorem Hyp.rel_rep (H : Hyp Φ n m) (u : Fin H.wires) : H.Rel u (H.rep u) :=
-  H.rel_repAux _ u
+  H.repList_spec.2 u
 
 /-- The check that stands in for `Hyp.Rel`. -/
 theorem Hyp.rel_of_rep_eq (H : Hyp Φ n m) {u v : Fin H.wires} (h : H.rep u = H.rep v) :

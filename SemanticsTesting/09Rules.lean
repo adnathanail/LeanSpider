@@ -141,20 +141,60 @@ example :
   -- Drop the `ZX.empty` that `nStackState 0` left at the bottom of the stack.
   zx_rw [empty_stack']
 
--- def algExercise3point7a : ZX 2 3 :=
---   (.wire ⊗ .wire ⊗ .spider .Z 0 1) ≫
---   (.wire ⊗ Gate.NOTC)
--- def algExercise3point7b : ZX 3 3 := .wire ⊗ .hadamard ⊗ .spider .X 1 1 π
--- def algExercise3point7c : ZX 3 2 := (Gate.NOTC ⊗ .spider .X 1 0)
--- def algExercise3point7d : ZX 2 2 := (.wire ⊗ .hadamard) ≫ Gate.CX
--- def algExercise3point7 : ZX 2 2 := ((algExercise3point7a ≫ algExercise3point7b) ≫ algExercise3point7c) ≫ algExercise3point7d
--- #zx algExercise3point7
+/-! ## Exercise 3.7, algebraically
 
--- -- Random RHS - just using this to play around
--- theorem test :
---   algExercise3point7 ≈zx (ZX.spider .X 2 2) := by
---   unfold algExercise3point7 algExercise3point7a algExercise3point7b algExercise3point7c Gate.NOTC
---   zx_rw [stack_interchange (ZX.spider AlgSpColor.X 1 2) (ZX.wire) (ZX.wire) (ZX.spider AlgSpColor.Z 2 1)]
+The diagram `exercise3point7` in `Main.lean`, as an algebraic term. The
+axiomatic proof there explores it with `zx_explore` and a dozen graph rewrites;
+here the aim is the same rearrangement, but written as a `calc` chain that
+alternates two kinds of step:
+
+- **rebracketing**, discharged by `zx_iso` — the two terms describe the same
+  diagram, so nothing has to be derived. This is what the axiomatic side never
+  has to think about and what cost `cnot_cnot_rewrite` most of its twelve
+  lines;
+- **a rule**, by `zx_rw` — the only steps that actually change the diagram.
+
+Writing the rebracketed form out by hand is the price: `zx_iso` proves a
+rebracketing but does not choose one. -/
+
+def ex37a : ZX 2 3 := (.wire ⊗ .wire ⊗ .spider .Z 0 1) ≫ (.wire ⊗ Gate.NOTC)
+def ex37b : ZX 3 3 := .wire ⊗ .hadamard ⊗ .spider .X 1 1 π
+def ex37c : ZX 3 2 := Gate.NOTC ⊗ .spider .X 1 0
+def ex37d : ZX 2 2 := (.wire ⊗ .hadamard) ≫ Gate.CX
+def ex37 : ZX 2 2 := ((ex37a ≫ ex37b) ≫ ex37c) ≫ ex37d
+
+/-- The π phase meets the X effect and is absorbed by it.
+
+The π sits on the third qubit of `ex37b` and the X effect on the third qubit of
+`ex37c`, so they are composed — but the term does not say so anywhere. `ex37b`
+cuts its three rows `1 | 1 | 1` and `ex37c` cuts them `2 | 1`, so the two
+spiders are buried on opposite sides of a `≫` that brackets them apart. The
+first step re-cuts both layers `2 | 1`, which puts `X 1 1 π ≫ X 1 0` together
+as a subterm; the second fuses them.
+
+Both steps rest on proved facts — `Iso.sem_eq`/`sem_toHyp` for the first and
+`xSpider_fusion` for the second — so this carries no `sorry`. -/
+theorem ex37_absorb_pi : ex37 ≈zx
+    (ex37a ≫ (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC) ⊗ ZX.spider .X 1 0 π)) ≫ ex37d := by
+  calc ex37
+      ≈zx (ex37a ≫ (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC)
+            ⊗ (ZX.spider .X 1 1 π ≫ ZX.spider .X 1 0))) ≫ ex37d := by
+        unfold ex37 ex37a ex37b ex37c ex37d
+        zx_iso
+    _ ≈zx (ex37a ≫ (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC)
+            ⊗ ZX.spider .X 1 0 π)) ≫ ex37d := by
+        zx_rw [xSpider_fusion]
+
+/-! ### Where it stops, and why
+
+The next move would be the `Z 0 1` state inside `ex37a` fusing into the `Z 2 1`
+of that `Gate.NOTC`. `zx_iso` can rebracket the term to put them adjacent, but
+the state feeds *one* of that spider's two inputs, with the other passing by —
+which is `zSpider_fusion_spectator`, still a `sorry` in
+`SpLean/Algebraic/Rules/SpiderFusion.lean`.
+
+So the chain is limited by which rules are proved, not by the machinery: every
+structural step along the way is now free. -/
 
 /-- The two CNOT decompositions agree.
 
