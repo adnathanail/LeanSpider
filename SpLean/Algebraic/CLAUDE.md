@@ -66,6 +66,17 @@ unfolds to `nStack k a ⊗ a` of the expected type without a cast.
 fusion goes through the Hadamard-conjugated definition of `xSpiderSem` rather
 than being proved from scratch. Note that fusion is stated only for
 `(n,1) ≫ (1,m)` — spiders joined by *k* parallel wires do not follow from it.
+
+`of_sem_eq` turns `a.sem = b.sem` into `a ≈zx b`, and is the way out when an
+identity is not an instance of any rule. Two decompositions of the same graph
+need not be related by the rules at all: `Gate.CNOT` and `Gate.CNOT'` are the
+same Z spider joined to the same X spider, but one composes Z-then-X and the
+other X-then-Z, so getting between them means *bending* the joining wire — the
+snake equations of `Rules/Yank.lean`, plus stack associativity, none of which
+is proved yet. `cnot_cnot_equiv` (`SemanticsTesting/09Rules.lean`) therefore
+goes through `of_sem_eq` and the already-computed `cnot_sem_agnostic`. Reach
+for a rewrite first; this is the escape hatch, not the habit.
+
 `Rules/Structural.lean` has the laws that let the *other* rules fire:
 `compose_assoc` (needed because `≫` is a constructor, so `(a ≫ b) ≫ c` and
 `a ≫ (b ≫ c)` are different terms and a rule only matches the grouping it was
