@@ -111,6 +111,16 @@ denotations: the `wiresVec*`/`wiresMat*` coercions that let a goal be stated as
   `open SpLean.Algebraic` (see `Main.lean`).
 - **`spider c n m φ`** takes its phase last and defaults it to `0`, so a
   phase-free spider is just `.spider .Z 1 2`.
+- **Ascribe the middle arity when a `≫`'s two layers split their shared
+  boundary differently.** `(cup ⊗ wire) ≫ (wire ⊗ cap)` does not elaborate:
+  the left layer types as `ZX 1 (2 + 1)`, so the right layer meets an expected
+  `ZX (2 + 1) _` while its own `⊗` wants to split that as `1 + 2`, and the two
+  `+`s unify argument by argument before either is reduced — committing to
+  `?n := 2` and then complaining that a `wire` is not a `ZX 2 _`. Writing
+  `(wire ⊗ cap : ZX 3 1)` removes the `+` for the split to match against and it
+  goes through. `Rules/Yank.lean` carries the worked explanation; the same
+  `Nat.add`-reduces-on-the-right asymmetry is behind the arity gaps in
+  `Rules/Structural.lean`.
 - **A spider's colour here is `AlgSpColor`**, not the `SpiderColor` in
   `Axiomatic/ZXDiagram.lean`. Same two constructors, deliberately duplicated: it
   was the last thread tying the two representations together and it bought
