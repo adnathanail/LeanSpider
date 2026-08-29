@@ -103,4 +103,12 @@ structure Hyp (Φ : Type) (n m : ℕ) where
   /-- Which wire each output port is. -/
   outputs : Fin m → Fin wires
 
+/-- An assignment that respects the recorded identifications: the ones
+`Hyp.sem` sums over, and the ones an isomorphism has to match up. -/
+def Hyp.Sat {Φ : Type} {n m : ℕ} (H : Hyp Φ n m) (a : Fin H.wires → Bool) : Prop :=
+  ∀ k, a (H.ids k).1 = a (H.ids k).2
+
+instance {Φ : Type} {n m : ℕ} (H : Hyp Φ n m) : DecidablePred H.Sat :=
+  fun _ => inferInstanceAs (Decidable (∀ _, _))
+
 end SpLean.Hypergraph

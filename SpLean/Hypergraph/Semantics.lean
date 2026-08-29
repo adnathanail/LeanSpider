@@ -55,8 +55,24 @@ noncomputable def Hyp.sem {Φ : Type} (expI : Φ → ℂ) {n m : ℕ} (H : Hyp �
     (f : Bits n) (g : Bits m) : ℂ :=
   ∑ a : Fin H.wires → Bool,
     (if (∀ i, a (H.inputs i) = f i) ∧ (∀ j, a (H.outputs j) = g j) then 1 else 0) *
-      (if ∀ k, a (H.ids k).1 = a (H.ids k).2 then 1 else 0) *
+      (if H.Sat a then 1 else 0) *
       ∏ b, Label.tensor expI (H.boxes b).label ((H.boxes b).bits a)
+
+/-- `sem` as a sum over just the assignments that respect the identifications.
+The `ids` indicator only ever kills terms, so dropping it and restricting the
+sum is the same thing — and the restricted form is what an isomorphism can be
+transported along, since its two wire maps are inverse only on these. -/
+theorem Hyp.sem_eq_sum_sat {Φ : Type} (expI : Φ → ℂ) {n m : ℕ} (H : Hyp Φ n m)
+    (f : Bits n) (g : Bits m) :
+    H.sem expI f g = ∑ a : {a : Fin H.wires → Bool // H.Sat a},
+      (if (∀ i, a.1 (H.inputs i) = f i) ∧ (∀ j, a.1 (H.outputs j) = g j) then 1 else 0) *
+        ∏ b, Label.tensor expI (H.boxes b).label ((H.boxes b).bits a.1) := by
+  rw [Hyp.sem, ← Finset.sum_subset (Finset.filter_subset H.Sat Finset.univ)
+    (fun a _ ha => by
+      have : ¬ H.Sat a := by simpa using ha
+      simp [this])]
+  rw [Finset.sum_subtype (p := H.Sat) _ (fun x => by simp)]
+  exact Finset.sum_congr rfl fun a _ => by rw [if_pos a.2, mul_one]
 
 /-! ## Reindexing legs
 

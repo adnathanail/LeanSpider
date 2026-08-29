@@ -91,7 +91,7 @@ catches a merge which leaves a wire summed over freely). -/
 
 theorem sem_toHyp_wire (f g : Wires 1) :
     (ZX.wire.toHyp).sem AlgPhase.expI f g = ZX.wire.sem f g := by
-  simp only [ZX.toHyp, Hyp.sem, ZX.sem, List.map_nil, List.prod_nil, List.not_mem_nil,
+  simp only [ZX.toHyp, Hyp.sem, ZX.sem, Hyp.Sat, Finset.univ_eq_empty, Finset.prod_empty,
     IsEmpty.forall_iff, implies_true, if_true, mul_one, Fin.forall_fin_one]
   rw [sum_wires1]
   cases hf : f 0 <;> cases hg : g 0 <;> simp [zeroAmpl, oneAmpl]
@@ -109,9 +109,8 @@ private theorem addCases_forall_eq {n m : ℕ} (f : Wires n) (g : Wires m) (b : 
 
 theorem sem_toHyp_zSpider (n m : ℕ) (φ : AlgPhase) (f : Wires n) (g : Wires m) :
     ((ZX.spider .Z n m φ).toHyp).sem AlgPhase.expI f g = (ZX.spider .Z n m φ).sem f g := by
-  simp only [ZX.toHyp, Hyp.sem, ZX.sem, zSpiderSem, List.map_cons,
-    List.map_nil, List.prod_cons, List.prod_nil, mul_one, List.not_mem_nil, IsEmpty.forall_iff,
-    implies_true, if_true]
+  simp only [ZX.toHyp, Hyp.sem, ZX.sem, zSpiderSem, Hyp.Sat, IsEmpty.forall_iff,
+    implies_true, if_true, mul_one]
   rw [Finset.sum_eq_single (Fin.addCases f g)]
   · simp only [AlgSpColor.toHypColour, Label.tensor, Box.bits, zTensor, id_eq,
       Fin.addCases_left, Fin.addCases_right, implies_true, and_self, if_true, one_mul,
@@ -125,7 +124,7 @@ theorem sem_toHyp_zSpider (n m : ℕ) (φ : AlgPhase) (f : Wires n) (g : Wires m
 
 theorem sem_toHyp_wire_compose (f g : Wires 1) :
     ((ZX.wire ≫ ZX.wire).toHyp).sem AlgPhase.expI f g = (ZX.wire ≫ ZX.wire).sem f g := by
-  simp only [ZX.toHyp, Hyp.sem, ZX.sem, Finset.univ_eq_empty, Finset.prod_empty, mul_one,
+  simp only [ZX.toHyp, Hyp.sem, ZX.sem, Hyp.Sat, Finset.univ_eq_empty, Finset.prod_empty, mul_one,
     Fin.forall_fin_one, Fin.addCases, embedId]
   rw [sum_wires2, sum_wires1]
   cases hf : f 0 <;> cases hg : g 0 <;> simp [zeroAmpl, oneAmpl]
