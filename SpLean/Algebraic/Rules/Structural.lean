@@ -2,6 +2,7 @@ import SpLean.Algebraic.ZX
 import SpLean.Algebraic.Equiv
 import SpLean.Algebraic.Rules.Lemmas
 import SpLean.Algebraic.Combinators
+import SpLean.Algebraic.Cast
 import SpLean.Algebraic.Tactics
 
 namespace SpLean.Algebraic
@@ -176,6 +177,17 @@ theorem stack_assoc {n m p q r s : ℕ} (a : ZX n m) (b : ZX p q) (c : ZX r s) :
   simp only [ZX.sem, mul_assoc, hll, hlr, hr]
 
 
+/-- `stack_assoc` the other way round, so that a `(a ⊗ b) ⊗ c` sitting in a
+goal can be *re*-grouped. Rewriting with `stack_assoc` itself only fires on a
+term that already carries the cast, which a goal will not; this is that
+statement moved across the `≈zx` with `cast_iff`, and it is the form a
+derivation actually rewrites with (follow it with `simp only [ZX.cast_self]`,
+which clears the cast whenever the arities are numerals). -/
+theorem stack_assoc_symm {n m p q r s : ℕ} (a : ZX n m) (b : ZX p q) (c : ZX r s) :
+    ((a ⊗ b) ⊗ c)
+      ≈zx ZX.cast (Nat.add_assoc n p r).symm (Nat.add_assoc m q s).symm (a ⊗ (b ⊗ c)) :=
+  (ZX.Equiv.cast_iff _ _ _ _).mp (stack_assoc a b c)
+
 /-- Stacking the empty diagram on the right does nothing. -/
 theorem stack_empty {n m : ℕ} (a : ZX n m) : (a ⊗ .empty) ≈zx a := by
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
@@ -288,5 +300,45 @@ theorem nStackState_congr {k : ℕ} {a b : ZX 0 1} (h : a ≈zx b) :
   induction k with
   | zero => rfl
   | succ k ih => exact ZX.Equiv.stack_congr ih h
+
+/-! ### Splitting a row into layers
+
+A rewrite has to reach a subdiagram, and a subdiagram that is a *composition
+inside one row of a stack* is not in the shape any rule matches: `a ⊗ (c ≫ d)`
+has no `≫` at its head, so nothing fires on the two layers separately. These
+two put it back into layers, padding the row that has nothing to do with
+`nWire`. They are the practical form of `stack_interchange` — that states the
+law, these are how it gets used — and they are what a derivation reaches for
+after a rule has introduced a composition into one row (`Rules/Yank.lean`'s
+`bend_output` does exactly that). -/
+
+/-- A composition in the lower row of a stack splits into two layers, with the
+upper row waiting on `nWire`. -/
+theorem stack_compose_below {n m p q r : ℕ} (a : ZX n m) (c : ZX p q) (d : ZX q r) :
+    (a ⊗ (c ≫ d)) ≈zx ((a ⊗ c) ≫ (ZX.nWire m ⊗ d)) :=
+  (ZX.Equiv.stack_congr (compose_nWire a).symm (ZX.Equiv.refl _)).trans
+    (stack_interchange a (ZX.nWire m) c d).symm
+
+/-- A composition in the upper row of a stack splits into two layers, with the
+lower row waiting on `nWire`. -/
+theorem stack_compose_above {n m k p q : ℕ} (a : ZX n m) (b : ZX m k) (c : ZX p q) :
+    ((a ≫ b) ⊗ c) ≈zx ((a ⊗ c) ≫ (b ⊗ ZX.nWire q)) :=
+  (ZX.Equiv.stack_congr (ZX.Equiv.refl _) (compose_nWire c).symm).trans
+    (stack_interchange a b c (ZX.nWire q)).symm
+
+/-! ### `nWire` at small arities
+
+`ZX.nWire 1` is not `ZX.wire` on the nose — it unfolds to `.empty ⊗ .wire` —
+so the `nWire`s that `stack_compose_below`/`stack_compose_above` leave behind
+have to be turned back into plain wires before a `wire` rule will match them.
+These two do that, and they are `empty_stack` in disguise. -/
+
+theorem nWire_one : ZX.nWire 1 ≈zx ZX.wire := by
+  have h := empty_stack ZX.wire
+  simp only [ZX.cast_self] at h
+  exact h
+
+theorem nWire_two : ZX.nWire 2 ≈zx (ZX.wire ⊗ ZX.wire) :=
+  ZX.Equiv.stack_congr nWire_one (ZX.Equiv.refl _)
 
 end SpLean.Algebraic
