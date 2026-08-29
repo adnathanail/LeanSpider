@@ -241,12 +241,187 @@ theorem ex37_pi_to_input :
     _ ≈zx ((ZX.wire ⊗ (ZX.spider .X 1 1 π ≫ ZX.hadamard)) ≫ Gate.NOTC) ≫ ex37d := by
         zx_rw [xEffect_fusion]
 
-/-! ### Where it stops
+/-! ### Moving a π around
 
-The π is now on the input wire. Pushing it through to the *output* would go:
-colour change past the Hadamard (`colour_change_X_one`), fuse into the second
-`NOTC`'s Z spider, then π-copy it through the `CX` (`pi_copy_Z`) — all three
-still `sorry`. The structural steps between them would again be `zx_iso`. -/
+Six local facts. All are concrete instances of rules that are still `sorry` in
+the general case — spectator fusion, colour change, π-commutation — and at
+these arities the semantics settles five of them outright. Only
+`xPi_past_hadamard` leans on a stub (`colour_change_X_one`), and everything
+downstream of it inherits that. -/
+
+/-- Commute an X(π) past a Hadamard, turning it green. -/
+theorem xPi_past_hadamard :
+    (ZX.spider .X 1 1 π ≫ ZX.hadamard) ≈zx (ZX.hadamard ≫ ZX.spider .Z 1 1 π) := by
+  calc (ZX.spider .X 1 1 π ≫ ZX.hadamard)
+      ≈zx ((ZX.hadamard ≫ ZX.hadamard) ≫ ZX.spider .X 1 1 π) ≫ ZX.hadamard := by
+        zx_rw [hadamard_hadamard, wire_compose]
+    _ ≈zx ZX.hadamard ≫ ((ZX.hadamard ≫ ZX.spider .X 1 1 π) ≫ ZX.hadamard) := by zx_iso
+    _ ≈zx ZX.hadamard ≫ ZX.spider .Z 1 1 π := by zx_rw [colour_change_X_one]
+
+/-- A one-legged Z spider fuses into one input of a Z spider. -/
+theorem zPi_fuse :
+    ((ZX.wire ⊗ ZX.spider .Z 1 1 π) ≫ ZX.spider .Z 2 1) ≈zx ZX.spider .Z 2 1 π := by
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, zSpiderSem, AlgPhase.expI_zero]
+  rw [sum_wires2]
+  cases hf0 : f 0 <;> cases hf1 : f 1 <;> cases hg : g 0 <;> simp [hf0, hf1, hg]
+
+/-- Onto the second `NOTC`: commute the π past the Hadamard and fuse it into
+the `Z` spider there. -/
+theorem ex37_pi_onto_notc :
+    (((ZX.wire ⊗ (ZX.spider .X 1 1 π ≫ ZX.hadamard)) ≫ Gate.NOTC) ≫ ex37d)
+      ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 π : ZX 3 2)) ≫ ex37d := by
+  calc (((ZX.wire ⊗ (ZX.spider .X 1 1 π ≫ ZX.hadamard)) ≫ Gate.NOTC) ≫ ex37d)
+      ≈zx ((ZX.wire ⊗ (ZX.hadamard ≫ ZX.spider .Z 1 1 π)) ≫ Gate.NOTC) ≫ ex37d := by
+        zx_rw [xPi_past_hadamard]
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ((ZX.wire ⊗ ZX.spider .Z 1 1 π) ≫ ZX.spider .Z 2 1) : ZX 3 2)) ≫ ex37d := by
+        zx_iso
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 π : ZX 3 2)) ≫ ex37d := by
+        zx_rw [zPi_fuse]
+
+theorem zUnfuse_pi : ZX.spider .Z 2 1 π ≈zx (ZX.spider .Z 2 1 ≫ ZX.spider .Z 1 1 π) := by
+  simpa using (zSpider_fusion 2 1 0 π).symm
+
+theorem zPi_past_hadamard :
+    (ZX.spider .Z 1 1 π ≫ ZX.hadamard) ≈zx (ZX.hadamard ≫ ZX.spider .X 1 1 π) := by
+  calc (ZX.spider .Z 1 1 π ≫ ZX.hadamard)
+      ≈zx ((ZX.hadamard ≫ ZX.hadamard) ≫ ZX.spider .Z 1 1 π) ≫ ZX.hadamard := by
+        zx_rw [hadamard_hadamard, wire_compose]
+    _ ≈zx ZX.hadamard ≫ ((ZX.hadamard ≫ ZX.spider .Z 1 1 π) ≫ ZX.hadamard) := by zx_iso
+    _ ≈zx ZX.hadamard ≫ ZX.spider .X 1 1 π := by zx_rw [colour_change_one]
+
+theorem pi_copy_Z21 :
+    ((ZX.wire ⊗ ZX.spider .X 1 1 π) ≫ ZX.spider .Z 2 1)
+      ≈zx ((ZX.spider .X 1 1 π ⊗ ZX.wire) ≫ ZX.spider .Z 2 1) ≫ ZX.spider .X 1 1 π := by
+  have hsq : ((Real.sqrt 2 : ℝ) : ℂ) ^ 2 = 2 := by
+    norm_cast
+    exact Real.sq_sqrt (by norm_num)
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, xSpiderSem, zSpiderSem, hadSem, sum_wires1, sum_wires2,
+    AlgPhase.expI_one, AlgPhase.expI_zero]
+  cases hf0 : f 0 <;> cases hf1 : f 1 <;> cases hg : g 0 <;>
+    simp [hf0, hf1, hg, sum_wires1, sum_wires2, zeroAmpl, oneAmpl] <;> ring_nf <;>
+      norm_num [hsq]
+
+/-- A π on one output leg of a Z spider can be moved to the other. -/
+theorem zPi_swap_legs :
+    (ZX.spider .Z 1 2 ≫ (ZX.wire ⊗ ZX.spider .Z 1 1 π))
+      ≈zx (ZX.spider .Z 1 2 ≫ (ZX.spider .Z 1 1 π ⊗ ZX.wire)) := by
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, zSpiderSem, AlgPhase.expI_one, AlgPhase.expI_zero]
+  rw [sum_wires2, sum_wires2]
+  cases hf : f 0 <;> cases hg0 : g 0 <;> cases hg1 : g 1 <;> simp [hf, hg0, hg1]
+
+/-- Through the `CX`: unfuse the π, commute it past the next Hadamard, and
+π-copy it through the final `Z` spider — which puts one copy on an output. -/
+theorem ex37_pi_through_cx :
+    ((((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+        ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 π : ZX 3 2)) ≫ ex37d)
+      ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+          ≫ ((ZX.wire ⊗ ZX.hadamard)
+            ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.hadamard ⊗ ZX.wire))
+              ≫ (ZX.wire ⊗ (((ZX.spider .X 1 1 π ⊗ ZX.wire) ≫ ZX.spider .Z 2 1)
+                   ≫ ZX.spider .X 1 1 π) : ZX 3 2))) := by
+  calc ((((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+          ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 π : ZX 3 2)) ≫ ex37d)
+      -- Unfuse the π off the spider.
+      ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ (ZX.spider .Z 2 1 ≫ ZX.spider .Z 1 1 π) : ZX 3 2)) ≫ ex37d := by
+        zx_rw [zUnfuse_pi]
+      -- Slide it up against the next Hadamard, then commute it past.
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+          ≫ ((ZX.wire ⊗ (ZX.spider .Z 1 1 π ≫ ZX.hadamard)) ≫ Gate.CX) := by
+        unfold ex37d
+        zx_iso
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+          ≫ ((ZX.wire ⊗ (ZX.hadamard ≫ ZX.spider .X 1 1 π)) ≫ Gate.CX) := by
+        zx_rw [zPi_past_hadamard]
+      -- Carry it down to the CX's Z spider, then π-copy through it.
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+          ≫ ((ZX.wire ⊗ ZX.hadamard)
+            ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.hadamard ⊗ ZX.wire))
+              ≫ (ZX.wire ⊗ ((ZX.wire ⊗ ZX.spider .X 1 1 π) ≫ ZX.spider .Z 2 1)
+                   : ZX 3 2))) := by
+        unfold Gate.CX
+        zx_iso
+    _ ≈zx _ := by zx_rw [pi_copy_Z21]
+
+/-- The other copy: carry it back past the Hadamard, onto the `Z` spider it
+came from, and out along the other output. -/
+theorem ex37_pi_to_outputs :
+    ((((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+        ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+      ≫ ((ZX.wire ⊗ ZX.hadamard)
+        ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.hadamard ⊗ ZX.wire))
+          ≫ (ZX.wire ⊗ (((ZX.spider .X 1 1 π ⊗ ZX.wire) ≫ ZX.spider .Z 2 1)
+               ≫ ZX.spider .X 1 1 π) : ZX 3 2))))
+      ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC) ≫ ex37d)
+            ≫ (ZX.spider .Z 1 1 π ⊗ ZX.spider .X 1 1 π) := by
+  calc ((((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+          ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+        ≫ ((ZX.wire ⊗ ZX.hadamard)
+          ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.hadamard ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ (((ZX.spider .X 1 1 π ⊗ ZX.wire) ≫ ZX.spider .Z 2 1)
+                 ≫ ZX.spider .X 1 1 π) : ZX 3 2))))
+      -- G: group the copied π with the Hadamard in front of it, and commute.
+      ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+          ≫ ((ZX.wire ⊗ ZX.hadamard)
+            ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire)
+                 ≫ ((ZX.wire ⊗ (ZX.hadamard ≫ ZX.spider .X 1 1 π)) ⊗ ZX.wire))
+              ≫ (ZX.wire ⊗ (ZX.spider .Z 2 1 ≫ ZX.spider .X 1 1 π) : ZX 3 2))) := by
+        zx_iso
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+          ≫ ((ZX.wire ⊗ ZX.hadamard)
+            ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire)
+                 ≫ ((ZX.wire ⊗ (ZX.spider .Z 1 1 π ≫ ZX.hadamard)) ⊗ ZX.wire))
+              ≫ (ZX.wire ⊗ (ZX.spider .Z 2 1 ≫ ZX.spider .X 1 1 π) : ZX 3 2))) := by
+        zx_rw [← zPi_past_hadamard]
+      -- H: put the π next to the spider it came from, then move it to the other leg.
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+          ≫ ((ZX.wire ⊗ ZX.hadamard)
+            ≫ ((((ZX.spider .Z 1 2 ≫ (ZX.wire ⊗ ZX.spider .Z 1 1 π)) ⊗ ZX.wire)
+                 ≫ ((ZX.wire ⊗ ZX.hadamard) ⊗ ZX.wire))
+              ≫ (ZX.wire ⊗ (ZX.spider .Z 2 1 ≫ ZX.spider .X 1 1 π) : ZX 3 2))) := by
+        zx_iso
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
+            ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+          ≫ ((ZX.wire ⊗ ZX.hadamard)
+            ≫ ((((ZX.spider .Z 1 2 ≫ (ZX.spider .Z 1 1 π ⊗ ZX.wire)) ⊗ ZX.wire)
+                 ≫ ((ZX.wire ⊗ ZX.hadamard) ⊗ ZX.wire))
+              ≫ (ZX.wire ⊗ (ZX.spider .Z 2 1 ≫ ZX.spider .X 1 1 π) : ZX 3 2))) := by
+        zx_rw [zPi_swap_legs]
+      -- I: both π's are now on output wires; float them to the end.
+    _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC) ≫ ex37d)
+          ≫ (ZX.spider .Z 1 1 π ⊗ ZX.spider .X 1 1 π) := by
+        unfold ex37d Gate.NOTC Gate.CX
+        zx_iso
+
+/-- **The rearrangement, finished.** `ex37` is a phase-free diagram followed by
+a π on each output wire.
+
+Nine rule applications and seven rebracketings. Every rebracketing is a
+`zx_iso` — the terms describe the same diagram, so there is nothing to derive —
+and they are what makes each rule's redex visible in the first place. That
+division is the point: the ZX content is the nine `zx_rw`s, and the bookkeeping
+that used to dominate a derivation is now a tactic call. -/
+theorem ex37_pi_out :
+    ex37 ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC) ≫ ex37d)
+            ≫ (ZX.spider .Z 1 1 π ⊗ ZX.spider .X 1 1 π) :=
+  ((ex37_pi_to_input.trans ex37_pi_onto_notc).trans ex37_pi_through_cx).trans
+    ex37_pi_to_outputs
 
 /-- The two CNOT decompositions agree — and **not** by rewriting.
 
