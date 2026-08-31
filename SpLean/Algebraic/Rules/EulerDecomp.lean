@@ -1,5 +1,6 @@
 import SpLean.Algebraic.Equiv
 import SpLean.Algebraic.Rules.Lemmas
+import SpLean.Algebraic.Reassoc
 
 namespace SpLean.Algebraic
 
@@ -19,6 +20,7 @@ theorem exp_neg_i_pi_over_four_eq :
   ring
 
 /-- Euler decomposition: `H = e^{-iπ/4} Z(π/2) ≫ X(π/2) ≫ Z(π/2)` -/
+@[zx_reassoc]
 theorem euler_decomp_ZXZ :
     ZX.hadamard
       ≈zx (ZX.spider .Z 1 1 (π/2) ≫ ZX.spider .X 1 1 (π/2) ≫ ZX.spider .Z 1 1 (π/2)) := by
@@ -36,6 +38,7 @@ theorem euler_decomp_ZXZ :
 
 /-- Euler decomposition with the colours swapped:
 `H = X(π/2) ≫ Z(π/2) ≫ X(π/2)`, up to a scalar. -/
+@[zx_reassoc]
 theorem euler_decomp_XZX :
     ZX.hadamard
       ≈zx (ZX.spider .X 1 1 (π/2) ≫ ZX.spider .Z 1 1 (π/2) ≫ ZX.spider .X 1 1 (π/2)) := by

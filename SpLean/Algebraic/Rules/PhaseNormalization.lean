@@ -1,5 +1,6 @@
 import SpLean.Algebraic.Equiv
 import SpLean.Algebraic.AlgPhase
+import SpLean.Algebraic.Reassoc
 
 namespace SpLean.Algebraic
 
@@ -13,6 +14,7 @@ For a *closed* phase the normal form still has to be computed — `normalize
 (2π)` is not syntactically `0` — and `decide` cannot do it, since `Int.floor`
 on `ℚ` does not reduce in the kernel. Follow the rewrite with
 `norm_num [AlgPhase.normalize, AlgPhase.red]`. -/
+@[zx_reassoc]
 theorem spider_normalize (c : AlgSpColor) (n m : ℕ) (α : AlgPhase) :
     ZX.spider c n m α ≈zx ZX.spider c n m (AlgPhase.normalize α) :=
   ZX.Equiv.spider_congr c n m (AlgPhase.expI_normalize α).symm

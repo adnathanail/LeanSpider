@@ -5,9 +5,11 @@ import SpLean.Algebraic.Rules.ColourChange
 import SpLean.Algebraic.Tactics
 import SpLean.Algebraic.Rules.Structural
 import SpLean.Algebraic.Rules.HadamardHadamard
+import SpLean.Algebraic.Reassoc
 
 namespace SpLean.Algebraic
 
+@[zx_reassoc]
 theorem spider_fusion_Z_one_wire (n m : ℕ) (α β : AlgPhase) :
     (ZX.spider .Z n 1 α ≫ ZX.spider .Z 1 m β) ≈zx ZX.spider .Z n m (α + β) := by
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
@@ -18,6 +20,7 @@ theorem spider_fusion_Z_one_wire (n m : ℕ) (α β : AlgPhase) :
   simp only [ite_and]
   split_ifs <;> ring
 
+@[zx_reassoc]
 theorem spider_fusion_X_one_wire (n m : ℕ) (α β : AlgPhase) :
     (ZX.spider .X n 1 α ≫ ZX.spider .X 1 m β) ≈zx ZX.spider .X n m (α + β) := by
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
@@ -43,6 +46,7 @@ theorem spider_fusion_X_one_wire (n m : ℕ) (α β : AlgPhase) :
 Fusion along k+1 wires, so that fusion along 0 wires (impossible!) is not representable -/
 
 /-- Z spider fusion along `k + 1` parallel wires. -/
+@[zx_reassoc]
 theorem spider_fusion_Z (n m k : ℕ) (α β : AlgPhase) :
     (ZX.spider .Z n (k + 1) α ≫ ZX.spider .Z (k + 1) m β) ≈zx
       ZX.spider .Z n m (α + β) := by
@@ -73,15 +77,14 @@ theorem spider_fusion_Z (n m k : ℕ) (α β : AlgPhase) :
   simp [zSpiderSem, ite_and]
 
 /-- X spider fusion along `k + 1` parallel wires. -/
+@[zx_reassoc]
 theorem spider_fusion_X (n m k : ℕ) (α β : AlgPhase) :
     (ZX.spider .X n (k + 1) α ≫ ZX.spider .X (k + 1) m β) ≈zx ZX.spider .X n m (α + β) := by
   zx_rw [colour_change_X_Z]
   zx_rw [colour_change_X_Z]
-  repeat grw [compose_assoc]
-  grw [← compose_assoc (ZX.nHadamard (k + 1)) (ZX.nHadamard (k + 1))]
-  zx_rw [hadamard_hadamard_n, nWire_compose]
-  grw [← compose_assoc (ZX.spider AlgSpColor.Z n (k + 1) α)]
-  zx_rw [spider_fusion_Z]
+  zx_assoc
+  zx_rw [hadamard_hadamard_n_assoc]
+  zx_rw [spider_fusion_Z_assoc]
   zx_rw [← colour_change_X_Z]
 
 end SpLean.Algebraic
