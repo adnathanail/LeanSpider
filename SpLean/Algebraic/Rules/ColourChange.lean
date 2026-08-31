@@ -5,6 +5,10 @@ import SpLean.Algebraic.Tactics
 import SpLean.Algebraic.Rules.Structural
 import SpLean.Algebraic.Rules.HadamardHadamard
 
+import SpLean.Panel
+
+show_panel_widgets [local SpLean.ZXPanel]
+
 namespace SpLean.Algebraic
 
 /-- Colour change (arity 1 1): swap X spider for H Z H -/
@@ -24,8 +28,7 @@ theorem colour_change_Z_X_one_wire (α : AlgPhase) :
   zx_rw [colour_change_X_Z_one_wire]
   zx_rw [← compose_assoc _ _ ZX.hadamard]
   zx_rw [← compose_assoc ZX.hadamard ZX.hadamard]
-  zx_rw [hadamard_hadamard]
-  zx_rw [wire_compose]
+  zx_rw [hadamard_hadamard, wire_compose]
   zx_rw [compose_assoc]
   zx_rw [hadamard_hadamard]
   zx_rw [compose_wire]

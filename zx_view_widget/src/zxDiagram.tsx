@@ -93,7 +93,11 @@ function ZXPanel({
 }) {
   const ref = React.useRef<ZxDiagramElement | null>(null)
   React.useEffect(() => {
-    if (ref.current) ref.current.diagram = diagram
+    if (ref.current) {
+      // ref.current.viewMode = 'both-vertical'
+      ref.current.scale = 30
+      ref.current.diagram = diagram
+    }
   }, [diagram])
   React.useEffect(() => {
     if (ref.current) ref.current.showLabels = showIds
