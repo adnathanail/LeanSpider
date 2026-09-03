@@ -61,11 +61,62 @@ stacked copies of a `ZX 1 1`, a wire, a Hadamard) and the phase-free Z-spider
 arity index (`Nat.add` recurses on its second argument), so `ZX.nStack (k+1) a`
 unfolds to `nStack k a ⊗ a` of the expected type without a cast.
 
-`Rules/` proves rules against `sem` rather than assuming them.
+### `of_sem_eq`
+
+`of_sem_eq` turns `a.sem = b.sem` into `a ≈zx b`, and is the way out when an
+identity is not an instance of any rule. Two decompositions of the same graph
+need not be related by the rules at all: `Gate.CNOT` and `Gate.CNOT'` are the
+same Z spider joined to the same X spider, but one composes Z-then-X and the
+other X-then-Z, so getting between them means *bending* the joining wire, which
+no rule about spiders can do. `cnot_cnot_equiv` (`SemanticsTesting/09Rules.lean`)
+therefore goes through `of_sem_eq` and the already-computed `cnot_sem_agnostic`.
+Reach for a rewrite first; this is the escape hatch, not the habit —
+`cnot_cnot_rewrite`, beside it, is the same fact derived from the rules
+instead, and is worth reading as the worked example of how they compose.
+
+### Rules
+
+`Rules/` proves rules against `sem` rather than assuming them. **The whole
+standard rule set is *stated*, and most of it is proved; what is left is a
+`sorry`.** A `sorry` here is a stub, not a regression: it means the statement
+has been pinned down (and typechecks, which for an arity-indexed ADT is most of
+the work) and the proof is outstanding. So `grep -rn sorry
+SpLean/Algebraic/Rules/` is the to-do list, and adding a rule means removing a
+`sorry`, not writing a new theorem.
+
 `Rules/SpiderFusion.lean` has Z and X fusion; both come out with `c = 1`, and X
 fusion goes through the Hadamard-conjugated definition of `xSpiderSem` rather
-than being proved from scratch. Note that fusion is stated only for
+than being proved from scratch. Note that fusion is proved only for
 `(n,1) ≫ (1,m)` — spiders joined by *k* parallel wires do not follow from it.
+Fusion along `k+1` wires, and `spider_fusion_Z_spectator` (fusion with wires
+passing alongside the connection, stated over `ZX.cast`), are stubs.
+
+Also stubbed: `Rules/Hopf.lean`, and `Rules/Yank.lean` (the snake equations,
+and bending a spider's leg from an input into an output — the only rules that
+change a spider's arity). `Rules/StrongComplementarity.lean` proves the 2-2
+case over the `swap` constructor (`Rules/Swap.lean`); the `n`-ary form needs
+arbitrary permutations and is not stated.
+
+Bending comes in two directions and both are needed: `bend_output`/`bend_input`
+take the *last* leg round below the spider, `bend_output_above`/
+`bend_input_above` take the *first* leg round above it. Between them that is
+every leg a planar diagram can move. A derivation reaches for whichever end the
+leg it must move is at, and `cnot_cnot_rewrite` uses one of each. The
+above-bends are stated over `ZX.cast`, since `1 + (1 + n)` and `2 + n` are not
+definitionally equal; the below-bends need none, since `(m + 1) + 1` and
+`m + 2` are — which is why they read more simply.
+
+Scalar rules are absent on purpose: `≈zx` is proportionality, so it discards
+exactly what those rules are about.
+
+`Rules/Structural.lean` grew the tools such a derivation needs alongside the
+laws themselves: `stack_assoc_symm` (the regroup direction a goal can actually
+be rewritten with, since `stack_assoc` only fires on a term already carrying
+its cast), `stack_compose_below`/`stack_compose_above` (a `≫` inside one row of
+a `⊗` put back into layers, which is the shape every bend leaves behind), and
+`nWire_one`/`nWire_two` (the padding those introduce, turned back into plain
+wires). `stack_interchange` is the same law as `stack_compose_interchange`,
+kept under the name the derivations in `SemanticsTesting/09Rules.lean` use.
 `Rules/Structural.lean` has the laws that let the *other* rules fire:
 `compose_assoc` (needed because `≫` is a constructor, so `(a ≫ b) ≫ c` and
 `a ≫ (b ≫ c)` are different terms and a rule only matches the grouping it was
@@ -100,6 +151,16 @@ denotations: the `wiresVec*`/`wiresMat*` coercions that let a goal be stated as
   `open SpLean.Algebraic` (see `Main.lean`).
 - **`spider c n m φ`** takes its phase last and defaults it to `0`, so a
   phase-free spider is just `.spider .Z 1 2`.
+- **Ascribe the middle arity when a `≫`'s two layers split their shared
+  boundary differently.** `(cup ⊗ wire) ≫ (wire ⊗ cap)` does not elaborate:
+  the left layer types as `ZX 1 (2 + 1)`, so the right layer meets an expected
+  `ZX (2 + 1) _` while its own `⊗` wants to split that as `1 + 2`, and the two
+  `+`s unify argument by argument before either is reduced — committing to
+  `?n := 2` and then complaining that a `wire` is not a `ZX 2 _`. Writing
+  `(wire ⊗ cap : ZX 3 1)` removes the `+` for the split to match against and it
+  goes through. `Rules/Yank.lean` carries the worked explanation; the same
+  `Nat.add`-reduces-on-the-right asymmetry is behind the arity gaps in
+  `Rules/Structural.lean`.
 - **A spider's colour here is `AlgSpColor`**, not the `SpiderColor` in
   `Axiomatic/ZXDiagram.lean`. Same two constructors, deliberately duplicated: it
   was the last thread tying the two representations together and it bought
