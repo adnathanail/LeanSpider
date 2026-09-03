@@ -24,7 +24,12 @@ namespace SpLean
     alongside. `none` if `e` is not a ZX equivalence; throws if a side cannot
     be evaluated to a concrete diagram (it has free variables, say). -/
 def zxEquivHtml? (e : Expr) : MetaM (Option Html) := do
-  let e ← instantiateMVars e
+  -- `consumeMData` because a goal type is not always the bare application it
+  -- prints as: `have` (and anything else that hands the elaborator an expected
+  -- type) wraps it in a `noImplicitLambda` annotation, and `app2?`/`getAppFn`
+  -- do not see through `mdata`. Without this a panel goes blank the moment a
+  -- proof introduces a hypothesis.
+  let e := (← instantiateMVars e).consumeMData
   let some (lhs, rhs) := e.app2? ``ZXDiagram.equiv | return none
   let dLhs ← evalZXDiagram lhs
   -- An unassigned RHS (e.g. from `zx_explore`) means there is no goal to show yet.
@@ -35,7 +40,7 @@ def zxEquivHtml? (e : Expr) : MetaM (Option Html) := do
     shift-click. `none` if `e` is not a `ZXDiagram` at all; throws if it is one
     that cannot be evaluated. -/
 def zxDiagramHtml? (e : Expr) : MetaM (Option Html) := do
-  let e ← instantiateMVars e
+  let e := (← instantiateMVars e).consumeMData
   if !(← inferType e).isConstOf ``ZXDiagram then return none
   return some (← evalZXDiagram e).toHtml
 

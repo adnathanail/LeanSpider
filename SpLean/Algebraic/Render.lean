@@ -93,7 +93,7 @@ private partial def zxSkelOfExpr (e : Expr) : MetaM ZXSkel := do
     parameterized by a phase — `greenAlphaCircle : (α : AlgPhase) → ZX 0 0` —
     draws with `α` written beside the spider. -/
 def zxTermHtml? (e : Expr) : MetaM (Option Html) := do
-  let e ← instantiateMVars e
+  let e := (← instantiateMVars e).consumeMData
   forallTelescopeReducing (← inferType e) fun xs body => do
     if !isZXType (← whnf body) then return none
     return some (← zxSkelOfExpr (mkAppN e xs)).toHtml
@@ -107,7 +107,14 @@ def zxTermHtml? (e : Expr) : MetaM (Option Html) := do
     evaluated: an algebraic goal in mid-proof is usually open (`α β : AlgPhase`
     in the context), and the walker draws those phases as themselves. -/
 def zxEquivHtml? (e : Expr) : MetaM (Option Html) := do
-  let e ← instantiateMVars e
+  -- `consumeMData` because a goal type is not always the bare application it
+  -- prints as: `have` (and anything else that hands the elaborator an expected
+  -- type) wraps it in a `noImplicitLambda` annotation, and `getAppFn` does not
+  -- see through `mdata`. Without this the head reads as the whole term, the
+  -- match below fails, and a panel goes blank the moment a proof introduces a
+  -- hypothesis. The two sides need no such care: `zxSkelOfExpr` opens with a
+  -- `whnf`, which strips annotations of its own accord.
+  let e := (← instantiateMVars e).consumeMData
   let args := e.getAppArgs
   unless e.getAppFn.constName? == some ``ZX.Equiv && args.size == 4 do return none
   let lhs ← zxSkelOfExpr args[2]!

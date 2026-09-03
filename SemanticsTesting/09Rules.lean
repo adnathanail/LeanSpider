@@ -235,3 +235,42 @@ example : ((Gate.T ⊗ ZX.hadamard) ≫ (Gate.T ⊗ ZX.hadamard)) ≈zx (Gate.S 
 --   algExercise3point7 ≈zx (ZX.spider .X 2 2) := by
 --   unfold algExercise3point7 algExercise3point7a algExercise3point7b algExercise3point7c Gate.NOTC
 --   zx_rw [stack_interchange (ZX.spider AlgSpColor.X 1 2) (ZX.wire) (ZX.wire) (ZX.spider AlgSpColor.Z 2 1)]
+
+def spidersInASquare : ZX 2 2 :=
+  (ZX.spider .Z 1 2 ⊗ ZX.wire) ≫
+  -- ascription to fix arity math
+  (ZX.spider .Z 1 2 ⊗ ZX.spider .Z 2 1 : ZX 3 3) ≫
+  (ZX.wire ⊗ ZX.spider .Z 2 1)
+#zx spidersInASquare
+
+def oneSpiderFourWires : ZX 2 2 :=
+  ZX.spider .Z 2 2
+#zx oneSpiderFourWires
+
+example :
+  spidersInASquare ≈zx oneSpiderFourWires := by
+  unfold spidersInASquare oneSpiderFourWires
+  -- The middle layer's two spiders belong to different fusions, so give each a
+  -- layer of its own. The cuts still do not line up, and are not meant to.
+  have split : (ZX.spider .Z 1 2 ⊗ ZX.spider .Z 2 1) ≈zx
+      ((ZX.wire ⊗ ZX.spider .Z 2 1) ≫ (ZX.spider .Z 1 2 ⊗ ZX.wire)) := by
+    zx_rw [stack_interchange ZX.wire (ZX.spider .Z 1 2) (ZX.spider .Z 2 1) ZX.wire,
+           wire_compose, compose_wire]
+  -- Fusion across a misaligned cut: one output of the `Z 1 2` passes the fusion
+  -- by (`m = 1`) and the wire alongside it joins the `Z 2 1` (`p = 1`), so the
+  -- two spiders become a single `Z 2 2`. The ascription is the one from
+  -- `Rules/Yank.lean`: without it the second layer is elaborated split `2 | 1`.
+  have fuse : ((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
+      ≈zx ZX.spider .Z 2 2 := by
+    zx_rw [← nWire_one]
+    have h := spider_fusion_Z_spectator 1 1 0 1 1 0 0
+    rw [zero_add (0 : AlgPhase)] at h
+    exact h
+  zx_rw [split]
+  -- Left-associate, which puts both fusable pairs where `fuse` can see them.
+  repeat zx_rw [← compose_assoc]
+  zx_rw [fuse]
+  zx_rw [compose_assoc]
+  zx_rw [fuse]
+  -- Two `Z 2 2`s joined by two wires, fused along both at once.
+  zx_rw [spider_fusion_Z]
