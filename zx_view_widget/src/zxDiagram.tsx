@@ -1,3 +1,7 @@
+// Must come before the zxcc import: it makes zxcc's `customElements.define`
+// calls survive the InfoView re-evaluating this bundle.
+import './lib/customElementsGuard.js'
+
 import { type DiagramData, ZxDiagramElement } from '@adnathanail/zxcc'
 import * as React from 'react'
 

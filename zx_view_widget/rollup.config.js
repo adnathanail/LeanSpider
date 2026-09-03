@@ -7,6 +7,9 @@ import terser from '@rollup/plugin-terser'
 const production = process.env.NODE_ENV === 'production'
 const outputDir = process.env.OUTPUT_DIR || 'build'
 
+// One bundle per top-level module: those are the widget entry points. Shared
+// code lives in subdirectories (`dist/lib/`) so it is bundled into its
+// importers rather than emitted as a widget of its own.
 const inputs = readdirSync('dist')
   .filter(f => f.endsWith('.js'))
   .map(f => `dist/${f}`)
