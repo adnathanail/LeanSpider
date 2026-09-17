@@ -11,8 +11,10 @@ renders through its own lowering.
 This module holds the `ZX n m` ADT (`ZX.lean`), its phase type (`AlgPhase/`),
 a denotational semantics (`Semantics.lean`), the equivalence proved against it
 (`Equiv.lean` + `Rules/`) and the tactic that rewrites with it
-(`Tactics.lean`), a handful of named gates (`Gate.lean`), and the rendering
-path (`Visualize.lean` + `Render.lean`).
+(`Tactics.lean`), arity-casting for `zx_rw` to see through (`Cast.lean`),
+derived diagram combinators built from the ADT (`Combinators.lean`), a
+handful of named gates (`Gate.lean`), and the rendering path
+(`Visualize.lean` + `Render.lean`).
 
 ### The semantics
 
@@ -40,6 +42,24 @@ of rewrites reports the accumulated factor) is the `TODO` on the definition.
 `refl`/`symm`/`trans` are proved, and `compose_congr`/`stack_congr` say `≈zx` is
 a congruence for `≫` and `⊗` — which is what lets a rule fire inside a larger
 diagram. See the root `CLAUDE.md` for how `zx_rw` uses them.
+
+### Casting and combinators
+
+`Cast.lean` defines `ZX.cast`, which reindexes a diagram along a proof its
+arities are equal. It exists because Lean only reduces `n + 0`/`0 + n` to `n`
+between a variable and an *explicit* literal, so `.empty ⊗ a : ZX (0 + n) (0 + m)`
+doesn't unify with the `a : ZX n m` a lemma like `empty_stack` wants to state
+against — the lemma has to go via a cast instead. `ZX.Equiv.cast_congr` is the
+third `@[gcongr]` tag alongside `compose_congr`/`stack_congr` (all three tagged
+together in `Tactics.lean`), so `zx_rw` can rewrite through a cast rather than
+stopping at it.
+
+`Combinators.lean` builds the `n`-ary shapes rules need out of the ADT itself
+rather than adding constructors for them: `nStack`/`nWire`/`nHadamard` (`k`
+stacked copies of a `ZX 1 1`, a wire, a Hadamard) and the phase-free Z-spider
+`cup`/`cap`. `nStack`'s recursion is arranged to reduce definitionally in its
+arity index (`Nat.add` recurses on its second argument), so `ZX.nStack (k+1) a`
+unfolds to `nStack k a ⊗ a` of the expected type without a cast.
 
 `Rules/` proves rules against `sem` rather than assuming them.
 `Rules/SpiderFusion.lean` has Z and X fusion; both come out with `c = 1`, and X
@@ -171,6 +191,10 @@ is the midpoint of slots `0..max-1` in halves):
   with its qubitHalves: when the arity is `1` the lone port sits at `centre`
   (so a single-leg connection is horizontal); when arity > 1 the ports occupy
   whole slots `0, 2, …, 2(k-1)`. Width 1, height `max n m`.
+- `swap` → two `wire` nodes at `(col 0, q 0)` and `(col 0, q 2)`, one per
+  qubit, but with `left`/`right` crossed: each node's input port and its
+  *other* node's output port share a qubit, so the drawn wires cross. Width 1,
+  height 2.
 - `stack a b` → concatenate; shift `b`'s qubitHalves by `2 * a.height`.
   Width `max a.width b.width`, height `a.height + b.height`.
 - `compose a b` → connect `a.right` to `b.left` (by node id, qubits do not
