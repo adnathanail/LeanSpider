@@ -106,17 +106,14 @@ private def Frag.leaf (shape : NodeShape) : Frag :=
     nodes := [{ shape, col := 0, qubitHalves := 0 }]
     left := [(0, 0)], right := [(0, 0)], width := 1, height := 1 }
 
-/-- The swap: two `wire` dots, one per qubit row, whose `right` ports are
-    listed in the opposite order to their `left` ports. Nothing about the
-    nodes themselves crosses — `Frag.then` connects ports by list position,
-    not by row — so it is this reordering alone that makes whatever composes
-    on either side draw a diagonal, crossing edge into or out of this
-    fragment. -/
+/-- The swap: two `wire` dots, one per qubit row,
+    with outputs linked to the other qubit -/
 private def Frag.swap : Frag :=
   { nodes := [{ shape := .wire, col := 0, qubitHalves := 0 },
               { shape := .wire, col := 0, qubitHalves := 2 }]
     edges := []
-    left := [(0, 0), (1, 2)], right := [(1, 2), (0, 0)]
+    left := [(0, 0), (1, 2)]
+    right := [(1, 0), (0, 2)]
     width := 1, height := 2, boxes := [] }
 
 private def shiftEdge (off : Nat) (e : Wire.Edge) : Wire.Edge :=
