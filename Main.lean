@@ -192,3 +192,9 @@ def algExercise3point7c : ZX 3 2 := (algNotc ⊗ .spider .X 1 0)
 def algExercise3point7d : ZX 2 2 := (.wire ⊗ .hadamard) ≫ algCx
 def algExercise3point7 : ZX 2 2 := ((algExercise3point7a ≫ algExercise3point7b) ≫ algExercise3point7c) ≫ algExercise3point7d
 #zx algExercise3point7
+
+def swapTest : ZX 2 2 := (.spider .Z 1 1 ⊗ .spider .Z 1 1) ≫ .swap
+#zx swapTest
+
+def swapTest2 : ZX 2 2 := (.spider .Z 1 1 ⊗ .spider .Z 1 1) ≫ .swap ≫ (.spider .Z 1 1 ⊗ .spider .Z 1 1)
+#zx swapTest2
