@@ -7,3 +7,4 @@ import SpLean.Algebraic.Rules.PiCopy
 import SpLean.Algebraic.Rules.SpiderFusion
 import SpLean.Algebraic.Rules.StateCopy
 import SpLean.Algebraic.Rules.Structural
+import SpLean.Algebraic.Rules.Swap
