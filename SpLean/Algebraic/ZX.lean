@@ -15,6 +15,7 @@ inductive ZX : Nat → Nat → Type
   | wire     : ZX 1 1
   | hadamard : ZX 1 1
   | spider   (c : AlgSpColor) (n m : Nat) (φ : AlgPhase := 0) : ZX n m
+  | swap     : ZX 2 2
   | stack    {n m p q : Nat} : ZX n m → ZX p q → ZX (n + p) (m + q)
   | compose  {n m k : Nat} : ZX n m → ZX m k → ZX n k
 

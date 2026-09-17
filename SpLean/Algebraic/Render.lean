@@ -67,6 +67,7 @@ private partial def zxSkelOfExpr (e : Expr) : MetaM ZXSkel := do
   | some ``ZX.empty    => return .empty
   | some ``ZX.wire     => return .wire
   | some ``ZX.hadamard => return .hadamard
+  | some ``ZX.swap     => return .swap
   | some ``ZX.spider =>
     -- `spider (c) (n m) (φ)` — four explicit arguments, no indices.
     unless args.size == 4 do throwError "#zx: malformed spider{indentExpr e}"

@@ -47,6 +47,7 @@ noncomputable def ZX.sem : {n m : ℕ} → ZX n m → Wires n → Wires m → �
   | _, _, .hadamard, f, g => hadSem (f 0) (g 0)
   | _, _, .spider .Z _ _ φ, f, g => zSpiderSem φ f g
   | _, _, .spider .X _ _ φ, f, g => xSpiderSem φ f g
+  | _, _, .swap, f, g => if f 0 = g 1 ∧ f 1 = g 0 then 1 else 0 -- Swap = permutation matrix
   | _, _, .compose a b, f, h => ∑ g, a.sem f g * b.sem g h   -- Composition = tensor contraction
   | _, _, .stack a b, f, g =>
       -- Split up the responsibility for wire indexes across the two stacked diagrams

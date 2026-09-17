@@ -31,6 +31,7 @@ inductive ZXSkel where
   | wire
   | hadamard
   | spider (c : AlgSpColor) (n m : Nat) (phase : String)
+  | swap
   | stack (a b : ZXSkel)
   | compose (a b : ZXSkel)
   deriving Repr, Inhabited
@@ -105,6 +106,19 @@ private def Frag.leaf (shape : NodeShape) : Frag :=
     nodes := [{ shape, col := 0, qubitHalves := 0 }]
     left := [(0, 0)], right := [(0, 0)], width := 1, height := 1 }
 
+/-- The swap: two `wire` dots, one per qubit row, whose `right` ports are
+    listed in the opposite order to their `left` ports. Nothing about the
+    nodes themselves crosses — `Frag.then` connects ports by list position,
+    not by row — so it is this reordering alone that makes whatever composes
+    on either side draw a diagonal, crossing edge into or out of this
+    fragment. -/
+private def Frag.swap : Frag :=
+  { nodes := [{ shape := .wire, col := 0, qubitHalves := 0 },
+              { shape := .wire, col := 0, qubitHalves := 2 }]
+    edges := []
+    left := [(0, 0), (1, 2)], right := [(1, 2), (0, 0)]
+    width := 1, height := 2, boxes := [] }
+
 private def shiftEdge (off : Nat) (e : Wire.Edge) : Wire.Edge :=
   { src := e.src + off, tgt := e.tgt + off }
 
@@ -172,6 +186,7 @@ private def buildFrag : ZXSkel → Frag
       left := (portQubits n).map (fun q => (0, q))
       right := (portQubits m).map (fun q => (0, q))
       width := 1, height := mx, boxes := [] }
+  | .swap        => Frag.swap
   | .stack a b   => Frag.append (buildFrag a) (buildFrag b)
   | .compose a b => Frag.then   (buildFrag a) (buildFrag b)
 
