@@ -78,6 +78,14 @@ example :
         ≫ ((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.spider .X 2 1 : ZX 3 2)))) : ZX 2 2) := by
   zx_iso
 
+/-- A crossing undone by a second one. `swap` lowers to two wires and no boxes,
+with the outputs read in reverse, so two in series are two straight wires. -/
+example : (ZX.swap ≫ ZX.swap) ≈zx (ZX.wire ⊗ ZX.wire) := by zx_iso
+
+/-- Generators slide through a crossing, changing rows as they go. -/
+example : ((ZX.spider .Z 1 1 ⊗ ZX.spider .X 1 1) ≫ ZX.swap)
+    ≈zx (ZX.swap ≫ (ZX.spider .X 1 1 ⊗ ZX.spider .Z 1 1)) := by zx_iso
+
 /-! ### When it must refuse
 
 The tactic declining is as much a part of its behaviour as it succeeding, so
@@ -108,6 +116,14 @@ and
 -/
 #guard_msgs in
 example : (Gate.T ≫ Gate.T) ≈zx Gate.S := by zx_iso
+
+/-- error: zx_iso: no isomorphism found between the hypergraphs of
+  ZX.swap
+and
+  ZX.wire ⊗ ZX.wire
+-/
+#guard_msgs in
+example : ZX.swap ≈zx (ZX.wire ⊗ ZX.wire) := by zx_iso
 
 /-- error: zx_iso: needs closed diagrams, but
   ZX.spider AlgSpColor.Z 1 1 α ≫ ZX.wire
