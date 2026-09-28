@@ -30,6 +30,14 @@ lemma sum_wires3 {M : Type*} [AddCommMonoid M] (F : Wires 3 → M) :
       Bool × Bool × Bool ≃ Wires 3) F]
   simp [Fintype.sum_prod_type]
 
+/-- A sum over an `m + k`-wire boundary splits into a sum over its first `m`
+wires and a sum over its last `k` — the sum-side counterpart to how `stack`
+splits a boundary with `Fin.castAdd`/`Fin.natAdd`. -/
+lemma sum_wires_append {M : Type*} [AddCommMonoid M] {m k : ℕ} (F : Wires (m + k) → M) :
+    ∑ g : Wires (m + k), F g = ∑ p : Wires m, ∑ q : Wires k, F (Fin.append p q) := by
+  rw [← Equiv.sum_comp (Fin.appendEquiv m k) F, Fintype.sum_prod_type]
+  rfl
+
 lemma prod_wires1 {M : Type*} [CommMonoid M] (F : Wires 1 → M) :
     ∏ g : Wires 1, F g = F zeroAmpl * F oneAmpl := by
   rw [show (Finset.univ : Finset (Wires 1)) = {zeroAmpl, oneAmpl} from by decide]
