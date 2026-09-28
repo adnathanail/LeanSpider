@@ -126,6 +126,9 @@ def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
         boxes := fun _ => { label := .spider c.toHypColour φ, arity := n + m, legs := id },
         idCount := 0, ids := Fin.elim0,
         inputs := Fin.castAdd m, outputs := Fin.natAdd n }
+  | _, _, .swap =>
+      { wires := 2, boxCount := 0, boxes := Fin.elim0, idCount := 0, ids := Fin.elim0,
+        inputs := id, outputs := Fin.rev }
   | _, _, .stack a b =>
       let A := a.toHyp
       let B := b.toHyp
@@ -307,6 +310,15 @@ theorem sem_toHyp_hadamard (f g : Wires 1) :
     simp [this]
   · simp
 
+/-- A swap is two wires, crossed: no boxes, just the boundary read in the
+opposite order at the outputs. -/
+theorem sem_toHyp_swap (f g : Wires 2) :
+    ((ZX.swap).toHyp).sem AlgPhase.expI f g = ZX.swap.sem f g := by
+  simp only [ZX.toHyp, Hyp.sem, ZX.sem, Hyp.Sat, Finset.univ_eq_empty, Finset.prod_empty,
+    IsEmpty.forall_iff, if_true, mul_one, id_eq, Fin.forall_fin_two]
+  rw [sum_wires2]
+  cases f 0 <;> cases f 1 <;> cases g 0 <;> cases g 1 <;> simp <;> decide
+
 /-- **The lowering preserves the denotation.**
 
 With `Hypergraph.Iso.sem_eq`, this is what makes a hypergraph isomorphism a
@@ -317,6 +329,7 @@ theorem sem_toHyp : ∀ {n m : ℕ} (d : ZX n m) (f : Wires n) (g : Wires m),
   | _, _, .wire, f, g => sem_toHyp_wire f g
   | _, _, .hadamard, f, g => sem_toHyp_hadamard f g
   | _, _, .spider c n m φ, f, g => sem_toHyp_spider c n m φ f g
+  | _, _, .swap, f, g => sem_toHyp_swap f g
   | _, _, .stack x y, f, g =>
       sem_toHyp_stack x y (fun _ _ => sem_toHyp x _ _) (fun _ _ => sem_toHyp y _ _) f g
   | _, _, .compose x y, f, g =>
