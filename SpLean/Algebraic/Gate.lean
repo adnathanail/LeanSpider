@@ -19,7 +19,7 @@ abbrev NOTC : ZX 2 2 := (.spider .X 1 2 ⊗ .wire) ≫ (.wire ⊗ .spider .Z 2 1
 
 abbrev CX : ZX 2 2 := (
     (.spider .Z 1 2 ⊗ .wire) ≫
-    (.wire ⊗ .hadamard ⊗ .wire)
+    ((.wire ⊗ .hadamard) ⊗ .wire)
   ) ≫
   (.wire ⊗ .spider .Z 2 1)
 
