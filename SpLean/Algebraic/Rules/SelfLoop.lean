@@ -50,9 +50,7 @@ theorem zSpider_hadamard_self_loop (n m : ℕ) (α : AlgPhase) :
   rw [zSpider_loop_sem, hadamard_cap_sem, hadamard_cap_sem]
   simp [ZX.sem, hadSem, zSpiderSem, mul_add, mul_ite, mul_comm]
 
-/-- A plain self-loop on an X spider vanishes. The cap has to be an X cap:
-closing two legs of an X spider with a *Z* cap is a Hopf redex
-(`Rules/Hopf.lean`), not a self-loop. -/
+/-- Self-loop on an X spider vanishes. (The cap has to be an X cap) -/
 theorem xSpider_self_loop (n m : ℕ) (α : AlgPhase) :
     (ZX.spider .X n (m + 2) α ≫ (ZX.nWire m ⊗ ZX.capX)) ≈zx ZX.spider .X n m α := by
   -- Colour-change both sides to Z, and unfuse the RHS into a Z self-loop
@@ -69,8 +67,7 @@ theorem xSpider_self_loop (n m : ℕ) (α : AlgPhase) :
   nth_zx_rw 2 [← stack_empty (ZX.nHadamard m)]
   zx_rw [stack_compose_interchange, nWire_compose, compose_empty]
 
-/-- A self-loop through a Hadamard on an X spider vanishes and adds π to the
-phase. -/
+/-- Self-loop through a Hadamard on an X spider vanishes and adds π to the phase. -/
 theorem xSpider_hadamard_self_loop (n m : ℕ) (α : AlgPhase) :
     (ZX.spider .X n (m + 2) α ≫ (ZX.nWire m ⊗ (ZX.hadamard ⊗ ZX.wire))
         ≫ (ZX.nWire m ⊗ ZX.capX))
