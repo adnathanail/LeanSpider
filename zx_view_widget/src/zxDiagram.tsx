@@ -18,6 +18,37 @@ function isLayout(v: unknown): v is Layout {
   return v === 'horizontal' || v === 'vertical' || v === 'goal_hidden'
 }
 
+const SHOW_IDS_KEY = 'zx-widget-show-ids'
+
+function usePersistedShowIds(): [boolean, (v: boolean) => void] {
+  const [showIds, setShowIdsState] = React.useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SHOW_IDS_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  React.useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === SHOW_IDS_KEY) setShowIdsState(e.newValue === 'true')
+    }
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  }, [])
+
+  const setShowIds = React.useCallback((v: boolean) => {
+    setShowIdsState(v)
+    try {
+      localStorage.setItem(SHOW_IDS_KEY, String(v))
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  return [showIds, setShowIds]
+}
+
 function usePersistedLayout(): [Layout, (l: Layout) => void] {
   const [layout, setLayoutState] = React.useState<Layout>(() => {
     try {
@@ -51,11 +82,22 @@ function usePersistedLayout(): [Layout, (l: Layout) => void] {
   return [layout, setLayout]
 }
 
-function ZXPanel({ diagram, label }: { diagram: DiagramData; label?: string }) {
+function ZXPanel({
+  diagram,
+  label,
+  showIds,
+}: {
+  diagram: DiagramData
+  label?: string
+  showIds: boolean
+}) {
   const ref = React.useRef<ZxDiagramElement | null>(null)
   React.useEffect(() => {
     if (ref.current) ref.current.diagram = diagram
   }, [diagram])
+  React.useEffect(() => {
+    if (ref.current) ref.current.showLabels = showIds
+  }, [showIds])
   return (
     <div style={{ flex: '1 1 0', minWidth: 0 }}>
       {label && (
@@ -68,9 +110,25 @@ function ZXPanel({ diagram, label }: { diagram: DiagramData; label?: string }) {
 
 export default function ZXDiagram({ diagram, goal }: ZXWidgetProps) {
   const [layout, setLayout] = usePersistedLayout()
+  const [showIds, setShowIds] = usePersistedShowIds()
+
+  const idsButton = (
+    <button
+      type="button"
+      onClick={() => setShowIds(!showIds)}
+      style={{ cursor: 'pointer', fontSize: '12px' }}
+    >
+      {showIds ? '# Hide IDs' : '# Show IDs'}
+    </button>
+  )
 
   if (!goal) {
-    return <ZXPanel diagram={diagram} />
+    return (
+      <div>
+        <div style={{ fontFamily: 'monospace', marginBottom: 4 }}>{idsButton}</div>
+        <ZXPanel diagram={diagram} showIds={showIds} />
+      </div>
+    )
   }
 
   const nextLayout = LAYOUTS[(LAYOUTS.indexOf(layout) + 1) % LAYOUTS.length]
@@ -82,7 +140,7 @@ export default function ZXDiagram({ diagram, goal }: ZXWidgetProps) {
 
   return (
     <div>
-      <div style={{ fontFamily: 'monospace', marginBottom: 4 }}>
+      <div style={{ fontFamily: 'monospace', marginBottom: 4, display: 'flex', gap: 8 }}>
         <button
           type="button"
           onClick={() => setLayout(nextLayout)}
@@ -90,9 +148,10 @@ export default function ZXDiagram({ diagram, goal }: ZXWidgetProps) {
         >
           {buttonLabel}
         </button>
+        {idsButton}
       </div>
       {layout === 'goal_hidden' ? (
-        <ZXPanel diagram={diagram} />
+        <ZXPanel diagram={diagram} showIds={showIds} />
       ) : (
         <div
           style={{
@@ -102,8 +161,8 @@ export default function ZXDiagram({ diagram, goal }: ZXWidgetProps) {
             alignItems: layout === 'horizontal' ? 'flex-start' : 'stretch',
           }}
         >
-          <ZXPanel diagram={diagram} label="LHS" />
-          <ZXPanel diagram={goal} label="RHS" />
+          <ZXPanel diagram={diagram} label="LHS" showIds={showIds} />
+          <ZXPanel diagram={goal} label="RHS" showIds={showIds} />
         </div>
       )}
     </div>
