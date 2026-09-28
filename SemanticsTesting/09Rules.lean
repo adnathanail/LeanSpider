@@ -143,7 +143,7 @@ example :
 
 /-- The two CNOT decompositions agree.
 
-`stack_interchange` cannot fire here, and no argument order or `ZX.cast` will
+`stack_compose_interchange` cannot fire here, and no argument order or `ZX.cast` will
 change that. Interchange needs both layers to cut the middle boundary in the
 same place — its conclusion mentions `a ≫ b`, so that composition has to
 typecheck — and these cut `2 | 1` and `1 | 2`, because the wire joining the two
@@ -176,7 +176,7 @@ Phase by phase:
    matches; `stack_compose_below`/`stack_compose_above` put those back into
    layers.
 3. **Regroup.** The two layers still cut their shared boundary in different
-   places, which is what stopped `stack_interchange` at the start. Now it can
+   places, which is what stopped `stack_compose_interchange` at the start. Now it can
    be fixed: `stack_assoc`/`stack_assoc_symm` move the bracket so both layers
    cut alike, and `compose_assoc` brings the two layers next to each other.
 4. **Interchange.** With the cuts aligned the two rows are independent, so the
@@ -186,7 +186,7 @@ Phase by phase:
 
 This rests on two stubs — `bend_output` and `bend_output_above` — so it does
 not make `cnot_cnot_equiv` any more proved than the computation above already
-does. (`stack_interchange` and the `nWire` identities it also uses started out
+does. (`stack_compose_interchange` and the `nWire` identities it also uses started out
 stubbed and are now proved.)
 What it shows is that the rule set composes into a derivation, and it is a
 regression test for `zx_rw`: if a rule statement or the tactic changes shape,
@@ -206,17 +206,17 @@ theorem cnot_cnot_rewrite :
   zx_rw [← compose_assoc (ZX.spider .Z 1 2 ⊗ ZX.wire),
          ← compose_assoc (ZX.wire ⊗ ZX.spider .X 1 2)]
   -- 4. The cuts now align, so the spiders separate into parallel rows.
-  zx_rw [stack_interchange (ZX.spider .Z 1 2) (ZX.wire ⊗ ZX.wire) ZX.wire (ZX.spider .X 1 2),
-         stack_interchange ZX.wire (ZX.spider .Z 1 2) (ZX.spider .X 1 2) (ZX.wire ⊗ ZX.wire)]
+  zx_rw [stack_compose_interchange (ZX.spider .Z 1 2) (ZX.wire ⊗ ZX.wire) ZX.wire (ZX.spider .X 1 2),
+         stack_compose_interchange ZX.wire (ZX.spider .Z 1 2) (ZX.spider .X 1 2) (ZX.wire ⊗ ZX.wire)]
   -- 5. Clear the padding, then match the two cap layers' bracketing.
   zx_rw [← nWire_two, compose_nWire, compose_nWire, wire_compose, wire_compose]
   zx_rw [stack_assoc_symm (ZX.nWire 1) ZX.cap (ZX.nWire 1)]
 
-/-- What a `stack_interchange` call looks like when the rule does apply: both
+/-- What a `stack_compose_interchange` call looks like when the rule does apply: both
 layers cut the boundary in the same place (`1 | 1`), so the two rows are
 independent and each rewrites on its own. The four arguments are the cells in
 composition order, top row then bottom — `a b` are `a ≫ b`, `c d` are
 `c ≫ d`. -/
 example : ((Gate.T ⊗ ZX.hadamard) ≫ (Gate.T ⊗ ZX.hadamard)) ≈zx (Gate.S ⊗ ZX.wire) := by
-  zx_rw [stack_interchange Gate.T Gate.T ZX.hadamard ZX.hadamard]
-  zx_rw [zSpider_fusion, hadamard_hadamard]
+  zx_rw [stack_compose_interchange Gate.T Gate.T ZX.hadamard ZX.hadamard]
+  zx_rw [spider_fusion_Z_one_wire, hadamard_hadamard]

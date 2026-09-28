@@ -23,9 +23,8 @@ step:
 Writing the rebracketed form out by hand is the price: `zx_iso` proves a
 rebracketing but does not choose one.
 
-Nine rules and seven rebracketings in all. Only one `sorry` is reached — the
-whole chain rests on `colour_change_X_one`, through `xPi_past_hadamard`; every
-other local fact below is proved outright.
+Nine rules and seven rebracketings in all, and no `sorry` anywhere in the
+chain: every local fact below is proved outright.
 -/
 
 -- Draw each goal as LHS/RHS diagrams in the InfoView as the cursor moves, which
@@ -33,8 +32,8 @@ other local fact below is proved outright.
 -- picture.
 show_panel_widgets [local SpLean.ZXPanel, local ProofWidgets.SelectionPanel]
 
-def ex37a : ZX 2 3 := (.wire ⊗ .wire ⊗ .spider .Z 0 1) ≫ (.wire ⊗ Gate.NOTC)
-def ex37b : ZX 3 3 := .wire ⊗ .hadamard ⊗ .spider .X 1 1 π
+def ex37a : ZX 2 3 := ((.wire ⊗ .wire) ⊗ .spider .Z 0 1) ≫ (.wire ⊗ Gate.NOTC)
+def ex37b : ZX 3 3 := (.wire ⊗ .hadamard) ⊗ .spider .X 1 1 π
 def ex37c : ZX 3 2 := Gate.NOTC ⊗ .spider .X 1 0
 def ex37d : ZX 2 2 := (.wire ⊗ .hadamard) ≫ Gate.CX
 def ex37 : ZX 2 2 := ((ex37a ≫ ex37b) ≫ ex37c) ≫ ex37d
@@ -94,7 +93,7 @@ three that actually change the diagram — one fusion each.
 The rebracketings are doing more than re-associating. The second one re-cuts
 `ex37b` and `ex37c` (which split their rows `1|1|1` and `2|1`) so that the π
 spider and the X effect become adjacent, and the fourth pulls a Hadamard out
-from between a spider and its effect. Both are things `stack_interchange`
+from between a spider and its effect. Both are things `stack_compose_interchange`
 cannot do, because the wires cross the cut.
 
 No `sorry`: the two local fusions above are proved, and `zx_iso` rests on
@@ -111,7 +110,7 @@ theorem ex37_pi_to_input :
         unfold ex37b ex37c
         zx_iso
     _ ≈zx ((ZX.wire ⊗ (ZX.spider .X 1 2 ≫ (ZX.hadamard ⊗ ZX.spider .X 1 0 π)))
-            ≫ Gate.NOTC) ≫ ex37d := by zx_rw [xSpider_fusion]
+            ≫ Gate.NOTC) ≫ ex37d := by zx_rw [spider_fusion_X_one_wire]
     -- Pull the Hadamard out from between the spider and its effect.
     _ ≈zx ((ZX.wire ⊗ ((ZX.spider .X 1 2 ≫ (ZX.wire ⊗ ZX.spider .X 1 0 π)) ≫ ZX.hadamard))
             ≫ Gate.NOTC) ≫ ex37d := by zx_iso
@@ -120,11 +119,10 @@ theorem ex37_pi_to_input :
 
 /-! ### Moving a π around
 
-Six local facts. All are concrete instances of rules that are still `sorry` in
-the general case — spectator fusion, colour change, π-commutation — and at
-these arities the semantics settles five of them outright. Only
-`xPi_past_hadamard` leans on a stub (`colour_change_X_one`), and everything
-downstream of it inherits that. -/
+Six local facts, concrete instances of general rules — spectator fusion,
+colour change, π-commutation. Three are settled outright by the semantics at
+these arities; the other three are derived, `zUnfuse_pi` from fusion and the
+two `_past_hadamard` facts from the `1 → 1` colour change rules. -/
 
 /-- Commute an X(π) past a Hadamard, turning it green. -/
 theorem xPi_past_hadamard :
@@ -132,8 +130,8 @@ theorem xPi_past_hadamard :
   calc (ZX.spider .X 1 1 π ≫ ZX.hadamard)
       ≈zx ((ZX.hadamard ≫ ZX.hadamard) ≫ ZX.spider .X 1 1 π) ≫ ZX.hadamard := by
         zx_rw [hadamard_hadamard, wire_compose]
-    _ ≈zx ZX.hadamard ≫ ((ZX.hadamard ≫ ZX.spider .X 1 1 π) ≫ ZX.hadamard) := by zx_iso
-    _ ≈zx ZX.hadamard ≫ ZX.spider .Z 1 1 π := by zx_rw [colour_change_X_one]
+    _ ≈zx ZX.hadamard ≫ (ZX.hadamard ≫ (ZX.spider .X 1 1 π ≫ ZX.hadamard)) := by zx_iso
+    _ ≈zx ZX.hadamard ≫ ZX.spider .Z 1 1 π := by zx_rw [← colour_change_Z_X_one_wire]
 
 /-- A one-legged Z spider fuses into one input of a Z spider. -/
 theorem zPi_fuse :
@@ -161,15 +159,15 @@ theorem ex37_pi_onto_notc :
         zx_rw [zPi_fuse]
 
 theorem zUnfuse_pi : ZX.spider .Z 2 1 π ≈zx (ZX.spider .Z 2 1 ≫ ZX.spider .Z 1 1 π) := by
-  simpa using (zSpider_fusion 2 1 0 π).symm
+  simpa using (spider_fusion_Z_one_wire 2 1 0 π).symm
 
 theorem zPi_past_hadamard :
     (ZX.spider .Z 1 1 π ≫ ZX.hadamard) ≈zx (ZX.hadamard ≫ ZX.spider .X 1 1 π) := by
   calc (ZX.spider .Z 1 1 π ≫ ZX.hadamard)
       ≈zx ((ZX.hadamard ≫ ZX.hadamard) ≫ ZX.spider .Z 1 1 π) ≫ ZX.hadamard := by
         zx_rw [hadamard_hadamard, wire_compose]
-    _ ≈zx ZX.hadamard ≫ ((ZX.hadamard ≫ ZX.spider .Z 1 1 π) ≫ ZX.hadamard) := by zx_iso
-    _ ≈zx ZX.hadamard ≫ ZX.spider .X 1 1 π := by zx_rw [colour_change_one]
+    _ ≈zx ZX.hadamard ≫ (ZX.hadamard ≫ (ZX.spider .Z 1 1 π ≫ ZX.hadamard)) := by zx_iso
+    _ ≈zx ZX.hadamard ≫ ZX.spider .X 1 1 π := by zx_rw [← colour_change_X_Z_one_wire]
 
 theorem pi_copy_Z21 :
     ((ZX.wire ⊗ ZX.spider .X 1 1 π) ≫ ZX.spider .Z 2 1)
@@ -203,7 +201,7 @@ theorem ex37_pi_through_cx :
       ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
             ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
           ≫ ((ZX.wire ⊗ ZX.hadamard)
-            ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.hadamard ⊗ ZX.wire))
+            ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ ((ZX.wire ⊗ ZX.hadamard) ⊗ ZX.wire))
               ≫ (ZX.wire ⊗ (((ZX.spider .X 1 1 π ⊗ ZX.wire) ≫ ZX.spider .Z 2 1)
                    ≫ ZX.spider .X 1 1 π) : ZX 3 2))) := by
   calc ((((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
@@ -226,7 +224,7 @@ theorem ex37_pi_through_cx :
     _ ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
             ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
           ≫ ((ZX.wire ⊗ ZX.hadamard)
-            ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.hadamard ⊗ ZX.wire))
+            ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ ((ZX.wire ⊗ ZX.hadamard) ⊗ ZX.wire))
               ≫ (ZX.wire ⊗ ((ZX.wire ⊗ ZX.spider .X 1 1 π) ≫ ZX.spider .Z 2 1)
                    : ZX 3 2))) := by
         unfold Gate.CX
@@ -239,7 +237,7 @@ theorem ex37_pi_to_outputs :
     ((((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
         ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
       ≫ ((ZX.wire ⊗ ZX.hadamard)
-        ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.hadamard ⊗ ZX.wire))
+        ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ ((ZX.wire ⊗ ZX.hadamard) ⊗ ZX.wire))
           ≫ (ZX.wire ⊗ (((ZX.spider .X 1 1 π ⊗ ZX.wire) ≫ ZX.spider .Z 2 1)
                ≫ ZX.spider .X 1 1 π) : ZX 3 2))))
       ≈zx (((ZX.wire ⊗ ZX.hadamard) ≫ Gate.NOTC) ≫ ex37d)
@@ -247,7 +245,7 @@ theorem ex37_pi_to_outputs :
   calc ((((ZX.wire ⊗ ZX.hadamard) ≫ (ZX.spider .X 1 2 ⊗ ZX.wire))
           ≫ (ZX.wire ⊗ ZX.spider .Z 2 1 : ZX 3 2))
         ≫ ((ZX.wire ⊗ ZX.hadamard)
-          ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.hadamard ⊗ ZX.wire))
+          ≫ (((ZX.spider .Z 1 2 ⊗ ZX.wire) ≫ ((ZX.wire ⊗ ZX.hadamard) ⊗ ZX.wire))
             ≫ (ZX.wire ⊗ (((ZX.spider .X 1 1 π ⊗ ZX.wire) ≫ ZX.spider .Z 2 1)
                  ≫ ZX.spider .X 1 1 π) : ZX 3 2))))
       -- G: group the copied π with the Hadamard in front of it, and commute.
