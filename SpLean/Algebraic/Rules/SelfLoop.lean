@@ -1,6 +1,7 @@
 import SpLean.Algebraic.Equiv
 import SpLean.Algebraic.Combinators
 import SpLean.Algebraic.Rules.Structural
+import SpLean.Algebraic.Rules.ColourChange
 
 namespace SpLean.Algebraic
 
@@ -40,9 +41,7 @@ theorem zSpider_self_loop (n m : ℕ) (α : AlgPhase) :
   rw [zSpider_loop_sem]
   simp [ZX.sem, zSpiderSem]
 
-/-- Self-loop through a Hadamard on a Z spider vanishes and adds π to the phase.
-The Hadamard weights the two branches `1/√2` and `-1/√2`: the `1/√2` is the
-scalar, the sign is the `π`. -/
+/-- Self-loop through a Hadamard on a Z spider vanishes and adds π to the phase. -/
 theorem zSpider_hadamard_self_loop (n m : ℕ) (α : AlgPhase) :
     (ZX.spider .Z n (m + 2) α ≫ (ZX.nWire m ⊗ (ZX.hadamard ⊗ ZX.wire)) ≫ (ZX.nWire m ⊗ ZX.cap))
       ≈zx ZX.spider .Z n m (α + π) := by
@@ -56,7 +55,19 @@ closing two legs of an X spider with a *Z* cap is a Hopf redex
 (`Rules/Hopf.lean`), not a self-loop. -/
 theorem xSpider_self_loop (n m : ℕ) (α : AlgPhase) :
     (ZX.spider .X n (m + 2) α ≫ (ZX.nWire m ⊗ ZX.capX)) ≈zx ZX.spider .X n m α := by
-  sorry
+  -- Colour-change both sides to Z, and unfuse the RHS into a Z self-loop
+  unfold ZX.capX
+  zx_rw [colour_change_X_Z_effect 2, colour_change_X_Z n (m + 2), colour_change_X_Z n m]
+  zx_rw [← zSpider_self_loop n m α]
+  -- Split the spider's Hadamards between the open legs and the looped pair
+  zx_rw [compose_assoc, compose_assoc]
+  zx_rw [nHadamard_add m 2, stack_compose_interchange, compose_nWire]
+  -- The looped pair's Hadamards meet the cap's and cancel
+  zx_rw [← compose_assoc (ZX.nHadamard 2) (ZX.nHadamard 2), hadamard_hadamard_n, nWire_compose]
+  -- Slide the open legs' Hadamards past the cap on the RHS
+  zx_rw [compose_assoc]
+  nth_zx_rw 2 [← stack_empty (ZX.nHadamard m)]
+  zx_rw [stack_compose_interchange, nWire_compose, compose_empty]
 
 /-- A self-loop through a Hadamard on an X spider vanishes and adds π to the
 phase. -/

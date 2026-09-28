@@ -183,6 +183,12 @@ theorem stack_empty {n m : ℕ} (a : ZX n m) : (a ⊗ .empty) ≈zx a := by
   simp only [ZX.sem, mul_one]
   congr 1
 
+/-- Composing with the empty diagram after an effect does nothing. -/
+theorem compose_empty {n : ℕ} (a : ZX n 0) : (a ≫ ZX.empty) ≈zx a := by
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  simp only [ZX.sem, mul_one, one_mul]
+  exact Fintype.sum_subsingleton _ g
+
  /-- Stacking the empty diagram on the left does nothing either
   needs the cast because `0 + n` does not reduce. -/
 theorem empty_stack {n m : ℕ} (a : ZX n m) :
@@ -241,6 +247,12 @@ theorem nHadamard_one :
     (ZX.nHadamard 1) ≈zx ZX.hadamard := by
   rw [ZX.nHadamard]
   zx_rw [nStack_one]
+
+/-- A layer of `k + l` Hadamards splits into a layer of `k` stacked on a layer of `l`. -/
+theorem nHadamard_add (k l : ℕ) :
+    ZX.nHadamard (k + l) ≈zx (ZX.nHadamard k ⊗ ZX.nHadamard l) := by
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  simp only [ZX.sem, nStack_sem, one_mul, Fin.prod_univ_add]
 
 /-! ### Congruence for the `nStack` combinators
 
