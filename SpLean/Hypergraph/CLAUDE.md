@@ -6,9 +6,10 @@ isomorphic hypergraphs are equivalent. A third representation alongside
 it, exactly as both lower into `SpLean/Widget.lean` for rendering. This is the
 semantic meeting point; that one is the rendering meeting point.
 
-Only `Algebraic/` lowers into it so far (`Algebraic/ToHypergraph.lean`). An
-`Axiomatic/ToHypergraph.lean` would give the axioms in `Axiomatic/Rules/` the
-soundness target they have always lacked.
+Only `Algebraic/` lowers into it (`Algebraic/ToHypergraph.lean`). There is no
+plan to lower `Axiomatic/` into it too: `Axiomatic/` is kept as a reference for
+the proof ergonomics to aim for, not as something to be proved sound (see the
+root `CLAUDE.md`).
 
 ## What it is for
 
@@ -69,7 +70,7 @@ bare `wire`.
 `Iso` fixes the boundary **pointwise and in order**. An isomorphism free to
 permute boundary ports proves `swap ≈zx wire ⊗ wire`, which is false.
 `sem_swap_ne_sem_parallel` in `Iso.lean` is the standing test: `swapHyp` and
-`parallelHyp` are written by hand (`ZX` has no crossing to lower), their
+`parallelHyp` are written by hand (this module imports no `ZX`), their
 denotations differ, so by `Iso.sem_eq` no isomorphism between them exists. Any
 future weakening of `Iso` that admits one stops the file compiling.
 
@@ -159,6 +160,4 @@ dominate a derivation, are one tactic call each.
   one.
 - A normal form absorbing fusion (connected same-colour spiders merge) would
   move fusion into the isomorphism check too.
-- `Axiomatic/ToHypergraph.lean` plus its own `sem_toHyp` is the bridge to the
-  other half.
 - `Hyp → Wire.Diagram` would let `#zx` draw a hypergraph.
