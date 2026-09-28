@@ -53,25 +53,47 @@ theorem zSpider_hadamard_self_loop (n m : ℕ) (α : AlgPhase) :
 /-- Self-loop on an X spider vanishes. (The cap has to be an X cap) -/
 theorem xSpider_self_loop (n m : ℕ) (α : AlgPhase) :
     (ZX.spider .X n (m + 2) α ≫ (ZX.nWire m ⊗ ZX.capX)) ≈zx ZX.spider .X n m α := by
-  -- Colour-change both sides to Z, and unfuse the RHS into a Z self-loop
+  -- Colour-change to Z
   unfold ZX.capX
-  zx_rw [colour_change_X_Z_effect 2, colour_change_X_Z n (m + 2), colour_change_X_Z n m]
-  zx_rw [← zSpider_self_loop n m α]
+  zx_rw [colour_change_X_Z_effect 2, colour_change_X_Z n (m + 2)]
   -- Split the spider's Hadamards between the open legs and the looped pair
   zx_rw [compose_assoc, compose_assoc]
   zx_rw [nHadamard_add m 2, stack_compose_interchange, compose_nWire]
   -- The looped pair's Hadamards meet the cap's and cancel
   zx_rw [← compose_assoc (ZX.nHadamard 2) (ZX.nHadamard 2), hadamard_hadamard_n, nWire_compose]
-  -- Slide the open legs' Hadamards past the cap on the RHS
-  zx_rw [compose_assoc]
-  nth_zx_rw 2 [← stack_empty (ZX.nHadamard m)]
-  zx_rw [stack_compose_interchange, nWire_compose, compose_empty]
+  -- Slide the open legs' Hadamards past the cap
+  zx_rw [← nWire_compose (ZX.nHadamard m), ← compose_empty (ZX.spider .Z 2 0),
+    ← stack_compose_interchange, stack_empty]
+  -- Remove the Z self-loop, and colour-change back to X
+  zx_rw [← compose_assoc _ _ (ZX.nHadamard m), zSpider_self_loop, ← colour_change_X_Z n m α]
 
 /-- Self-loop through a Hadamard on an X spider vanishes and adds π to the phase. -/
 theorem xSpider_hadamard_self_loop (n m : ℕ) (α : AlgPhase) :
     (ZX.spider .X n (m + 2) α ≫ (ZX.nWire m ⊗ (ZX.hadamard ⊗ ZX.wire))
         ≫ (ZX.nWire m ⊗ ZX.capX))
       ≈zx ZX.spider .X n m (α + π) := by
-  sorry
+  -- Colour-change to Z
+  unfold ZX.capX
+  zx_rw [colour_change_X_Z_effect 2, colour_change_X_Z n (m + 2)]
+  -- Gather the loop into one layer beside the open legs
+  zx_rw [compose_assoc, compose_assoc]
+  zx_rw [stack_compose_interchange, nWire_compose]
+  -- Split the spider's Hadamards between the open legs and the looped pair
+  zx_rw [nHadamard_add m 2, stack_compose_interchange, compose_nWire]
+  -- On the looped pair, `(H ⊗ H) ≫ (H ⊗ wire) ≫ (H ⊗ H)` is `H ⊗ wire`
+  zx_rw [nHadamard_two]
+  zx_rw [← compose_assoc (ZX.hadamard ⊗ ZX.hadamard) (ZX.hadamard ⊗ ZX.wire),
+    stack_compose_interchange, hadamard_hadamard, compose_wire]
+  zx_rw [← compose_assoc (ZX.wire ⊗ ZX.hadamard) (ZX.hadamard ⊗ ZX.hadamard),
+    stack_compose_interchange, wire_compose, hadamard_hadamard]
+  -- Slide the open legs' Hadamards past the loop
+  zx_rw [← nWire_compose (ZX.nHadamard m),
+    ← compose_empty ((ZX.hadamard ⊗ ZX.wire) ≫ ZX.spider .Z 2 0),
+    ← stack_compose_interchange, stack_empty]
+  -- Split the loop back into its two layers
+  zx_rw [← nWire_compose (ZX.nWire m), ← stack_compose_interchange]
+  -- Remove the Z Hadamard self-loop, and colour-change back to X
+  zx_rw [← compose_assoc _ _ (ZX.nHadamard m), zSpider_hadamard_self_loop,
+    ← colour_change_X_Z n m]
 
 end SpLean.Algebraic

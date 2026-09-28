@@ -254,6 +254,12 @@ theorem nHadamard_add (k l : ℕ) :
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
   simp only [ZX.sem, nStack_sem, one_mul, Fin.prod_univ_add]
 
+/-- Two Hadamards in a layer, without the `empty` that `nStack` starts from. -/
+theorem nHadamard_two : ZX.nHadamard 2 ≈zx (ZX.hadamard ⊗ ZX.hadamard) := by
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  simp only [ZX.sem, nStack_sem, one_mul, Fin.prod_univ_two]
+  rfl
+
 /-! ### Congruence for the `nStack` combinators
 
 Allows `zx_rw` to work inside `nStack`
