@@ -142,6 +142,18 @@ theorem compose_nWire {n m : ℕ} (a : ZX n m) : (a ≫ ZX.nWire m) ≈zx a := b
   simp only [h]
   norm_num
 
+/-- The interchange law: composing two stacks is stacking the two compositions.
+Lets a rule about `a ≫ b` fire when `a` and `b` each sit in a different layer
+of a stack. -/
+theorem stack_compose_interchange {n m k n' m' k' : ℕ}
+    (a : ZX n m) (b : ZX m k) (c : ZX n' m') (d : ZX m' k') :
+    ((a ⊗ c) ≫ (b ⊗ d)) ≈zx ((a ≫ b) ⊗ (c ≫ d)) := by
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  simp only [ZX.sem, one_mul, sum_wires_append, Fin.append_left, Fin.append_right,
+    Finset.sum_mul_sum]
+  refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun q _ => ?_
+  ring
+
 /-- Stacking is associative up to `≈zx`;
 the cast is needed because `(n + p) + r` and `n + (p + r)` are different arities -/
 theorem stack_assoc {n m p q r s : ℕ} (a : ZX n m) (b : ZX p q) (c : ZX r s) :

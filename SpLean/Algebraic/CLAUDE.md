@@ -72,6 +72,8 @@ than being proved from scratch. Note that fusion is stated only for
 stated with) plus `wire_compose`/`compose_wire` to clear the `wire` a
 cancellation leaves behind. Its arguments are explicit so `zx_rw` can target a
 particular grouping: `zx_rw [← compose_assoc ZX.hadamard ZX.hadamard]`.
+`stack_compose_interchange` (`(a ⊗ c) ≫ (b ⊗ d) ≈zx (a ≫ b) ⊗ (c ≫ d)`) is the
+other regrouping law, for when the two halves of a rule sit in different layers.
 `Rules/Lemmas.lean` holds the shared sum-collapsing machinery (`sum_wires1`,
 the `sum_bool_*` endpoint lemmas, the `√2` arithmetic), moved here out of
 `SemanticsTesting/Utils.lean` when the rules started needing it.
