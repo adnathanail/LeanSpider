@@ -142,8 +142,8 @@ theorem Iso.sem_eq (expI : Φ → ℂ) {H₁ H₂ : Hyp Φ n m} (I : Iso H₁ H�
 `Iso` fixes the boundary pointwise. Drop that and a crossing becomes
 isomorphic to two parallel wires — same wires, same (no) boxes, same (no)
 identifications, differing only in which output port each wire is. These two
-hypergraphs are written by hand rather than lowered from terms, since `ZX` has
-no crossing to lower.
+hypergraphs are written by hand rather than lowered from terms, since this
+module imports neither representation; `swapHyp` is what `ZX.swap` lowers to.
 
 `sem_swap_ne_sem_parallel` is what makes it a test with teeth: the two
 denotations genuinely differ, so by `Iso.sem_eq` no isomorphism between them

@@ -6,44 +6,34 @@ certificate → search → `zx_iso`). Module detail lives in
 `SpLean/Hypergraph/CLAUDE.md` and `SpLean/Algebraic/CLAUDE.md`; this file is
 only about what to do next.
 
-## First: decide about `swap`
+## Settled since: `swap`
 
-**`ZX` has no crossing, so it generates only *planar* diagrams.** That is not a
-small corner — it is the single constraint behind most of what is still
-missing, and it gets in the way of both options below. Reasons to settle it
-before starting either:
+This file originally opened by asking whether to add a crossing, since without
+one `ZX` generates only *planar* diagrams. `main` has since answered it: `ZX`
+now has a `swap : ZX 2 2` constructor with its `ZX.sem` clause, layout and
+rendering, and strong complementarity is stated and proved over it
+(`Rules/StrongComplementarity.lean`). On merging, `toHyp` gained the matching
+clause — two vertices, no hyperedges, `outputs` the reverse of `inputs` — and
+`sem_toHyp` its case; `Iso.sem_eq` and the certificate path needed no change,
+and `zx_iso` handles crossings (see the `swap` tests in
+`SemanticsTesting/10Hypergraph.lean`).
 
-- **Two standard rules cannot even be stated.** `SpLean/Algebraic/Rules/Bialgebra.lean`
-  deliberately holds no theorem: bialgebra and strong complementarity both need
-  a crossing, and a swap is *not* derivable from cups and caps — in a compact
-  closed category the symmetry is what those are defined against.
-- **Spider symmetry is only half-available.** The `bend_*` rules rotate a leg
-  between the two ends of a spider; permuting two adjacent legs needs a swap.
-  (The hypergraph layer has full symmetry, since a hyperedge has no leg order —
-  which is exactly why `zx_iso` can prove things the rules cannot.)
-- **A rewritten hypergraph may not come back.** Rewriting at the hypergraph
-  level can produce a graph no term expresses, and there is no `Hyp → ZX`
-  synthesis either. See option B.
+What remains of the old concern:
 
-**It is cheap now, and it was not before.** With the hypergraph layer in place
-the lowering is trivial — a swap is two vertices, no hyperedges, and `outputs`
-the reverse of `inputs` — and `Iso.sem_eq`, `sem_toHyp`'s other cases and the
-whole certificate path need no change. The work is:
-
-- a `swap : ZX 2 2` constructor, or a general `perm : Equiv.Perm (Fin n) → ZX n n`
-  (strong complementarity wants the general one; `SpLean/Algebraic/CLAUDE.md`
-  anticipates it under "permuting wires is reindexing a sum");
-- a `ZX.sem` clause — for `swap`, `if f 0 = g 1 ∧ f 1 = g 0 then 1 else 0`;
-- a `toHyp` clause (as above), and its case in `sem_toHyp`;
-- layout in `Algebraic/Visualize.lean` and a case in `Algebraic/Render.lean`.
-
-Do this first, or knowingly accept the planar restriction and say so where it
-bites.
+- **Only a single swap, not a general permutation.** Wider permutations are
+  built from `swap` and wires; a `perm : Equiv.Perm (Fin n) → ZX n n` would
+  still be the cleaner statement for `n`-ary strong complementarity.
+- **Spider symmetry is still not a rule.** The `bend_*` rules rotate a leg
+  between the two ends of a spider; permuting two adjacent legs is now
+  *statable* with `swap` but not yet stated. (The hypergraph layer has full
+  symmetry, since a hyperedge has no leg order.)
+- **`Hyp → ZX` synthesis does not exist.** Every hypergraph now has *some*
+  term, but nothing produces it. See option B.
 
 ## Option A: automatic rebracketing (the near one)
 
-A tactic — `zx_apply zSpider_fusion`, say — that searches the hypergraph for a
-rule's redex, works out a bracketing that exposes it, proves *that* with the
+A tactic — `zx_apply spider_fusion_Z_one_wire`, say — that searches the
+hypergraph for a rule's redex, works out a bracketing that exposes it, proves *that* with the
 existing certificate machinery, and then fires the rule.
 
 This is the high-value tactic work, and it reuses everything already built:
@@ -70,22 +60,14 @@ whole-graph isomorphism `Search.lean` does today); pushout complement and
 pushout; and a soundness theorem — rewriting inside preserves `≈zx`, given the
 rule is sound.
 
-**The obstacle is the planarity one above.** Either add `swap` so every
-hypergraph has a term, or keep every *stated* equivalence between real terms
-and use the hypergraph purely as the engine. Worth deciding explicitly rather
-than discovering halfway.
+**The obstacle is getting back to a term.** With `swap` every hypergraph has
+one, but there is no synthesis to find it; the alternative is to keep every
+*stated* equivalence between real terms and use the hypergraph purely as the
+engine. Worth deciding explicitly rather than discovering halfway.
 
 ## Smaller wins, any time
 
-- **`colour_change_X_one`** (`Rules/ColourChange.lean`) is one `sorry` and
-  would make the whole of `SemanticsTesting/11Ex37.lean` sorry-free —
-  `xPi_past_hadamard` is derived from it and everything downstream inherits it.
-- **The 29 remaining rule stubs.** `11Ex37.lean` proves concrete instances of
-  three of the general ones (spectator fusion, colour change, π-commutation)
-  and five of its six local facts fell to `sum_wires2` plus a case split, so
-  those are decent templates — the general proofs may be more accessible than
-  the stub count suggests.
-- **`Axiomatic/ToHypergraph.lean`.** A second lowering, plus its own
-  `sem_toHyp`, would finally give the axioms in `Axiomatic/Rules/` a soundness
-  target. This is the *reason* `Algebraic/` exists and the bridge is still not
-  built.
+- **The remaining rule stubs** (`grep -rn sorry SpLean/Algebraic/Rules/`:
+  Hopf, spectator fusion, the four bends). `11Ex37.lean` proves concrete
+  instances of spectator fusion by `sum_wires2` plus a case split, so those
+  are decent templates.
