@@ -176,7 +176,12 @@ theorem stack_assoc {n m p q r s : ℕ} (a : ZX n m) (b : ZX p q) (c : ZX r s) :
   simp only [ZX.sem, mul_assoc, hll, hlr, hr]
 
 
-/-- Stacking the empty diagram on the right does nothing. -/
+/-- Stacking the empty diagram on the right does nothing.
+
+`Fin.castAdd 0 i` is `i` on the nose — same value, and the proof field is
+irrelevant — so the two boundaries are definitionally the same function and
+`rfl` finishes. Contrast `empty_stack` below, where `0 + n` does not reduce and
+the law needs a cast to be stated at all. -/
 theorem stack_empty {n m : ℕ} (a : ZX n m) : (a ⊗ .empty) ≈zx a := by
   refine ⟨1, one_ne_zero, fun f g => ?_⟩
   rw [one_mul]
