@@ -78,6 +78,49 @@ Reach for a rewrite first; this is the escape hatch, not the habit —
 `cnot_cnot_rewrite`, beside it, is the same fact derived from the rules
 instead, and is worth reading as the worked example of how they compose.
 
+Not every rule in `Rules/` is proved yet. A `sorry` there is a stub, not a
+regression: the statement has been pinned down (and typechecks, which for an
+arity-indexed ADT is most of the work) and the proof is outstanding. So
+`grep -rn sorry SpLean/Algebraic/Rules/` is the to-do list, and adding a rule
+means removing a `sorry`, not writing a new theorem. Among the stubs:
+`Rules/Hopf.lean`, fusion with spectator wires (`zSpider_fusion_spectator`,
+stated over `ZX.cast`), and `Rules/Yank.lean`'s four bends; its four snake
+equations are proved.
+
+Two things worth knowing before attacking that list:
+
+- **The structural laws were proved from `ZX.sem`, not by hypergraph
+  isomorphism**, though the machinery for the latter exists. `stack_empty` is
+  four lines semantically against roughly fifty as an isomorphism, and
+  `stack_compose_interchange` is worse — its isomorphism is a block permutation
+  of `Fin`s where the semantics simply factors. The rule of thumb:
+  **hypergraphs when the diagram is fixed, semantics when it is a variable.**
+- **Concrete instances of a stubbed rule are often much easier than the rule.**
+  `SemanticsTesting/11Ex37.lean` needed six local facts — spectator fusion,
+  colour change, π-commutation — and five fell to `sum_wires2` plus a case
+  split. That suggests the general proofs are more accessible than the stub
+  count implies.
+
+Bending comes in two directions and both are needed: `bend_output`/`bend_input`
+take the *last* leg round below the spider, `bend_output_above`/
+`bend_input_above` take the *first* leg round above it. Between them that is
+every leg a planar diagram can move. A derivation reaches for whichever end the
+leg it must move is at, and `cnot_cnot_rewrite` uses one of each. The
+above-bends are stated over `ZX.cast`, since `1 + (1 + n)` and `2 + n` are not
+definitionally equal; the below-bends need none, since `(m + 1) + 1` and
+`m + 2` are — which is why they read more simply.
+
+`Rules/Structural.lean` has the tools such a derivation needs alongside the
+laws themselves: `stack_assoc_symm` (the regroup direction a goal can actually
+be rewritten with, since `stack_assoc` only fires on a term already carrying
+its cast), `stack_compose_below`/`stack_compose_above` (a `≫` inside one row of
+a `⊗` put back into layers, which is the shape every bend leaves behind), and
+`nWire_one`/`nWire_two` (the padding those introduce, turned back into plain
+wires).
+
+Scalar rules are absent on purpose: `≈zx` is proportionality, so it discards
+exactly what those rules are about.
+
 `Rules/Structural.lean` has the laws that let the *other* rules fire:
 `compose_assoc` (needed because `≫` is a constructor, so `(a ≫ b) ≫ c` and
 `a ≫ (b ≫ c)` are different terms and a rule only matches the grouping it was
