@@ -1,6 +1,7 @@
 import SpLean.Algebraic.Equiv
 import SpLean.Algebraic.Combinators
 import SpLean.Algebraic.Cast
+import SpLean.Algebraic.Rules.Lemmas
 
 /-!
 # Yanking and bending
@@ -54,22 +55,40 @@ namespace SpLean.Algebraic
 /-- The left snake pulls straight. -/
 theorem yank_left :
     ((ZX.cup ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.cap : ZX 3 1)) ≈zx ZX.wire := by
-  sorry
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, zSpiderSem, AlgPhase.expI_zero]
+  rw [sum_wires3]
+  cases hf : f 0 <;> cases hg : g 0 <;> simp [hf, hg]
 
 /-- The right snake pulls straight. -/
 theorem yank_right :
     ((ZX.wire ⊗ ZX.cup) ≫ (ZX.cap ⊗ ZX.wire : ZX 3 1)) ≈zx ZX.wire := by
-  sorry
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, zSpiderSem, AlgPhase.expI_zero]
+  rw [sum_wires3]
+  cases hf : f 0 <;> cases hg : g 0 <;> simp [hf, hg]
 
 /-- The left snake, in X. -/
 theorem yank_left_X :
     ((ZX.cupX ⊗ ZX.wire) ≫ (ZX.wire ⊗ ZX.capX : ZX 3 1)) ≈zx ZX.wire := by
-  sorry
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, xSpiderSem, zSpiderSem, hadSem, AlgPhase.expI_zero, sum_wires1, sum_wires2]
+  rw [sum_wires3]
+  cases hf : f 0 <;> cases hg : g 0 <;>
+    simp [hf, hg, inv_root_two_mul_self_complex] <;> norm_num
 
 /-- The right snake, in X. -/
 theorem yank_right_X :
     ((ZX.wire ⊗ ZX.cupX) ≫ (ZX.capX ⊗ ZX.wire : ZX 3 1)) ≈zx ZX.wire := by
-  sorry
+  refine ⟨1, one_ne_zero, fun f g => ?_⟩
+  rw [one_mul]
+  simp only [ZX.sem, xSpiderSem, zSpiderSem, hadSem, AlgPhase.expI_zero, sum_wires1, sum_wires2]
+  rw [sum_wires3]
+  cases hf : f 0 <;> cases hg : g 0 <;>
+    simp [hf, hg, inv_root_two_mul_self_complex] <;> norm_num
 
 /-! ### Bending a spider's leg
 
