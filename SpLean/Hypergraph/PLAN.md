@@ -169,10 +169,7 @@ SpLean/Hypergraph/Decide.lean      -- certificate checking            [phase 3]
 SpLean/Algebraic/ToHypergraph.lean -- toHyp, the lowering theorem, zx_iso_of
 ```
 
-`toHyp` lives in `Algebraic/` because it mentions `ZX`, which leaves room for
-an `Axiomatic/ToHypergraph.lean` later — the long-promised bridge, since a
-semantics for `ZXDiagram` is exactly the soundness target the axioms in
-`Axiomatic/Rules/` have always lacked.
+`toHyp` lives in `Algebraic/` because it mentions `ZX`.
 
 **`Hypergraph/` importing neither representation is a preference, not a rule.**
 The phase type is where it bites: `Hyp` is parameterised over `Φ` with
@@ -180,8 +177,7 @@ The phase type is where it bites: `Hyp` is parameterised over `Φ` with
 argument, so the folder needs nothing from either half;
 `Algebraic/ToHypergraph.lean` instantiates at `AlgPhase` and `AlgPhase.expI`.
 That is worth keeping for its own sake — the structure genuinely does not care
-what a phase is, and a second lowering from `Axiomatic/` would arrive with a
-different one. But if the parameter turns into a tax, importing
+what a phase is. But if the parameter turns into a tax, importing
 `Algebraic.AlgPhase` is an acceptable retreat rather than a breach.
 
 ## Phases
@@ -255,9 +251,8 @@ last: everything above is useful with the witness supplied by hand.
 
 **Later, not part of this plan.** A normal form that absorbs fusion (connected
 same-colour spiders merge) would move fusion into the isomorphism check too.
-DPO rewriting sits naturally on this encoding. `Axiomatic/ToHypergraph.lean`
-plus the same lowering theorem would give the axioms in `Axiomatic/Rules/` a
-soundness target. A `Hyp → Wire.Diagram` lowering would let `#zx` draw one.
+DPO rewriting sits naturally on this encoding. A `Hyp → Wire.Diagram` lowering
+would let `#zx` draw one.
 
 ## Notes on interaction with what exists
 

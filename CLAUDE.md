@@ -90,7 +90,7 @@ Tactics do not log diagrams. `zx_debug` is the one tactic that writes to the Inf
 ## Two ZX representations
 
 - **`ZXDiagram`** (`SpLean/Axiomatic/ZXDiagram.lean`) — graph-style: nodes + edges. Used by all rewrite rules in `Axiomatic/Rules/*` and the `≈z` equivalence. It used to sit in the shared root because the algebraic renderer lowered into it; it no longer does, so it lives with the rules that use it.
-- **`ZX n m`** (`SpLean/Algebraic/ZX.lean`) — free-algebra ADT indexed by arity, with a denotational semantics (`ZX.sem`) and a proportionality equivalence `≈zx` proved against it. Spider fusion is *proved* here rather than axiomatised, and rewritten with `zx_rw`; the two halves are still unconnected, so the rules in `Axiomatic/Rules/` do not yet benefit.
+- **`ZX n m`** (`SpLean/Algebraic/ZX.lean`) — free-algebra ADT indexed by arity, with a denotational semantics (`ZX.sem`) and a proportionality equivalence `≈zx` proved against it. Spider fusion is *proved* here rather than axiomatised, and rewritten with `zx_rw`.
 
 Both render through `SpLean.Wire`, by separate lowerings: `ZXDiagram.toWire` supplies no positions, so zxcc lays the graph out itself; `ZXSkel.toWire` supplies a `(col, qubit)` for every node from the algebraic structure — `compose` advances col, `stack` advances qubit; a `wire` stays a real `wire` node so the boxes around it are non-empty — so zxcc skips its layout. Each `stack`/`compose` subtree also records a bounding rectangle drawn behind the diagram. Algebraic terms are walked at the `Expr` level rather than evaluated, so a diagram parameterized by a phase (`(α : AlgPhase) → ZX 0 0`) renders with `α` written on the spider. See `SpLean/Algebraic/CLAUDE.md` for details.
 
