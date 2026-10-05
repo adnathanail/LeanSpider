@@ -14,6 +14,14 @@ Make changes in new commits, as opposed to modifying existing commits, unless ex
 
 **Do not add attributions to yourself in commit messages**
 
+## Writing style
+
+When writing comments, or user facing text, write from the context of someone coming into the context cold.
+Don't write as though someone has heard the conversation.
+People don't need to know that something hasn't happened.
+
+If that sort of design decision context is important, put it in CLAUDE.md
+
 ## Project structure
 
 - `SpLean/` — Lean 4 library, split into one folder per representation plus the little that is genuinely shared:
