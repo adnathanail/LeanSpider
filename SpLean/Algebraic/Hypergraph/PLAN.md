@@ -57,11 +57,11 @@ The structure is the **incidence dual** of the picture the renderer draws:
 Sketch:
 
 ```lean
-inductive Label | spider (c : AlgSpColor) (φ : AlgPhase) | hadamard
+inductive Hyp.Label | spider (c : AlgSpColor) (φ : AlgPhase) | hadamard
 
 structure Hyp (n m : ℕ) where
-  wires   : ℕ                                     -- vertex ids are `Fin wires`
-  boxes   : List (Label × List (Fin wires))     -- hyperedges: label + legs
+  wires   : ℕ                                       -- vertex ids are `Fin wires`
+  edges   : List (Hyp.Label × List (Fin wires))   -- hyperedges: label + legs
   inputs  : Fin n → Fin wires
   outputs : Fin m → Fin wires
 ```
@@ -129,7 +129,7 @@ boundary vertices with `f` and `g`, and sum:
 noncomputable def Hyp.sem (H : Hyp n m) (f : Wires n) (g : Wires m) : ℂ :=
   ∑ a : Fin H.wires → Bool,
     (if (∀ i, a (H.inputs i) = f i) ∧ (∀ j, a (H.outputs j) = g j) then 1 else 0) *
-      ∏ b ∈ H.boxes, boxTensor b.1 (b.2.map a)
+      ∏ b ∈ H.edges, edgeTensor b.1 (b.2.map a)
 ```
 
 Two checks that this is the right definition, both worth writing as tests:
@@ -162,7 +162,7 @@ A subfolder of `Algebraic/`, namespace `SpLean.Algebraic.Hypergraph`:
 
 ```
 SpLean/Algebraic/Hypergraph.lean                -- aggregator
-SpLean/Algebraic/Hypergraph/Defs.lean           -- Label, Box, Hyp, well-formedness
+SpLean/Algebraic/Hypergraph/Defs.lean           -- Hyp.Label, Hyp.Edge, Hyp, well-formedness
 SpLean/Algebraic/Hypergraph/Semantics.lean      -- Hyp.sem
 SpLean/Algebraic/Hypergraph/ToHypergraph.lean   -- toHyp, the lowering theorem, zx_iso_of
 SpLean/Algebraic/Hypergraph/Iso.lean            -- Iso (boundary-fixing) + sem invariance
@@ -186,12 +186,12 @@ no `sorry`. What the spike settled:
   per pair. `sem_toHyp_wire_compose` is the test that this does not leave a
   wire summed over freely — it would have come out a factor of two wrong, and
   it does not.
-- **Boxes carry their arity.** This is the one thing the spike changed. Legs
-  were a `List (Fin wires)`, which made a box's leg tensor land at arity
+- **Edges carry their arity.** This is the one thing the spike changed. Legs
+  were a `List (Fin wires)`, which made an edge's leg tensor land at arity
   `List.length`, so every lemma about it had to transport along
-  `List.length_ofFn` — a dependent rewrite in a type index. A `Box` record with
-  an `arity : ℕ` field and `legs : Fin arity → Fin wires` removes that
-  entirely, and the spider case then goes through on `Fin.addCases` lemmas
+  `List.length_ofFn` — a dependent rewrite in a type index. A `Hyp.Edge`
+  record with an `arity : ℕ` field and `legs : Fin arity → Fin wires` removes
+  that entirely, and the spider case then goes through on `Fin.addCases` lemmas
   alone.
 - **`Fin` vertex ids are fine so far.** `Fin.castAdd`/`Fin.natAdd` embed the
   two halves in `stack` and `compose` and `Fin.addCases` splits the boundary,

@@ -11,8 +11,8 @@ The encoding is the **incidence dual** of the picture the renderer draws:
 
 - a **vertex** is a *wire*, including wires the term never names: in `Z ≫ Z`
   the wire between the two spiders is a vertex;
-- a **hyperedge** (a `Box`) is a *generator*, a spider or a Hadamard, carrying
-  its label and the wire on each of its legs;
+- a **hyperedge** (a `Hyp.Edge`) is a *generator*, a spider or a Hadamard,
+  carrying its label and the wire on each of its legs;
 - the **boundary** says which wire each input and output port is.
 
 This orientation makes composition a *vertex merge*: `a ≫ b` is the disjoint
@@ -44,7 +44,7 @@ vertex merge relies on:
   two ends and no term can make both of them inputs, so composition always
   pairs up two disjoint `m`-element sets of wires.
 
-A `hadamard` box is expected to have exactly two legs. The semantics assigns a
+A `hadamard` edge is expected to have exactly two legs. The semantics assigns a
 junk value to one that does not, which keeps the definition total.
 -/
 
@@ -52,21 +52,22 @@ namespace SpLean.Algebraic.Hypergraph
 
 /-- The label on a hyperedge: a spider with its colour and phase, or a
 Hadamard. -/
-inductive Label where
+inductive Hyp.Label where
   | spider (c : AlgSpColor) (φ : AlgPhase)
   | hadamard
   deriving Repr
 
-/-- One generator: a label, how many legs it has, and which wire each leg is on.
+/-- A hyperedge, representing one generator: a label, how many legs it has,
+and which wire each leg is on.
 
 The leg count is stored as a field, rather than derived as the length of a
-`List` of legs, so that the arity of the box's tensor is a plain `ℕ`. Were it a
-`List.length`, every lemma about a box's tensor would need to transport along
+`List` of legs, so that the arity of the edge's tensor is a plain `ℕ`. Were it a
+`List.length`, every lemma about an edge's tensor would need to transport along
 `List.length_ofFn`, a dependent rewrite inside a type index. `Hyp` stores its
-boxes and identified pairs as counted functions for the same reason. -/
-structure Box (w : ℕ) where
+edges and identified pairs as counted functions for the same reason. -/
+structure Hyp.Edge (w : ℕ) where
   /-- What kind of generator this is. -/
-  label : Label
+  label : Hyp.Label
   /-- How many legs it has. -/
   arity : ℕ
   /-- Which wire each leg is on. -/
@@ -78,9 +79,9 @@ structure Hyp (n m : ℕ) where
   /-- Number of wires; wire (vertex) ids are `Fin wires`. -/
   wires : ℕ
   /-- Number of generators. -/
-  boxCount : ℕ
+  edgeCount : ℕ
   /-- The generators. -/
-  boxes : Fin boxCount → Box wires
+  edges : Fin edgeCount → Hyp.Edge wires
   /-- Number of pairs of wires identified by composition. -/
   idCount : ℕ
   /-- The identified pairs: both wires in a pair carry the same value. -/

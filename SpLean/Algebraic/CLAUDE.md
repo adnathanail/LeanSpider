@@ -94,7 +94,7 @@ the `sum_bool_*` endpoint lemmas, the `√2` arithmetic), moved here out of
 
 `Hypergraph/` lowers a `ZX n m` term to a hypergraph (`ZX.toHyp`) that has no
 record of how the term was bracketed: wires are vertices and generators are
-boxes. `Hyp.sem` gives it a denotation in the same boundary-tensor form as
+hyperedges (`Hyp.Edge`). `Hyp.sem` gives it a denotation in the same boundary-tensor form as
 `ZX.sem`. Two terms whose hypergraphs are isomorphic can then be shown
 equivalent without a chain of structural rewrites. The plan, and how far it
 has got, is in `Hypergraph/PLAN.md`. The hypergraph types reuse `AlgSpColor`,
