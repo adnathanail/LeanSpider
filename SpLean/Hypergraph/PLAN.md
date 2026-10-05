@@ -182,41 +182,40 @@ what a phase is. But if the parameter turns into a tax, importing
 
 ## Phases
 
-**Phase 0 — spike the encoding.** `Defs.lean` + `Semantics.lean`, and prove
-`(toHyp ZX.wire).sem = ZX.wire.sem`, the same for one spider, and for
-`wire ≫ wire`.
+**Phase 0 — spike the encoding. DONE.** `Defs.lean`, `Semantics.lean` and
+`Algebraic/ToHypergraph.lean` exist; `toHyp` covers all six constructors, and
+`sem_toHyp_wire`, `sem_toHyp_zSpider`, `sem_toHyp_wire_compose` are proved with
+no `sorry`. What the spike settled:
 
-The decision this hangs on is **how the vertex merge is represented**. Saying
-"identify `a`'s output vertex `i` with `b`'s input vertex `i`" is three
-different pieces of Lean, and the choice reaches all the way to phase 3:
+- **Identification deltas work.** `compose` records `a`'s output wire and `b`'s
+  input wire as a pair and renumbers nothing; `Hyp.sem` carries `[a v = a v']`
+  per pair. `sem_toHyp_wire_compose` is the test that this does not leave a
+  wire summed over freely — it would have come out a factor of two wrong, and
+  it does not.
+- **Boxes carry their arity.** This is the one thing the spike changed. Legs
+  were a `List (Fin wires)`, which made a box's leg tensor land at arity
+  `List.length`, so every lemma about it had to transport along
+  `List.length_ofFn` — a dependent rewrite in a type index. A `Box` record with
+  an `arity : ℕ` field and `legs : Fin arity → Fin wires` removes that
+  entirely, and the spider case then goes through on `Fin.addCases` lemmas
+  alone.
+- **`Fin` vertex ids are fine so far.** `Fin.castAdd`/`Fin.natAdd` embed the
+  two halves in `stack` and `compose` and `Fin.addCases` splits the boundary,
+  which is the same vocabulary `Algebraic/Semantics.lean` already uses. Revisit
+  only if phase 3's `decide` struggles.
+- **Still open:** well-formedness (the degree-2 and distinct-boundary
+  invariants below) is not stated or enforced anywhere yet, and whether leg
+  lists compare up to permutation is now a question for `Iso` in phase 1 —
+  with legs as `Fin arity → Fin wires`, that means comparing up to a
+  permutation of `Fin arity`.
 
-- *`Fin w` + compaction* — merge and renumber to a normal form. Concrete and
-  decidable; `Fin` arithmetic with subtraction is miserable.
-- *`Fin w` + identification deltas* — do not renumber. Keep both vertices and
-  let `sem` carry a `[a v = a v']` factor per identified pair, which exactly
-  cancels the spurious factor of `2` a now-dead vertex would contribute.
-  Everything stays computable; the cost is that `Hyp` is not in normal form, so
-  `Iso` has to work up to the identifications (or normalise once at the top).
-- *Bundled `V : Type` + a real quotient* — cleanest to prove with, and `decide`
-  in phase 3 gets awkward, since the vertex type may be a quotient.
+Two invariants of anything `toHyp` produces, to state in `Defs.lean` when
+phase 1 needs them:
 
-**The trap either way:** if merging leaves vertices that nothing mentions and
-the sum still ranges over them, `sem` gains a factor of `2` per dead vertex and
-the lowering theorem stops holding on the nose. Whichever representation is
-picked has to answer for that, and the `wire ≫ wire` test is what catches it —
-it is the smallest term where a vertex is merged at all.
-
-Two invariants of anything `toHyp` produces, worth stating in `Defs.lean`
-because the merge relies on the second:
-
-- every vertex has degree exactly 2, counting boundary ports as ends;
-- the input vertices are pairwise distinct, and likewise the outputs. (A wire
-  has two ends, and no term can make both of them inputs.) So the merge is a
+- every wire has degree exactly 2, counting boundary ports as ends;
+- the input wires are pairwise distinct, and likewise the outputs. (A wire has
+  two ends, and no term can make both of them inputs.) So the merge is a
   bijection between two disjoint `m`-element sets, not something messier.
-
-Also settle here: `Fin` vs ℕ vertex ids, leg lists up to permutation, and how
-well-formedness is carried. Acceptance: the three lemmas go through without
-fighting the definitions. If the vertex merge already hurts, change it now.
 
 **Phase 1 — isomorphism invariance.** `Iso.lean`: the boundary-fixing
 isomorphism, and `H₁ ≅ H₂ → H₁.sem = H₂.sem`, by reindexing the vertex-sum and
