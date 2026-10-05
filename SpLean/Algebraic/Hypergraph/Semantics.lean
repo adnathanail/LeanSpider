@@ -1,4 +1,5 @@
-import SpLean.Hypergraph.Defs
+import SpLean.Algebraic.Hypergraph.Defs
+import SpLean.Algebraic.Semantics
 import Mathlib.Analysis.SpecialFunctions.Sqrt
 import Mathlib.Algebra.BigOperators.Fin
 
@@ -13,14 +14,14 @@ then the product of every box's tensor, applied to the bits on that box's legs.
 
 Every tensor here is invariant under permuting its legs. This is what makes it
 sound for a box to have no distinguished leg order. A Z spider is `1` when all
-its legs are `false`, `expI φ` when all are `true`, and `0` otherwise; it treats
+its legs are `false`, `φ.expI` when all are `true`, and `0` otherwise; it treats
 inputs and outputs alike. That is `zSpiderSem` from
 `SpLean/Algebraic/Semantics.lean` with its input and output bits merged into a
 single list. `xTensor` is a Z spider conjugated by Hadamards, matching how
 `xSpiderSem` is defined there.
 -/
 
-namespace SpLean.Hypergraph
+namespace SpLean.Algebraic.Hypergraph
 
 open scoped Real
 
@@ -28,26 +29,26 @@ open scoped Real
 every leg is `true`. Stated over any number of legs, rather than as a function
 of two bits, so that it is visibly independent of leg order like the other
 tensors. Only `k = 2` corresponds to a Hadamard. -/
-noncomputable def hadTensor {k : ℕ} (v : Bits k) : ℂ :=
+noncomputable def hadTensor {k : ℕ} (v : Wires k) : ℂ :=
   ((Real.sqrt 2 : ℝ) : ℂ)⁻¹ * (if ∀ i, v i = true then -1 else 1)
 
 /-- A Z spider's leg tensor. -/
-noncomputable def zTensor {Φ : Type} (expI : Φ → ℂ) (φ : Φ) {k : ℕ} (v : Bits k) : ℂ :=
-  (if ∀ i, v i = false then 1 else 0) + expI φ * (if ∀ i, v i = true then 1 else 0)
+noncomputable def zTensor (φ : AlgPhase) {k : ℕ} (v : Wires k) : ℂ :=
+  (if ∀ i, v i = false then 1 else 0) + φ.expI * (if ∀ i, v i = true then 1 else 0)
 
 /-- An X spider's leg tensor: a Z spider conjugated by a Hadamard on every leg. -/
-noncomputable def xTensor {Φ : Type} (expI : Φ → ℂ) (φ : Φ) {k : ℕ} (v : Bits k) : ℂ :=
-  ∑ v' : Bits k, (∏ i, hadTensor ![v i, v' i]) * zTensor expI φ v'
+noncomputable def xTensor (φ : AlgPhase) {k : ℕ} (v : Wires k) : ℂ :=
+  ∑ v' : Wires k, (∏ i, hadTensor ![v i, v' i]) * zTensor φ v'
 
 /-- The tensor a box contributes, given the bits on its legs. -/
-noncomputable def Label.tensor {Φ : Type} (expI : Φ → ℂ) :
-    Label Φ → {k : ℕ} → Bits k → ℂ
-  | .spider .Z φ => fun v => zTensor expI φ v
-  | .spider .X φ => fun v => xTensor expI φ v
+noncomputable def Label.tensor :
+    Label → {k : ℕ} → Wires k → ℂ
+  | .spider .Z φ => fun v => zTensor φ v
+  | .spider .X φ => fun v => xTensor φ v
   | .hadamard => fun v => hadTensor v
 
 /-- The bits an assignment puts on a box's legs. -/
-def Box.bits {Φ : Type} {w : ℕ} (b : Box Φ w) (a : Fin w → Bool) : Bits b.arity :=
+def Box.bits {w : ℕ} (b : Box w) (a : Fin w → Bool) : Wires b.arity :=
   fun i => a (b.legs i)
 
 /-- Denotation of a hypergraph, as the matrix entry for input bits `f` and
@@ -56,12 +57,12 @@ output bits `g`.
 Sums over assignments of a bit to every wire. Each assignment that agrees with
 `f` and `g` on the boundary and gives identified wires equal values contributes
 the product of the boxes' tensors. -/
-noncomputable def Hyp.sem {Φ : Type} (expI : Φ → ℂ) {n m : ℕ} (H : Hyp Φ n m)
-    (f : Bits n) (g : Bits m) : ℂ :=
+noncomputable def Hyp.sem {n m : ℕ} (H : Hyp n m)
+    (f : Wires n) (g : Wires m) : ℂ :=
   ∑ a : Fin H.wires → Bool,
     (if (∀ i, a (H.inputs i) = f i) ∧ (∀ j, a (H.outputs j) = g j) then 1 else 0) *
       (if ∀ k, a (H.ids k).1 = a (H.ids k).2 then 1 else 0) *
-      ∏ b, Label.tensor expI (H.boxes b).label ((H.boxes b).bits a)
+      ∏ b, Label.tensor (H.boxes b).label ((H.boxes b).bits a)
 
 /-! ## Reindexing legs
 
@@ -80,7 +81,7 @@ and this form applies to it directly. -/
 
 /-- If two leg assignments agree up to the reindexing `σ`, then every leg of
 one is `b` exactly when every leg of the other is. -/
-theorem forall_bits_congr {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂) {v₁ : Bits k₁} {v₂ : Bits k₂}
+theorem forall_bits_congr {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂) {v₁ : Wires k₁} {v₂ : Wires k₂}
     (h : ∀ i, v₁ i = v₂ (σ i)) (b : Bool) : (∀ i, v₁ i = b) ↔ (∀ j, v₂ j = b) := by
   constructor
   · intro hv j
@@ -90,35 +91,35 @@ theorem forall_bits_congr {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂) {v₁ :
     rw [h i]
     exact hv _
 
-theorem zTensor_congr {Φ : Type} (expI : Φ → ℂ) (φ : Φ) {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂)
-    {v₁ : Bits k₁} {v₂ : Bits k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
-    zTensor expI φ v₁ = zTensor expI φ v₂ := by
+theorem zTensor_congr (φ : AlgPhase) {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂)
+    {v₁ : Wires k₁} {v₂ : Wires k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
+    zTensor φ v₁ = zTensor φ v₂ := by
   simp only [zTensor, forall_bits_congr σ h]
 
 theorem hadTensor_congr {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂)
-    {v₁ : Bits k₁} {v₂ : Bits k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
+    {v₁ : Wires k₁} {v₂ : Wires k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
     hadTensor v₁ = hadTensor v₂ := by
   simp only [hadTensor, forall_bits_congr σ h]
 
-theorem xTensor_congr {Φ : Type} (expI : Φ → ℂ) (φ : Φ) {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂)
-    {v₁ : Bits k₁} {v₂ : Bits k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
-    xTensor expI φ v₁ = xTensor expI φ v₂ := by
+theorem xTensor_congr (φ : AlgPhase) {k₁ k₂ : ℕ} (σ : Fin k₁ ≃ Fin k₂)
+    {v₁ : Wires k₁} {v₂ : Wires k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
+    xTensor φ v₁ = xTensor φ v₂ := by
   refine Fintype.sum_equiv (Equiv.arrowCongr σ (Equiv.refl Bool)) _ _ fun v' => ?_
   have hv' : ∀ i, v' i = (Equiv.arrowCongr σ (Equiv.refl Bool) v') (σ i) := by
     intro i; simp [Equiv.arrowCongr]
-  rw [zTensor_congr expI φ σ hv']
+  rw [zTensor_congr φ σ hv']
   congr 1
   refine Fintype.prod_equiv σ _ _ fun i => ?_
   rw [h i, hv' i]
 
-theorem Label.tensor_congr {Φ : Type} (expI : Φ → ℂ) (L : Label Φ) {k₁ k₂ : ℕ}
-    (σ : Fin k₁ ≃ Fin k₂) {v₁ : Bits k₁} {v₂ : Bits k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
-    Label.tensor expI L v₁ = Label.tensor expI L v₂ := by
+theorem Label.tensor_congr (L : Label) {k₁ k₂ : ℕ}
+    (σ : Fin k₁ ≃ Fin k₂) {v₁ : Wires k₁} {v₂ : Wires k₂} (h : ∀ i, v₁ i = v₂ (σ i)) :
+    Label.tensor L v₁ = Label.tensor L v₂ := by
   cases L with
   | spider c φ =>
       cases c with
-      | Z => exact zTensor_congr expI φ σ h
-      | X => exact xTensor_congr expI φ σ h
+      | Z => exact zTensor_congr φ σ h
+      | X => exact xTensor_congr φ σ h
   | hadamard => exact hadTensor_congr σ h
 
-end SpLean.Hypergraph
+end SpLean.Algebraic.Hypergraph

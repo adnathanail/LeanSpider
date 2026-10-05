@@ -1,7 +1,7 @@
 # Plan: hypergraph rewriting
 
-Status: **plan only, no code yet.** This file is the brief; delete it or fold
-it into a `CLAUDE.md` once `SpLean/Hypergraph/` holds something.
+This file is the brief for `SpLean/Algebraic/Hypergraph/`. Fold it into
+`SpLean/Algebraic/CLAUDE.md` once the plan is carried out.
 
 ## The idea
 
@@ -9,7 +9,7 @@ Two ZX terms that denote the same *graph* should be interchangeable, and
 proving it should not require a derivation. The route:
 
 1. lower a term to a combinatorial structure that has forgotten how the term
-   was bracketed — `toHyp : ZX n m → Hyp Φ n m`;
+   was bracketed — `toHyp : ZX n m → Hyp n m`;
 2. prove that lowering preserves the denotation — `(toHyp a).sem = a.sem`;
 3. prove that isomorphic structures have equal denotations —
    `H₁ ≅ H₂ → H₁.sem = H₂.sem`;
@@ -57,11 +57,11 @@ The structure is the **incidence dual** of the picture the renderer draws:
 Sketch:
 
 ```lean
-inductive Label (Φ : Type) | spider (c : Colour) (φ : Φ) | hadamard
+inductive Label | spider (c : AlgSpColor) (φ : AlgPhase) | hadamard
 
-structure Hyp (Φ : Type) (n m : ℕ) where
+structure Hyp (n m : ℕ) where
   wires   : ℕ                                     -- vertex ids are `Fin wires`
-  boxes   : List (Label Φ × List (Fin wires))     -- hyperedges: label + legs
+  boxes   : List (Label × List (Fin wires))     -- hyperedges: label + legs
   inputs  : Fin n → Fin wires
   outputs : Fin m → Fin wires
 ```
@@ -84,7 +84,7 @@ Why this way round, and what falls out of it:
   a hyperedge whose leg list mentions one vertex twice; two spiders joined by
   two wires are two hyperedges sharing two vertices. Both are needed —
   `Rules/SelfLoop.lean` and Hopf respectively.
-- **Arity-index `Hyp` by `n` and `m`.** Then `toHyp : ZX n m → Hyp Φ n m` and
+- **Arity-index `Hyp` by `n` and `m`.** Then `toHyp : ZX n m → Hyp n m` and
   `(toHyp a).sem = a.sem` state without a cast in sight. The `Fin (n + p)`
   bookkeeping in `stack` is the same `castAdd`/`natAdd` split that
   `Algebraic/Semantics.lean` already does, so it is no new problem.
@@ -126,10 +126,10 @@ each hyperedge contribute its tensor applied to the bits on its legs, pin the
 boundary vertices with `f` and `g`, and sum:
 
 ```lean
-noncomputable def Hyp.sem (expI : Φ → ℂ) (H : Hyp Φ n m) (f : Wires n) (g : Wires m) : ℂ :=
+noncomputable def Hyp.sem (H : Hyp n m) (f : Wires n) (g : Wires m) : ℂ :=
   ∑ a : Fin H.wires → Bool,
     (if (∀ i, a (H.inputs i) = f i) ∧ (∀ j, a (H.outputs j) = g j) then 1 else 0) *
-      ∏ b ∈ H.boxes, boxTensor expI b.1 (b.2.map a)
+      ∏ b ∈ H.boxes, boxTensor b.1 (b.2.map a)
 ```
 
 Two checks that this is the right definition, both worth writing as tests:
@@ -158,32 +158,26 @@ keep "`wire ⊗ wire` is not isomorphic to a crossing" as a standing test.
 
 ## Where it lives
 
-A new top-level folder, a sibling of `Axiomatic/` and `Algebraic/`:
+A subfolder of `Algebraic/`, namespace `SpLean.Algebraic.Hypergraph`:
 
 ```
-SpLean/Hypergraph.lean             -- aggregator
-SpLean/Hypergraph/Defs.lean        -- Label, Hyp, well-formedness
-SpLean/Hypergraph/Semantics.lean   -- Hyp.sem
-SpLean/Hypergraph/Iso.lean         -- Iso (boundary-fixing) + sem invariance
-SpLean/Hypergraph/Decide.lean      -- certificate checking            [phase 3]
-SpLean/Algebraic/ToHypergraph.lean -- toHyp, the lowering theorem, zx_iso_of
+SpLean/Algebraic/Hypergraph.lean                -- aggregator
+SpLean/Algebraic/Hypergraph/Defs.lean           -- Label, Box, Hyp, well-formedness
+SpLean/Algebraic/Hypergraph/Semantics.lean      -- Hyp.sem
+SpLean/Algebraic/Hypergraph/ToHypergraph.lean   -- toHyp, the lowering theorem, zx_iso_of
+SpLean/Algebraic/Hypergraph/Iso.lean            -- Iso (boundary-fixing) + sem invariance
+SpLean/Algebraic/Hypergraph/Decide.lean         -- certificate checking   [phase 3]
 ```
 
-`toHyp` lives in `Algebraic/` because it mentions `ZX`.
-
-**`Hypergraph/` importing neither representation is a preference, not a rule.**
-The phase type is where it bites: `Hyp` is parameterised over `Φ` with
-`[DecidableEq Φ]`, and `Hyp.sem` takes the interpretation `expI : Φ → ℂ` as an
-argument, so the folder needs nothing from either half;
-`Algebraic/ToHypergraph.lean` instantiates at `AlgPhase` and `AlgPhase.expI`.
-That is worth keeping for its own sake — the structure genuinely does not care
-what a phase is. But if the parameter turns into a tax, importing
-`Algebraic.AlgPhase` is an acceptable retreat rather than a breach.
+The hypergraphs only ever come from `ZX` terms, so they use the algebraic
+types directly: spiders are labelled with `AlgSpColor` and `AlgPhase`, the
+semantics interprets phases with `AlgPhase.expI`, and boundary assignments are
+`Wires`. Nothing in `Axiomatic/` is involved.
 
 ## Phases
 
 **Phase 0 — spike the encoding. DONE.** `Defs.lean`, `Semantics.lean` and
-`Algebraic/ToHypergraph.lean` exist; `toHyp` covers all six constructors, and
+`ToHypergraph.lean` exist; `toHyp` covers all six constructors, and
 `sem_toHyp_wire`, `sem_toHyp_zSpider`, `sem_toHyp_wire_compose` are proved with
 no `sorry`. What the spike settled:
 
@@ -223,7 +217,7 @@ the hyperedge-product along the two bijections (`Equiv.sum_comp`,
 `Finset.prod_bij`). Independent of phase 2 — can be done in parallel.
 Acceptance: the theorem, plus the `swap`-shaped negative test.
 
-**Phase 2 — the lowering theorem.** `Algebraic/ToHypergraph.lean`: `toHyp` by
+**Phase 2 — the lowering theorem.** `ToHypergraph.lean`: `toHyp` by
 structural recursion, then `∀ a : ZX n m, (toHyp a).sem = a.sem` by induction.
 `empty`/`wire`/`hadamard`/`spider` are immediate; `stack` is a disjoint union
 with the boundary split; `compose` is the vertex merge, and the sum over the

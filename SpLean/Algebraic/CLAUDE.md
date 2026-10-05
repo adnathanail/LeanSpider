@@ -13,8 +13,9 @@ a denotational semantics (`Semantics.lean`), the equivalence proved against it
 (`Equiv.lean` + `Rules/`) and the tactic that rewrites with it
 (`Tactics.lean`), arity-casting for `zx_rw` to see through (`Cast.lean`),
 derived diagram combinators built from the ADT (`Combinators.lean`), a
-handful of named gates (`Gate.lean`), and the rendering path
-(`Visualize.lean` + `Render.lean`).
+handful of named gates (`Gate.lean`), the rendering path
+(`Visualize.lean` + `Render.lean`), and a lowering of terms to hypergraphs
+(`Hypergraph/`).
 
 ### The semantics
 
@@ -88,6 +89,16 @@ other regrouping law, for when the two halves of a rule sit in different layers.
 `Rules/Lemmas.lean` holds the shared sum-collapsing machinery (`sum_wires1`,
 the `sum_bool_*` endpoint lemmas, the `√2` arithmetic), moved here out of
 `SemanticsTesting/Utils.lean` when the rules started needing it.
+
+### Hypergraphs
+
+`Hypergraph/` lowers a `ZX n m` term to a hypergraph (`ZX.toHyp`) that has no
+record of how the term was bracketed: wires are vertices and generators are
+boxes. `Hyp.sem` gives it a denotation in the same boundary-tensor form as
+`ZX.sem`. Two terms whose hypergraphs are isomorphic can then be shown
+equivalent without a chain of structural rewrites. The plan, and how far it
+has got, is in `Hypergraph/PLAN.md`. The hypergraph types reuse `AlgSpColor`,
+`AlgPhase` and `Wires` directly.
 
 ### `SemanticsTesting/`
 

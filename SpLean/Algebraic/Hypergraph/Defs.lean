@@ -1,5 +1,4 @@
-import Mathlib.Data.Fintype.Pi
-import Mathlib.Data.Complex.Basic
+import SpLean.Algebraic.ZX
 
 /-!
 # Hypergraphs
@@ -49,25 +48,12 @@ A `hadamard` box is expected to have exactly two legs. The semantics assigns a
 junk value to one that does not, which keeps the definition total.
 -/
 
-namespace SpLean.Hypergraph
+namespace SpLean.Algebraic.Hypergraph
 
-/-- A boundary assignment: one bit per port. Definitionally equal to
-`SpLean.Algebraic`'s `Wires`, so statements relating the two semantics need no
-conversion. -/
-abbrev Bits (n : ℕ) := Fin n → Bool
-
-/-- Spider colour. -/
-inductive Colour where
-  | Z
-  | X
-  deriving Repr, BEq, DecidableEq
-
-/-- The label on a hyperedge. Parameterised by the phase type `Φ`: the
-hypergraph structure never inspects a phase, and the semantics takes a function
-turning a phase into a complex number, so no particular phase type needs to be
-imported here. -/
-inductive Label (Φ : Type) where
-  | spider (c : Colour) (φ : Φ)
+/-- The label on a hyperedge: a spider with its colour and phase, or a
+Hadamard. -/
+inductive Label where
+  | spider (c : AlgSpColor) (φ : AlgPhase)
   | hadamard
   deriving Repr
 
@@ -78,9 +64,9 @@ The leg count is stored as a field, rather than derived as the length of a
 `List.length`, every lemma about a box's tensor would need to transport along
 `List.length_ofFn`, a dependent rewrite inside a type index. `Hyp` stores its
 boxes and identified pairs as counted functions for the same reason. -/
-structure Box (Φ : Type) (w : ℕ) where
+structure Box (w : ℕ) where
   /-- What kind of generator this is. -/
-  label : Label Φ
+  label : Label
   /-- How many legs it has. -/
   arity : ℕ
   /-- Which wire each leg is on. -/
@@ -88,13 +74,13 @@ structure Box (Φ : Type) (w : ℕ) where
 
 /-- A ZX diagram with `n` inputs and `m` outputs, as a hypergraph. Indexed by
 its arity so that it can be related to a `ZX n m` term without a cast. -/
-structure Hyp (Φ : Type) (n m : ℕ) where
+structure Hyp (n m : ℕ) where
   /-- Number of wires; wire (vertex) ids are `Fin wires`. -/
   wires : ℕ
   /-- Number of generators. -/
   boxCount : ℕ
   /-- The generators. -/
-  boxes : Fin boxCount → Box Φ wires
+  boxes : Fin boxCount → Box wires
   /-- Number of pairs of wires identified by composition. -/
   idCount : ℕ
   /-- The identified pairs: both wires in a pair carry the same value. -/
@@ -104,4 +90,4 @@ structure Hyp (Φ : Type) (n m : ℕ) where
   /-- Which wire each output port is. -/
   outputs : Fin m → Fin wires
 
-end SpLean.Hypergraph
+end SpLean.Algebraic.Hypergraph

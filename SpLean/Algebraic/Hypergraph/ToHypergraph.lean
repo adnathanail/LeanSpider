@@ -1,16 +1,15 @@
 import SpLean.Algebraic.Semantics
 import SpLean.Algebraic.Rules.Lemmas
-import SpLean.Hypergraph
+import SpLean.Algebraic.Hypergraph.Semantics
 
 /-!
 # Lowering an algebraic term to a hypergraph
 
-`ZX.toHyp` turns a `ZX n m` term into the hypergraph defined in
-`SpLean/Hypergraph/`: each wire of the diagram becomes a vertex and each
+`ZX.toHyp` turns a `ZX n m` term into the hypergraph defined in `Defs.lean`: each wire of the diagram becomes a vertex and each
 generator becomes a box. The lowering is meant to preserve the denotation,
 `(a.toHyp).sem = a.sem`, so that two terms whose hypergraphs are isomorphic
 can be shown equivalent without a rewriting derivation.
-`SpLean/Hypergraph/PLAN.md` describes the overall approach.
+`PLAN.md`, in this folder, describes the overall approach.
 
 Most constructors lower directly. Stacking is a disjoint union of the two
 hypergraphs, with the second one's wires numbered after the first's.
@@ -22,15 +21,10 @@ value, so the two halves of a merged wire are not summed over independently.
 
 namespace SpLean.Algebraic
 
-open SpLean.Hypergraph
-
-/-- The hypergraph colour corresponding to an algebraic spider colour. -/
-def AlgSpColor.toHypColour : AlgSpColor → Hypergraph.Colour
-  | .Z => .Z
-  | .X => .X
+open Hypergraph
 
 /-- Moves a box into a larger wire set along `e`. -/
-private def embedBox {Φ : Type} {w w' : ℕ} (e : Fin w → Fin w') (b : Box Φ w) : Box Φ w' :=
+private def embedBox {w w' : ℕ} (e : Fin w → Fin w') (b : Box w) : Box w' :=
   { b with legs := e ∘ b.legs }
 
 /-- Moves an identified pair into a larger wire set along `e`. -/
@@ -43,7 +37,7 @@ A `wire` is a single vertex that is both the input and the output, and a
 `swap` is two vertices with no boxes, its crossing expressed entirely by the
 boundary maps. A spider is one box whose legs are all `n + m` of its wires,
 inputs first. -/
-def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
+def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp n m
   | _, _, .empty =>
       { wires := 0, boxCount := 0, boxes := Fin.elim0, idCount := 0, ids := Fin.elim0,
         inputs := Fin.elim0, outputs := Fin.elim0 }
@@ -58,7 +52,7 @@ def ZX.toHyp : {n m : ℕ} → ZX n m → Hyp AlgPhase n m
   | n, m, .spider c _ _ φ =>
       { wires := n + m,
         boxCount := 1,
-        boxes := fun _ => { label := .spider c.toHypColour φ, arity := n + m, legs := id },
+        boxes := fun _ => { label := .spider c φ, arity := n + m, legs := id },
         idCount := 0, ids := Fin.elim0,
         inputs := Fin.castAdd m, outputs := Fin.natAdd n }
   | _, _, .swap =>
@@ -106,7 +100,7 @@ different part of the encoding:
   would be summed over and the denotation would come out doubled. -/
 
 theorem sem_toHyp_wire (f g : Wires 1) :
-    (ZX.wire.toHyp).sem AlgPhase.expI f g = ZX.wire.sem f g := by
+    (ZX.wire.toHyp).sem f g = ZX.wire.sem f g := by
   simp only [ZX.toHyp, Hyp.sem, ZX.sem, IsEmpty.forall_iff, if_true, mul_one, Fin.forall_fin_one]
   rw [sum_wires1]
   cases hf : f 0 <;> cases hg : g 0 <;> simp [zeroAmpl, oneAmpl]
@@ -124,10 +118,10 @@ private theorem addCases_forall_eq {n m : ℕ} (f : Wires n) (g : Wires m) (b : 
     induction i using Fin.addCases <;> simp [h₁, h₂]
 
 theorem sem_toHyp_zSpider (n m : ℕ) (φ : AlgPhase) (f : Wires n) (g : Wires m) :
-    ((ZX.spider .Z n m φ).toHyp).sem AlgPhase.expI f g = (ZX.spider .Z n m φ).sem f g := by
+    ((ZX.spider .Z n m φ).toHyp).sem f g = (ZX.spider .Z n m φ).sem f g := by
   simp only [ZX.toHyp, Hyp.sem, ZX.sem, zSpiderSem, mul_one, IsEmpty.forall_iff, if_true]
   rw [Finset.sum_eq_single (Fin.addCases f g)]
-  · simp only [AlgSpColor.toHypColour, Label.tensor, Box.bits, zTensor, id_eq,
+  · simp only [Label.tensor, Box.bits, zTensor, id_eq,
       Fin.addCases_left, Fin.addCases_right, implies_true, and_self, if_true, one_mul,
       Fin.prod_univ_one, addCases_forall_eq]
   · intro a _ hne
@@ -138,7 +132,7 @@ theorem sem_toHyp_zSpider (n m : ℕ) (φ : AlgPhase) (f : Wires n) (g : Wires m
   · simp
 
 theorem sem_toHyp_wire_compose (f g : Wires 1) :
-    ((ZX.wire ≫ ZX.wire).toHyp).sem AlgPhase.expI f g = (ZX.wire ≫ ZX.wire).sem f g := by
+    ((ZX.wire ≫ ZX.wire).toHyp).sem f g = (ZX.wire ≫ ZX.wire).sem f g := by
   simp only [ZX.toHyp, Hyp.sem, ZX.sem, Fin.forall_fin_one, Fin.addCases, embedId]
   rw [sum_wires2, sum_wires1]
   cases hf : f 0 <;> cases hg : g 0 <;> simp [zeroAmpl, oneAmpl]
