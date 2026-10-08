@@ -13,8 +13,9 @@ a denotational semantics (`Semantics.lean`), the equivalence proved against it
 (`Equiv.lean` + `Rules/`) and the tactic that rewrites with it
 (`Tactics.lean`), arity-casting for `zx_rw` to see through (`Cast.lean`),
 derived diagram combinators built from the ADT (`Combinators.lean`), a
-handful of named gates (`Gate.lean`), and the rendering path
-(`Visualize.lean` + `Render.lean`).
+handful of named gates (`Gate.lean`), the rendering path
+(`Visualize.lean` + `Render.lean`), and a lowering of terms to hypergraphs
+(`Hypergraph/`).
 
 ### The semantics
 
@@ -66,6 +67,17 @@ unfolds to `nStack k a ⊗ a` of the expected type without a cast.
 fusion goes through the Hadamard-conjugated definition of `xSpiderSem` rather
 than being proved from scratch. Note that fusion is stated only for
 `(n,1) ≫ (1,m)` — spiders joined by *k* parallel wires do not follow from it.
+
+`of_sem_eq` turns `a.sem = b.sem` into `a ≈zx b`, and is the way out when an
+identity is not an instance of any rule. Two decompositions of the same graph
+need not be related by the rules at all: `Gate.CNOT` and `Gate.CNOT'` are the
+same Z spider joined to the same X spider, but one composes Z-then-X and the
+other X-then-Z, so getting between them means *bending* the joining wire — the
+snake equations of `Rules/Yank.lean`, plus stack associativity, none of which
+is proved yet. `cnot_cnot_equiv` (`SemanticsTesting/09Rules.lean`) therefore
+goes through `of_sem_eq` and the already-computed `cnot_sem_agnostic`. Reach
+for a rewrite first; this is the escape hatch, not the habit.
+
 `Rules/Structural.lean` has the laws that let the *other* rules fire:
 `compose_assoc` (needed because `≫` is a constructor, so `(a ≫ b) ≫ c` and
 `a ≫ (b ≫ c)` are different terms and a rule only matches the grouping it was
@@ -77,6 +89,16 @@ other regrouping law, for when the two halves of a rule sit in different layers.
 `Rules/Lemmas.lean` holds the shared sum-collapsing machinery (`sum_wires1`,
 the `sum_bool_*` endpoint lemmas, the `√2` arithmetic), moved here out of
 `SemanticsTesting/Utils.lean` when the rules started needing it.
+
+### Hypergraphs
+
+`Hypergraph/` lowers a `ZX n m` term to a hypergraph (`ZX.toHyp`) that has no
+record of how the term was bracketed: wires are vertices and generators are
+hyperedges (`Hyp.Edge`). `Hyp.sem` gives it a denotation in the same boundary-tensor form as
+`ZX.sem`. Two terms whose hypergraphs are isomorphic can then be shown
+equivalent without a chain of structural rewrites. The plan, and how far it
+has got, is in `Hypergraph/PLAN.md`. The hypergraph types reuse `AlgSpColor`,
+`AlgPhase` and `Wires` directly.
 
 ### `SemanticsTesting/`
 
